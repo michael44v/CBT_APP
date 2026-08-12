@@ -73,13 +73,12 @@ async function initializeApp() {
     updateSplashStatus("Initializing local SQLite engine...");
     const dbPath = path.join(app.getPath("userData"), "fillop_cbt.db");
     console.log(`[Main] SQLite Database: ${dbPath}`);
-    dbService.initDatabase(dbPath);
+    await dbService.initDatabase(dbPath);
 
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     // Read local activation status
-    const db = dbService.getDb();
-    const actRow = db.prepare("SELECT * FROM activation WHERE is_active = 1 LIMIT 1").get();
+    const actRow = await dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
 
     updateSplashStatus("Verifying license signature...");
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -117,14 +116,11 @@ async function initializeApp() {
 // ================= IPC HANDLERS: LICENSE & AUTH =================
 
 ipcMain.handle("auth:get-activation", async () => {
-  const db = dbService.getDb();
-  const row = db.prepare("SELECT * FROM activation LIMIT 1").get();
+  const row = await dbService.get("SELECT * FROM activation LIMIT 1");
   return row || null;
 });
 
 ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
-  const db = dbService.getDb();
-
   // Generate safe device fingerprint
   const systemInfo = {
     platform: process.platform,
@@ -160,7 +156,7 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
   const isOnline = syncService.checkInternet();
   if (!isOnline) {
     // If offline, check if this email/passcode is already registered inside SQLite activation cache
-    const cached = db.prepare("SELECT * FROM activation WHERE email = ? AND passcode = ?").get(email, passcode);
+    const cached = await dbService.get("SELECT * FROM activation WHERE email = ? AND passcode = ?", [email, passcode]);
     if (cached) {
       if (cached.expiry_date && new Date(cached.expiry_date).getTime() < Date.now()) {
         return { success: false, error: "Your local subscription passcode has expired." };
@@ -182,11 +178,11 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
 
     if (result.success) {
       // Store in SQLite
-      db.prepare("DELETE FROM activation").run(); // Clear existing
-      db.prepare(`
+      await dbService.run("DELETE FROM activation"); // Clear existing
+      await dbService.run(`
         INSERT INTO activation (email, passcode, activated_at, expiry_date, is_active)
         VALUES (?, ?, ?, ?, 1)
-      `).run(email, passcode, new Date().toISOString(), result.expiry_date);
+      `, [email, passcode, new Date().toISOString(), result.expiry_date]);
 
       // Trigger sync pull
       await syncService.triggerSync();
@@ -201,8 +197,7 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
 });
 
 ipcMain.handle("auth:logout", async () => {
-  const db = dbService.getDb();
-  db.prepare("DELETE FROM activation").run();
+  await dbService.run("DELETE FROM activation");
   return { success: true };
 });
 
@@ -210,11 +205,7 @@ ipcMain.handle("auth:logout", async () => {
 
 ipcMain.handle("db:get-subjects", async (event, examType) => {
   try {
-    const db = dbService.getDb();
-
-    const subjects = db
-      .prepare("SELECT * FROM subjects WHERE exam_type = ?")
-      .all(examType);
+    const subjects = await dbService.all("SELECT * FROM subjects WHERE exam_type = ?", [examType]);
 
     console.log("[IPC] get-subjects examType:", examType);
     console.log("[IPC] get-subjects result:", subjects);
@@ -228,20 +219,17 @@ ipcMain.handle("db:get-subjects", async (event, examType) => {
 });
 
 ipcMain.handle("db:get-topics", async (event, subjectId) => {
-  const db = dbService.getDb();
-  return db.prepare("SELECT * FROM topics WHERE subject_id = ?").all(subjectId);
+  return await dbService.all("SELECT * FROM topics WHERE subject_id = ?", [subjectId]);
 });
 
 ipcMain.handle("db:get-years", async (event, { examType, subjectId }) => {
-  const db = dbService.getDb();
-  const rows = db.prepare("SELECT DISTINCT year FROM questions WHERE exam_type = ? AND subject_id = ? ORDER BY year DESC").all(examType, subjectId);
+  const rows = await dbService.all("SELECT DISTINCT year FROM questions WHERE exam_type = ? AND subject_id = ? ORDER BY year DESC", [examType, subjectId]);
   return rows.map(r => r.year);
 });
 
 // ================= IPC HANDLERS: SELECTION ENGINE =================
 
 ipcMain.handle("db:generate-practice-questions", async (event, { examType, subjectId, topicId, year, limit }) => {
-  const db = dbService.getDb();
   let sql = "SELECT * FROM questions WHERE exam_type = ? AND subject_id = ?";
   const params = [examType, subjectId];
 
@@ -260,12 +248,11 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
     params.push(limit);
   }
 
-  const questions = db.prepare(sql).all(...params);
+  const questions = await dbService.all(sql, params);
   return questions;
 });
 
 ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectIds, byYear }) => {
-  const db = dbService.getDb();
   const allQuestions = [];
   let fallbackNote = "";
 
@@ -273,7 +260,7 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
     // 1. Determine target count per subject
     let needed = 50; // default for WAEC/NECO
     if (examType === 'JAMB') {
-      const subRow = db.prepare("SELECT name FROM subjects WHERE id = ?").get(subjectId);
+      const subRow = await dbService.get("SELECT name FROM subjects WHERE id = ?", [subjectId]);
       if (subRow && subRow.name.toLowerCase() === 'english') {
         needed = 60;
       } else {
@@ -286,26 +273,24 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
     // 2. Selection Mode: Past paper by year OR Stratified Random
     if (byYear) {
       // Pull year-tagged questions for this subject
-      subjectQuestions = db.prepare("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year = ?").all(examType, subjectId, byYear);
+      subjectQuestions = await dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year = ?", [examType, subjectId, byYear]);
 
       if (subjectQuestions.length < needed) {
         // Fallback/Padding Logic: Pad with questions from other years
         const pullCount = needed - subjectQuestions.length;
-        const padding = db.prepare("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year != ? ORDER BY RANDOM() LIMIT ?")
-          .all(examType, subjectId, byYear, pullCount);
+        const padding = await dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year != ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, byYear, pullCount]);
 
         subjectQuestions = subjectQuestions.concat(padding);
         fallbackNote = `⚠️ Selected past paper (${byYear}) had incomplete data for some subjects and has been padded with questions from other years.`;
       }
     } else {
       // Stratified Random Topic Draw Algorithm
-      const topics = db.prepare("SELECT id FROM topics WHERE subject_id = ?").all(subjectId);
+      const topics = await dbService.all("SELECT id FROM topics WHERE subject_id = ?", [subjectId]);
       const topicCount = topics.length;
 
       if (topicCount === 0) {
         // Fallback to purely random if no topics configured
-        subjectQuestions = db.prepare("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? ORDER BY RANDOM() LIMIT ?")
-          .all(examType, subjectId, needed);
+        subjectQuestions = await dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, needed]);
       } else {
         // Calculate base and remainder shares
         const base = Math.floor(needed / topicCount);
@@ -322,8 +307,7 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
 
         // First pass: Draw up to target from each topic
         for (const topic of topics) {
-          const tqs = db.prepare("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND topic_id = ? ORDER BY RANDOM()")
-            .all(examType, subjectId, topic.id);
+          const tqs = await dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND topic_id = ? ORDER BY RANDOM()", [examType, subjectId, topic.id]);
 
           pool[topic.id] = tqs;
           const target = targets[topic.id];
@@ -356,13 +340,12 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
 // ================= IPC HANDLERS: ANSWERS & RESULTS =================
 
 ipcMain.handle("db:save-answer", async (event, { examSessionId, questionId, selectedAnswer }) => {
-  const db = dbService.getDb();
   // Clear existing answers for this session/question, then insert
   // We can write temporary files/answers or use standard cache.
   // For a unified approach, we save answers in a temporary local sqlite table if we want,
   // or we can just save it inside React state and let React commit on complete!
   // To satisfy real-time safety, let's write to a dedicated answers session store table
-  db.exec(`
+  await dbService.exec(`
     CREATE TABLE IF NOT EXISTS answers_session (
       session_id TEXT NOT NULL,
       question_id INTEGER NOT NULL,
@@ -370,13 +353,11 @@ ipcMain.handle("db:save-answer", async (event, { examSessionId, questionId, sele
       PRIMARY KEY (session_id, question_id)
     )
   `);
-  db.prepare("INSERT OR REPLACE INTO answers_session (session_id, question_id, selected_answer) VALUES (?, ?, ?)")
-    .run(examSessionId, questionId, selectedAnswer);
+  await dbService.run("INSERT OR REPLACE INTO answers_session (session_id, question_id, selected_answer) VALUES (?, ?, ?)", [examSessionId, questionId, selectedAnswer]);
 });
 
 ipcMain.handle("db:get-saved-answers", async (event, examSessionId) => {
-  const db = dbService.getDb();
-  db.exec(`
+  await dbService.exec(`
     CREATE TABLE IF NOT EXISTS answers_session (
       session_id TEXT NOT NULL,
       question_id INTEGER NOT NULL,
@@ -384,7 +365,7 @@ ipcMain.handle("db:get-saved-answers", async (event, examSessionId) => {
       PRIMARY KEY (session_id, question_id)
     )
   `);
-  const rows = db.prepare("SELECT question_id, selected_answer FROM answers_session WHERE session_id = ?").all(examSessionId);
+  const rows = await dbService.all("SELECT question_id, selected_answer FROM answers_session WHERE session_id = ?", [examSessionId]);
   const ansMap = {};
   for (const r of rows) {
     ansMap[r.question_id] = r.selected_answer;
@@ -393,38 +374,34 @@ ipcMain.handle("db:get-saved-answers", async (event, examSessionId) => {
 });
 
 ipcMain.handle("db:submit-result", async (event, { examType, examSessionId, userName, score, totalQuestions, percentage, details }) => {
-  const db = dbService.getDb();
   const submittedAt = new Date().toISOString();
 
   // Save Result
-  const stmt = db.prepare(`
+  const info = await dbService.run(`
     INSERT INTO results (exam_type, user_name, score, total_questions, percentage, details, submitted_at, synced)
     VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-  `);
-  const info = stmt.run(examType, userName, score, totalQuestions, percentage, details, submittedAt);
+  `, [examType, userName, score, totalQuestions, percentage, details, submittedAt]);
 
   // Cleanup session answers
-  db.prepare("DELETE FROM answers_session WHERE session_id = ?").run(examSessionId);
+  await dbService.run("DELETE FROM answers_session WHERE session_id = ?", [examSessionId]);
 
   // If online, immediately upload result asynchronously
   if (syncService.checkInternet()) {
     syncService.uploadResults().catch(err => console.error("Immediate result sync failed:", err));
   }
 
-  const resultId = info.lastInsertRowid;
-  return db.prepare("SELECT * FROM results WHERE id = ?").get(resultId);
+  const resultId = info.lastID;
+  return await dbService.get("SELECT * FROM results WHERE id = ?", [resultId]);
 });
 
 ipcMain.handle("db:get-results", async () => {
-  const db = dbService.getDb();
-  return db.prepare("SELECT * FROM results ORDER BY submitted_at DESC").all();
+  return await dbService.all("SELECT * FROM results ORDER BY submitted_at DESC");
 });
 
 // ================= IPC HANDLERS: SYNC SIMULATION =================
 
 ipcMain.handle("sync:get-status", async () => {
-  const db = dbService.getDb();
-  const logs = db.prepare("SELECT * FROM sync_logs ORDER BY timestamp DESC LIMIT 15").all();
+  const logs = await dbService.all("SELECT * FROM sync_logs ORDER BY timestamp DESC LIMIT 15");
   return {
     isOnline: syncService.checkInternet(),
     logs
