@@ -57,7 +57,7 @@ async function downloadQuestions() {
       import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
     const response = await fetch(
-      'http://localhost:80/api/v1/sync/pull.php'
+      'http://localhost:80/fillop/api/v1/sync/pull.php'
     );
 
     if (!response.ok) {
