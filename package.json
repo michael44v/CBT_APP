@@ -1,46 +1,13 @@
 {
-  "name": "cbt-app",
+  "name": "fillop-cbt-guru-monorepo",
   "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "main": "electron/main.cjs",
-  "productName": "CBT Practice App",
+  "workspaces": [
+    "desktop",
+    "admin"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build:react": "vite build",
-    "electron": "wait-on http://localhost:5173 && electronmon .",
-    "start": "concurrently \"npm run dev\" \"npm run electron\"",
-    "dist": "npm run build:react && electron-builder"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^6.0.5",
-    "concurrently": "^9.2.4",
-    "cross-env": "^10.1.0",
-    "electron": "28.3.3",
-    "electron-builder": "^26.15.3",
-    "electronmon": "^2.0.4",
-    "vite": "^8.2.0",
-    "wait-on": "^9.1.0"
-  },
-  "build": {
-    "appId": "com.cbt.app",
-    "productName": "CBT Practice App",
-    "files": [
-      "dist/**/*",
-      "electron/**/*"
-    ],
-    "directories": {
-      "buildResources": "build"
-    },
-    "mac": {
-      "target": "dmg",
-      "category": "public.app-category.education",
-      "icon": "build/icon.icns"
-    }
-  },
-  "dependencies": {
-    "better-sqlite3": "^13.0.3",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "desktop:dev": "npm run start -w desktop",
+    "admin:dev": "npm run dev -w admin",
+    "install:all": "npm install"
   }
 }
