@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 // Setup default backend url
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'http://localhost:80/fillop/api/v1';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'PROMOS' | 'QUESTIONS'>('DASHBOARD');

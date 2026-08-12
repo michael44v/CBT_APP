@@ -105,25 +105,20 @@ export default function App() {
     }
   };
 
- const loadSyncLogs = async () => {
-  if (window.api && window.api.getSyncStatus) {
-    try {
-      const status = await window.api.getSyncStatus();
-
-      setSyncStatus({
-        isOnline: Boolean(status?.isOnline),
-        logs: Array.isArray(status?.logs) ? status.logs : []
-      });
-    } catch (error) {
-      console.error('Failed to load sync status:', error);
-
-      setSyncStatus({
-        isOnline: false,
-        logs: []
-      });
+  const loadSyncLogs = async () => {
+    if (window.api && window.api.getSyncStatus) {
+      try {
+        const status = await window.api.getSyncStatus();
+        setSyncStatus({
+          isOnline: Boolean(status?.isOnline),
+          logs: Array.isArray(status?.logs) ? status.logs : []
+        });
+      } catch (error) {
+        console.error('Failed to load sync status:', error);
+        setSyncStatus({ isOnline: false, logs: [] });
+      }
     }
-  }
-};
+  };
 
   const loadResultsHistory = async () => {
     if (window.api && window.api.getResults) {
@@ -132,23 +127,19 @@ export default function App() {
     }
   };
 
- const loadSyllabusData = async () => {
-  if (window.api && window.api.getSubjects) {
-    try {
-      const subs = await window.api.getSubjects(examType);
-
-      console.log("[RENDER] subjects response:", subs);
-      console.log("[RENDER] isArray:", Array.isArray(subs));
-
-      setSubjectsList(Array.isArray(subs) ? subs : []);
-      setMockSelectedSubjects([]);
-      setPracticeSubject('');
-    } catch (error) {
-      console.error("[RENDER] Failed to load subjects:", error);
-      setSubjectsList([]);
+  const loadSyllabusData = async () => {
+    if (window.api && window.api.getSubjects) {
+      try {
+        const subs = await window.api.getSubjects(examType);
+        setSubjectsList(Array.isArray(subs) ? subs : []);
+        setMockSelectedSubjects([]);
+        setPracticeSubject('');
+      } catch (error) {
+        console.error("[RENDER] Failed to load subjects:", error);
+        setSubjectsList([]);
+      }
     }
-  }
-};
+  };
 
   const loadTopicsAndYears = async (subjectId: number) => {
     if (window.api && window.api.getTopics && window.api.getYearsForSubject) {
@@ -242,7 +233,6 @@ export default function App() {
       setExamQuestions(qList);
       setCurrentIdx(0);
 
-      // 60 minutes default for practice if timed
       const totalSecs = practiceTimed ? 60 * 60 : 0;
       setTimeLeft(totalSecs);
       setScreen('EXAM');
@@ -293,10 +283,8 @@ export default function App() {
       setExamQuestions(res.questions);
       setCurrentIdx(0);
 
-      // Duration: 40 seconds per question
       const totalSecs = res.questions.length * 40;
       setTimeLeft(totalSecs);
-
       setScreen('EXAM');
       startTimer(totalSecs);
     } catch (e) {
@@ -336,7 +324,6 @@ export default function App() {
     return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
   };
 
-  // Pacing Indicator based on average 40s per question
   const getPacingFeedback = () => {
     if (isPracticeMode || timeLeft <= 0) return null;
     const timeSpent = (examQuestions.length * 40) - timeLeft;
@@ -344,9 +331,9 @@ export default function App() {
     const diff = timeSpent - expectedTimeSpent;
 
     if (diff > 45) {
-      return { text: `⚠️ You are ${Math.round(diff / 60)}m behind pace (recommended: 40s/Q)`, class: 'pacing-behind' };
+      return { text: `Behind pace by ${Math.round(diff / 60)}m (recommended: 40s/Q)`, class: 'behind' };
     }
-    return { text: `⚡ Ideal pace maintained! (~40s per question)`, class: 'pacing-on-track' };
+    return { text: `Ideal pace maintained (~40s per question)`, class: 'on-track' };
   };
 
   // --- Handle Candidate Responses ---
@@ -387,7 +374,6 @@ export default function App() {
   const processSubmission = async () => {
     stopTimer();
 
-    // Compute grades and scores
     let correctCount = 0;
     const detailsList: any[] = [];
 
@@ -433,600 +419,759 @@ export default function App() {
     }
   };
 
-  // --- Rendering Helpers ---
+  // --- Design Tokens ---
+  const colors = {
+    primary: '#4f46e5',
+    primaryDark: '#3730a3',
+    primaryLight: '#e0e7ff',
+    sidebar: '#1e1b4b',
+    sidebarHover: '#312e81',
+    bg: '#f5f3ff',
+    surface: '#ffffff',
+    text: '#1e293b',
+    textSecondary: '#64748b',
+    textMuted: '#94a3b8',
+    border: '#e2e8f0',
+    success: '#10b981',
+    successLight: '#d1fae5',
+    danger: '#ef4444',
+    dangerLight: '#fee2e2',
+    warning: '#f59e0b',
+    warningLight: '#fef3c7',
+  };
 
-  const hasPassed = activeResult && activeResult.percentage >= 50;
+  const styles: Record<string, React.CSSProperties> = {
+    app: { display: 'flex', height: '100vh', width: '100vw', backgroundColor: colors.bg, fontFamily: 'Inter, system-ui, -apple-system, sans-serif', color: colors.text, overflow: 'hidden' },
+    sidebar: { width: '240px', backgroundColor: colors.sidebar, display: 'flex', flexDirection: 'column', padding: '24px 0', flexShrink: 0 },
+    sidebarBrand: { padding: '0 24px 32px', display: 'flex', alignItems: 'center', gap: '12px' },
+    sidebarBrandIcon: { width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '16px' },
+    sidebarBrandText: { color: '#fff', fontWeight: 700, fontSize: '18px', letterSpacing: '-0.3px' },
+    sidebarNav: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 12px', flex: 1 },
+    sidebarItem: { padding: '12px 16px', borderRadius: '10px', color: '#c7d2fe', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s', border: 'none', background: 'none', width: '100%', textAlign: 'left' },
+    sidebarItemActive: { backgroundColor: colors.primary, color: '#fff' },
+    sidebarFooter: { padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontSize: '12px' },
+    main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+    header: { height: '68px', backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', flexShrink: 0 },
+    headerLeft: { display: 'flex', alignItems: 'center', gap: '16px' },
+    headerTitle: { fontSize: '20px', fontWeight: 700, color: colors.text },
+    headerRight: { display: 'flex', alignItems: 'center', gap: '16px' },
+    networkPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', backgroundColor: colors.primaryLight, fontSize: '13px', fontWeight: 600, color: colors.primary },
+    dot: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'currentColor' },
+    btn: { padding: '10px 20px', borderRadius: '10px', border: 'none', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', display: 'inline-flex', alignItems: 'center', gap: '8px' },
+    btnPrimary: { backgroundColor: colors.primary, color: '#fff' },
+    btnSecondary: { backgroundColor: colors.surface, color: colors.textSecondary, border: `1px solid ${colors.border}` },
+    btnSuccess: { backgroundColor: colors.success, color: '#fff' },
+    btnDanger: { backgroundColor: colors.danger, color: '#fff' },
+    btnSm: { padding: '6px 14px', fontSize: '13px' },
+    btnLg: { padding: '14px 28px', fontSize: '15px' },
+    content: { flex: 1, overflow: 'auto', padding: '32px' },
+    card: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)', border: `1px solid ${colors.border}` },
+    grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' },
+    grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' },
+    formGroup: { marginBottom: '20px' },
+    label: { display: 'block', fontSize: '13px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.4px' },
+    input: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}`, fontSize: '14px', backgroundColor: colors.surface, color: colors.text, outline: 'none', transition: 'border-color 0.2s' },
+    select: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}`, fontSize: '14px', backgroundColor: colors.surface, color: colors.text, outline: 'none', cursor: 'pointer' },
+    tabs: { display: 'flex', gap: '8px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px' },
+    tab: { padding: '10px 18px', borderRadius: '10px', border: 'none', background: 'none', fontSize: '14px', fontWeight: 600, color: colors.textSecondary, cursor: 'pointer' },
+    tabActive: { backgroundColor: colors.primaryLight, color: colors.primary },
+    statCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', textAlign: 'center', border: `1px solid ${colors.border}` },
+    statLabel: { fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' },
+    statValue: { fontSize: '32px', fontWeight: 800, color: colors.primary },
+    logItem: { padding: '12px 0', borderBottom: `1px solid ${colors.border}`, fontSize: '13px' },
+    logMeta: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' },
+    logEvent: { fontWeight: 600, color: colors.text },
+    logStatus: { fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' },
+    logStatusSuccess: { backgroundColor: colors.successLight, color: colors.success },
+    logStatusFailed: { backgroundColor: colors.dangerLight, color: colors.danger },
+    logStatusPending: { backgroundColor: colors.warningLight, color: colors.warning },
+    logText: { color: colors.textSecondary, marginBottom: '2px' },
+    logTime: { color: colors.textMuted, fontSize: '11px' },
+    checkboxGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', backgroundColor: colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` },
+    checkboxLabel: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', cursor: 'pointer', padding: '6px 0' },
+    examHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
+    timerPanel: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', backgroundColor: colors.primaryDark, color: '#fff', borderRadius: '12px', fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' },
+    questionCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '32px', flex: 1, border: `1px solid ${colors.border}` },
+    paletteCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', width: '280px', flexShrink: 0, border: `1px solid ${colors.border}` },
+    optionItem: { display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '12px', cursor: 'pointer', transition: 'all 0.15s', fontSize: '15px' },
+    optionItemSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+    optionMarker: { width: '36px', height: '36px', borderRadius: '50%', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', color: colors.primary, flexShrink: 0 },
+    paletteGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' },
+    paletteBtn: { width: '100%', aspectRatio: '1', borderRadius: '8px', border: `1px solid ${colors.border}`, backgroundColor: colors.surface, fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: colors.textSecondary },
+    paletteBtnActive: { borderColor: colors.primary, backgroundColor: colors.primary, color: '#fff' },
+    paletteBtnAnswered: { borderColor: colors.success, backgroundColor: colors.successLight, color: colors.success },
+    paletteBtnFlagged: { borderColor: colors.danger, backgroundColor: colors.dangerLight, color: colors.danger },
+    legendItem: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: colors.textSecondary },
+    legendDot: { width: '10px', height: '10px', borderRadius: '50%' },
+    resultCircle: { width: '160px', height: '160px', borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px', border: `8px solid ${colors.primaryLight}` },
+    resultCirclePassed: { borderColor: colors.success },
+    resultCircleFailed: { borderColor: colors.warning },
+    reviewCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', border: `1px solid ${colors.border}`, borderLeftWidth: '6px' },
+    badge: { display: 'inline-flex', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' },
+    badgeSuccess: { backgroundColor: colors.successLight, color: colors.success },
+    badgeDanger: { backgroundColor: colors.dangerLight, color: colors.danger },
+    pacingBehind: { padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, marginBottom: '16px', backgroundColor: colors.dangerLight, color: colors.danger },
+    pacingOnTrack: { padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, marginBottom: '16px', backgroundColor: colors.successLight, color: colors.success },
+    fallbackBanner: { padding: '14px 18px', backgroundColor: colors.warningLight, border: `1px solid ${colors.warning}`, borderRadius: '10px', color: '#92400e', fontSize: '14px', marginBottom: '20px', fontWeight: 600 },
+    explanationBox: { marginTop: '16px', backgroundColor: colors.primaryLight, border: `1px solid #c7d2fe`, borderRadius: '10px', padding: '20px', fontSize: '14px', lineHeight: '1.6' },
+  };
+
+  const sidebarNavItems = activation ? [
+    { id: 'DASHBOARD', label: 'Dashboard', icon: 'D' },
+    { id: 'ANALYTICS', label: 'Analytics', icon: 'A' },
+  ] : [];
+
+  const isSidebarActive = (id: string) => {
+    if (id === 'DASHBOARD' && screen === 'DASHBOARD') return true;
+    if (id === 'ANALYTICS' && screen === 'DASHBOARD' && dashboardMode === 'ANALYTICS') return true;
+    return false;
+  };
+
+  const handleSidebarClick = (id: string) => {
+    if (id === 'DASHBOARD') {
+      setDashboardMode('PRACTICE');
+      setScreen('DASHBOARD');
+    }
+    if (id === 'ANALYTICS') {
+      setDashboardMode('ANALYTICS');
+      setScreen('DASHBOARD');
+    }
+  };
 
   return (
-    <div className="app-container">
-      {/* App Header Bar with Network Switcher */}
-      <header className="app-header">
-        <div className="app-branding">
-          <span className="app-logo">⚡</span>
-          <span className="app-title-text">Fillop CBT Guru</span>
-          {activation && <span className="term-badge">OFFLINE TERMINAL</span>}
-        </div>
+    <div style={styles.app}>
+      {/* Sidebar - only show when activated */}
+      {activation && screen !== 'ACTIVATION' && (
+        <aside style={styles.sidebar}>
+          <div style={styles.sidebarBrand}>
+            <div style={styles.sidebarBrandIcon}>F</div>
+            <span style={styles.sidebarBrandText}>Fillop CBT</span>
+          </div>
 
-        <div className="network-controls">
-          <div className="network-switch-container">
-            <span className="network-label">Simulate Network</span>
-            <label className="toggle-switch">
+          <nav style={styles.sidebarNav}>
+            {sidebarNavItems.map(item => (
+              <button
+                key={item.id}
+                style={{
+                  ...styles.sidebarItem,
+                  ...(isSidebarActive(item.id) ? styles.sidebarItemActive : {})
+                }}
+                onClick={() => handleSidebarClick(item.id)}
+              >
+                <span style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: isSidebarActive(item.id) ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          <div style={styles.sidebarFooter}>
+            Offline Terminal v2.0
+          </div>
+        </aside>
+      )}
+
+      <div style={styles.main}>
+        {/* Header */}
+        <header style={styles.header}>
+          <div style={styles.headerLeft}>
+            <span style={styles.headerTitle}>
+              {screen === 'ACTIVATION' && 'Terminal Activation'}
+              {screen === 'DASHBOARD' && 'Exam Dashboard'}
+              {screen === 'EXAM' && `${examType} Exam Room`}
+              {screen === 'RESULT' && 'Exam Results'}
+              {screen === 'REVIEW' && 'Question Review'}
+            </span>
+            {activation && (
+              <span style={{ fontSize: '13px', color: colors.textMuted, fontWeight: 500 }}>
+                {activation.email}
+              </span>
+            )}
+          </div>
+
+          <div style={styles.headerRight}>
+            {activation && screen === 'DASHBOARD' && (
+              <button style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }} onClick={handleLogout}>
+                Log Out
+              </button>
+            )}
+
+            <div style={styles.networkPill}>
+              <span style={{ ...styles.dot, backgroundColor: syncStatus.isOnline ? colors.success : colors.danger }}></span>
+              {syncStatus.isOnline ? 'Online' : 'Offline'}
+            </div>
+
+            <button style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm }} onClick={triggerManualSync} disabled={!syncStatus.isOnline}>
+              Sync Now
+            </button>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: colors.textSecondary, cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={syncStatus.isOnline}
                 onChange={(e) => toggleSimulateOnline(e.target.checked)}
+                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.primary }}
               />
-              <span className="toggle-slider"></span>
+              Simulate Network
             </label>
-            <span className={`status-indicator ${syncStatus.isOnline ? 'online' : 'offline'}`}>
-              <span className={`dot ${syncStatus.isOnline ? 'online' : 'offline'}`}></span>
-              {syncStatus.isOnline ? 'ONLINE' : 'OFFLINE'}
-            </span>
           </div>
+        </header>
 
-          <button className="btn btn-primary btn-sm" onClick={triggerManualSync} disabled={!syncStatus.isOnline}>
-            Sync Now
-          </button>
-        </div>
-      </header>
-
-      <main className="app-content">
-
-        {/* ================= ACTIVATION / LOGIN SCREEN ================= */}
-        {screen === 'ACTIVATION' && (
-          <div style={{ maxWidth: '480px', margin: '4rem auto', width: '100%' }}>
-            <div className="setup-card" style={{ padding: '2.5rem' }}>
-              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#3b82f6', marginBottom: '0.5rem' }}>Terminal Activation</h1>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  Please enter your email and 12-digit subscription passcode to activate Fillop CBT Guru offline.
-                </p>
-              </div>
-
-              <form onSubmit={handleActivateSubmit}>
-                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                  <label className="form-label" style={{ color: '#94a3b8' }}>Registration Email Address</label>
-                  <input
-                    type="email"
-                    className="form-input"
-                    placeholder="user@example.com"
-                    value={actEmail}
-                    onChange={(e) => setActEmail(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                  <label className="form-label" style={{ color: '#94a3b8' }}>Subscription Passcode</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="GP-XXXX-XXXX"
-                    style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}
-                    value={actPasscode}
-                    onChange={(e) => setActPasscode(e.target.value)}
-                    required
-                  />
-                </div>
-
-                {actError && (
-                  <div style={{ color: 'var(--danger)', fontWeight: 600, fontSize: '0.85rem', marginBottom: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem', borderRadius: '4px' }}>
-                    ❌ {actError}
+        <main style={styles.content}>
+          {/* ================= ACTIVATION SCREEN ================= */}
+          {screen === 'ACTIVATION' && (
+            <div style={{ maxWidth: '440px', margin: '80px auto' }}>
+              <div style={styles.card}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#fff', fontSize: '24px', fontWeight: 800 }}>
+                    F
                   </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ width: '100%', padding: '0.8rem', fontSize: '1rem', height: 'auto' }}
-                  disabled={actLoading}
-                >
-                  {actLoading ? 'Authenticating & Syncing...' : 'Secure Register Device Terminal 🚀'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ================= DASHBOARD SCREEN ================= */}
-        {screen === 'DASHBOARD' && activation && (
-          <div className="dashboard-grid">
-
-            {/* Left side candidate metadata & quick logs */}
-            <div className="dashboard-left">
-              <div className="welcome-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h1 className="welcome-title">Welcome Candidate!</h1>
-                  <p className="welcome-desc" style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-                    Active User Profile: <strong>{activation.email}</strong>
+                  <h1 style={{ fontSize: '24px', fontWeight: 800, color: colors.text, marginBottom: '8px' }}>Terminal Activation</h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: 1.5 }}>
+                    Enter your registration email and 12-digit subscription passcode to activate Fillop CBT Guru offline.
                   </p>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={handleLogout}>Log Out 👤</button>
-              </div>
 
-              {/* Mode Selection Tabs */}
-              <div className="setup-card" style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-                  <button className={`btn ${dashboardMode === 'PRACTICE' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setDashboardMode('PRACTICE')}>📚 Practice Mode</button>
-                  <button className={`btn ${dashboardMode === 'MOCK' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setDashboardMode('MOCK')}>⏱ Mock Exam Mode</button>
-                  <button className={`btn ${dashboardMode === 'ANALYTICS' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setDashboardMode('ANALYTICS')}>📈 Performance Insights</button>
-                </div>
-
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                  <span className="form-label" style={{ alignSelf: 'center' }}>Select Exam Structure:</span>
-                  <select className="form-input" style={{ width: '150px' }} value={examType} onChange={(e) => setExamType(e.target.value as any)}>
-                    <option value="JAMB">JAMB CBT</option>
-                    <option value="WAEC">WAEC</option>
-                    <option value="NECO">NECO</option>
-                  </select>
-                </div>
-
-                {/* --- Mode: PRACTICE --- */}
-                {dashboardMode === 'PRACTICE' && (
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Practice Module Setup</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <div className="form-group">
-                        <label className="form-label">Subject to Study</label>
-                        <select className="form-input" value={practiceSubject} onChange={(e) => setPracticeSubject(Number(e.target.value))}>
-                          <option value="">-- Choose Subject --</option>
-                          {subjectsList.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Optional Topic Filter (Single-Subject)</label>
-                        <select className="form-input" value={practiceTopic} onChange={(e) => setPracticeTopic(Number(e.target.value))} disabled={!practiceSubject}>
-                          <option value="">All Topics</option>
-                          {topicsList.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Optional Past Year Paper</label>
-                        <select className="form-input" value={practiceYear} onChange={(e) => setPracticeYear(Number(e.target.value))} disabled={!practiceSubject}>
-                          <option value="">Randomized Years</option>
-                          {yearsList.map(y => (
-                            <option key={y} value={y}>{y}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.5rem 0' }}>
-                        <input
-                          type="checkbox"
-                          id="practice-timed-check"
-                          checked={practiceTimed}
-                          onChange={(e) => setPracticeTimed(e.target.checked)}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                        />
-                        <label htmlFor="practice-timed-check" style={{ fontSize: '0.9rem', cursor: 'pointer', fontWeight: 600 }}>Enable 60-Minute Countdown Timer</label>
-                      </div>
-
-                      <button className="btn btn-success btn-lg" onClick={startPracticeSession} disabled={!practiceSubject}>
-                        Launch Practice Session 🚀
-                      </button>
-                    </div>
+                <form onSubmit={handleActivateSubmit}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Registration Email</label>
+                    <input
+                      type="email"
+                      style={styles.input}
+                      placeholder="user@example.com"
+                      value={actEmail}
+                      onChange={(e) => setActEmail(e.target.value)}
+                      required
+                    />
                   </div>
-                )}
 
-                {/* --- Mode: MOCK --- */}
-                {dashboardMode === 'MOCK' && (
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Subscription Passcode</label>
+                    <input
+                      type="text"
+                      style={{ ...styles.input, fontFamily: 'monospace', letterSpacing: '0.08em' }}
+                      placeholder="GP-XXXX-XXXX"
+                      value={actPasscode}
+                      onChange={(e) => setActPasscode(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {actError && (
+                    <div style={{ color: colors.danger, fontWeight: 600, fontSize: '13px', marginBottom: '16px', backgroundColor: colors.dangerLight, padding: '12px', borderRadius: '8px' }}>
+                      {actError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    style={{ ...styles.btn, ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '14px' }}
+                    disabled={actLoading}
+                  >
+                    {actLoading ? 'Authenticating...' : 'Activate Device Terminal'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ================= DASHBOARD SCREEN ================= */}
+          {screen === 'DASHBOARD' && activation && (
+            <div style={{ display: 'flex', gap: '24px', maxWidth: '1200px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Welcome Card */}
+                <div style={{ ...styles.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>Mock Examination Room</h3>
-                    <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1.5rem' }}>
-                      Select up to 4 subjects. Evaluates standard conditions: JAMB has 40Q/subject (60 for English) at 40 seconds per question. WAEC/NECO has 50Q/subject.
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '6px' }}>Welcome, Candidate</h2>
+                    <p style={{ color: colors.textSecondary, fontSize: '14px' }}>
+                      Active profile: <strong style={{ color: colors.primary }}>{activation.email}</strong>
                     </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', backgroundColor: colors.primaryLight, borderRadius: '12px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.primary }}>OFFLINE TERMINAL</span>
+                  </div>
+                </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                      <div className="form-group">
-                        <label className="form-label">Select Subjects (Multi-Choice)</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', backgroundColor: 'var(--primary-light)', padding: '1rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                          {subjectsList.map(s => {
-                            const isChecked = mockSelectedSubjects.includes(s.id);
-                            return (
-                              <label key={s.id} style={{ display: 'flex', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', alignItems: 'center' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {
-                                    if (isChecked) {
-                                      setMockSelectedSubjects(prev => prev.filter(id => id !== s.id));
-                                    } else {
-                                      setMockSelectedSubjects(prev => [...prev, s.id]);
-                                    }
-                                  }}
-                                />
-                                {s.name}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
+                {/* Mode Tabs + Content */}
+                <div style={styles.card}>
+                  <div style={styles.tabs}>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Practice Mode</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'MOCK' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('MOCK')}>Mock Exam</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'ANALYTICS' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('ANALYTICS')}>Performance</button>
+                  </div>
 
-                      <div className="form-group">
-                        <label className="form-label">Mock Selection Mode</label>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                          <label style={{ cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <input
-                              type="radio"
-                              name="mock-select-mode"
-                              checked={mockSelectionMode === 'RANDOM'}
-                              onChange={() => setMockSelectionMode('RANDOM')}
-                            />
-                            Stratified Random
-                          </label>
-                          <label style={{ cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <input
-                              type="radio"
-                              name="mock-select-mode"
-                              checked={mockSelectionMode === 'YEAR'}
-                              onChange={() => setMockSelectionMode('YEAR')}
-                            />
-                            By Past Year
-                          </label>
-                        </div>
-                      </div>
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
+                    <span style={{ ...styles.label, margin: 0 }}>Exam Structure</span>
+                    <select style={{ ...styles.select, width: '140px' }} value={examType} onChange={(e) => setExamType(e.target.value as any)}>
+                      <option value="JAMB">JAMB CBT</option>
+                      <option value="WAEC">WAEC</option>
+                      <option value="NECO">NECO</option>
+                    </select>
+                  </div>
 
-                      {mockSelectionMode === 'YEAR' && (
-                        <div className="form-group">
-                          <label className="form-label">Select Target Past Year Paper</label>
-                          <select className="form-input" value={mockSelectedYear} onChange={(e) => setMockSelectedYear(Number(e.target.value))}>
-                            <option value="">-- Choose Past Year --</option>
-                            <option value="2023">2023</option>
-                            <option value="2022">2022</option>
-                            <option value="2021">2021</option>
+                  {/* --- Mode: PRACTICE --- */}
+                  {dashboardMode === 'PRACTICE' && (
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Practice Module Setup</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Subject to Study</label>
+                          <select style={styles.select} value={practiceSubject} onChange={(e) => setPracticeSubject(Number(e.target.value))}>
+                            <option value="">-- Choose Subject --</option>
+                            {subjectsList.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
                           </select>
                         </div>
-                      )}
 
-                      <button className="btn btn-success btn-lg" onClick={startMockSession} disabled={mockSelectedSubjects.length === 0}>
-                        Begin Official Mock Exam ⏱
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* --- Mode: ANALYTICS --- */}
-                {dashboardMode === 'ANALYTICS' && (
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Performance Insights Aggregator</h3>
-                    {historyResults.length === 0 ? (
-                      <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>No historical exam records completed inside this terminal yet.</p>
-                    ) : (
-                      <div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                          <div style={{ backgroundColor: 'var(--primary-light)', padding: '1rem', borderRadius: '6px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Total Exams Taken</div>
-                            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#3b82f6', marginTop: '0.3rem' }}>{historyResults.length}</div>
-                          </div>
-                          <div style={{ backgroundColor: 'var(--primary-light)', padding: '1rem', borderRadius: '6px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Cumulative Average</div>
-                            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#10b981', marginTop: '0.3rem' }}>
-                              {(historyResults.reduce((acc, r) => acc + r.percentage, 0) / historyResults.length).toFixed(1)}%
-                            </div>
-                          </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Topic Filter (Optional)</label>
+                          <select style={styles.select} value={practiceTopic} onChange={(e) => setPracticeTopic(Number(e.target.value))} disabled={!practiceSubject}>
+                            <option value="">All Topics</option>
+                            {topicsList.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
                         </div>
 
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', marginBottom: '0.5rem' }}>Historic Result Stream</h4>
-                        <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {historyResults.map(r => (
-                            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: '4px', fontSize: '0.85rem' }}>
-                              <span>{r.exam_type} ({r.total_questions} Qs)</span>
-                              <strong style={{ color: r.percentage >= 50 ? '#10b981' : '#ef4444' }}>{r.percentage.toFixed(0)}%</strong>
-                            </div>
-                          ))}
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Past Year Paper (Optional)</label>
+                          <select style={styles.select} value={practiceYear} onChange={(e) => setPracticeYear(Number(e.target.value))} disabled={!practiceSubject}>
+                            <option value="">Randomized Years</option>
+                            {yearsList.map(y => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
                         </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                          <input
+                            type="checkbox"
+                            checked={practiceTimed}
+                            onChange={(e) => setPracticeTimed(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: colors.primary }}
+                          />
+                          Enable 60-Minute Countdown Timer
+                        </label>
+
+                        <button style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnLg, marginTop: '8px', width: 'fit-content' }} onClick={startPracticeSession} disabled={!practiceSubject}>
+                          Launch Practice Session
+                        </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* --- Mode: MOCK --- */}
+                  {dashboardMode === 'MOCK' && (
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Mock Examination Room</h3>
+                      <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '24px', lineHeight: 1.5 }}>
+                        Select up to 4 subjects. Evaluates standard conditions: JAMB has 40Q/subject (60 for English) at 40 seconds per question. WAEC/NECO has 50Q/subject.
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Select Subjects (up to 4)</label>
+                          <div style={styles.checkboxGrid}>
+                            {subjectsList.map(s => {
+                              const isChecked = mockSelectedSubjects.includes(s.id);
+                              return (
+                                <label key={s.id} style={styles.checkboxLabel}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      if (isChecked) {
+                                        setMockSelectedSubjects(prev => prev.filter(id => id !== s.id));
+                                      } else {
+                                        setMockSelectedSubjects(prev => [...prev, s.id]);
+                                      }
+                                    }}
+                                    style={{ width: '16px', height: '16px', accentColor: colors.primary }}
+                                  />
+                                  {s.name}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>Selection Mode</label>
+                          <div style={{ display: 'flex', gap: '20px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                              <input type="radio" name="mock-mode" checked={mockSelectionMode === 'RANDOM'} onChange={() => setMockSelectionMode('RANDOM')} style={{ accentColor: colors.primary }} />
+                              Stratified Random
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                              <input type="radio" name="mock-mode" checked={mockSelectionMode === 'YEAR'} onChange={() => setMockSelectionMode('YEAR')} style={{ accentColor: colors.primary }} />
+                              By Past Year
+                            </label>
+                          </div>
+                        </div>
+
+                        {mockSelectionMode === 'YEAR' && (
+                          <div style={styles.formGroup}>
+                            <label style={styles.label}>Target Past Year</label>
+                            <select style={styles.select} value={mockSelectedYear} onChange={(e) => setMockSelectedYear(Number(e.target.value))}>
+                              <option value="">-- Choose Year --</option>
+                              <option value="2023">2023</option>
+                              <option value="2022">2022</option>
+                              <option value="2021">2021</option>
+                            </select>
+                          </div>
+                        )}
+
+                        <button style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnLg, width: 'fit-content' }} onClick={startMockSession} disabled={mockSelectedSubjects.length === 0}>
+                          Begin Official Mock Exam
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- Mode: ANALYTICS --- */}
+                  {dashboardMode === 'ANALYTICS' && (
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Performance Insights</h3>
+                      {historyResults.length === 0 ? (
+                        <p style={{ color: colors.textSecondary, fontSize: '14px' }}>No historical exam records completed inside this terminal yet.</p>
+                      ) : (
+                        <div>
+                          <div style={styles.grid2}>
+                            <div style={styles.statCard}>
+                              <div style={styles.statLabel}>Total Exams Taken</div>
+                              <div style={styles.statValue}>{historyResults.length}</div>
+                            </div>
+                            <div style={styles.statCard}>
+                              <div style={styles.statLabel}>Cumulative Average</div>
+                              <div style={{ ...styles.statValue, color: colors.success }}>
+                                {(historyResults.reduce((acc, r) => acc + r.percentage, 0) / historyResults.length).toFixed(1)}%
+                              </div>
+                            </div>
+                          </div>
+
+                          <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, margin: '24px 0 12px', letterSpacing: '0.5px' }}>Historic Results</h4>
+                          <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {historyResults.map(r => (
+                              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: colors.bg, borderRadius: '10px', fontSize: '13px', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600 }}>{r.exam_type} <span style={{ color: colors.textMuted }}>({r.total_questions} Qs)</span></span>
+                                <strong style={{ color: r.percentage >= 50 ? colors.success : colors.danger, fontSize: '15px' }}>{r.percentage.toFixed(0)}%</strong>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Panel: Sync Logs */}
+              <div style={{ width: '340px', flexShrink: 0 }}>
+                <div style={styles.card}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, marginBottom: '16px', letterSpacing: '0.5px' }}>Sync Log</h3>
+                  <div style={{ maxHeight: '560px', overflowY: 'auto' }}>
+                    {syncStatus.logs.length === 0 ? (
+                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No synchronization entries.</p>
+                    ) : (
+                      syncStatus.logs.map((log) => {
+                        const lTime = new Date(log.timestamp).toLocaleTimeString();
+                        const statusClass = log.status === 'SUCCESS' ? styles.logStatusSuccess : log.status === 'FAILED' ? styles.logStatusFailed : styles.logStatusPending;
+                        return (
+                          <div style={styles.logItem} key={log.id}>
+                            <div style={styles.logMeta}>
+                              <span style={styles.logEvent}>{log.event_type}</span>
+                              <span style={{ ...styles.logStatus, ...statusClass }}>{log.status}</span>
+                            </div>
+                            <div style={styles.logText}>{log.message}</div>
+                            <div style={styles.logTime}>{lTime}</div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Right side real-time logs */}
-            <div className="dashboard-right">
-              <div className="logs-card">
-                <h2 className="card-title">Local Engine Sync Log</h2>
-                <div className="logs-list" style={{ maxHeight: '520px', overflowY: 'auto' }}>
-                  {syncStatus.logs.length === 0 ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No synchronization entries.</p>
-                  ) : (
-                    syncStatus.logs.map((log) => {
-                      const lTime = new Date(log.timestamp).toLocaleTimeString();
-                      const statusClass = log.status === 'SUCCESS' ? 'success' : log.status === 'FAILED' ? 'failed' : 'pending';
+          {/* ================= EXAM SCREEN ================= */}
+          {screen === 'EXAM' && examQuestions.length > 0 && (
+            <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+              <div style={styles.examHeader}>
+                <div>
+                  <h2 style={{ fontSize: '22px', fontWeight: 800 }}>{examType} Exam Room</h2>
+                  <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px' }}>
+                    Session: <strong style={{ color: colors.text }}>{examSessionId}</strong>
+                  </p>
+                </div>
+                <div style={styles.timerPanel}>
+                  {formatTimer(timeLeft)}
+                </div>
+              </div>
+
+              {fallbackNotice && (
+                <div style={styles.fallbackBanner}>
+                  {fallbackNotice}
+                </div>
+              )}
+
+              {getPacingFeedback() && (
+                <div style={getPacingFeedback()?.class === 'behind' ? styles.pacingBehind : styles.pacingOnTrack}>
+                  {getPacingFeedback()?.text}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '24px' }}>
+                {/* Question Card */}
+                <div style={styles.questionCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+                    <span style={{ padding: '6px 14px', backgroundColor: colors.primaryLight, color: colors.primary, borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
+                      Question {currentIdx + 1} of {examQuestions.length}
+                    </span>
+                    <span style={{ padding: '6px 14px', backgroundColor: colors.bg, color: colors.textSecondary, borderRadius: '20px', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.border}` }}>
+                      {examType} Year {examQuestions[currentIdx].year}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '17px', lineHeight: 1.7, marginBottom: '28px', fontWeight: 500 }}>
+                    {examQuestions[currentIdx].question_text}
+                  </p>
+
+                  <div>
+                    {[
+                      { key: 'A', text: examQuestions[currentIdx].option_a },
+                      { key: 'B', text: examQuestions[currentIdx].option_b },
+                      { key: 'C', text: examQuestions[currentIdx].option_c },
+                      { key: 'D', text: examQuestions[currentIdx].option_d },
+                    ].map((opt) => {
+                      const isSelected = answers[examQuestions[currentIdx].id] === opt.key;
                       return (
-                        <div className="log-item" key={log.id}>
-                          <div className="log-meta">
-                            <span className="log-event">{log.event_type}</span>
-                            <span className={`log-status ${statusClass}`}>{log.status}</span>
-                          </div>
-                          <div className="log-text">{log.message}</div>
-                          <div className="log-time">{lTime}</div>
+                        <div
+                          key={opt.key}
+                          style={{
+                            ...styles.optionItem,
+                            ...(isSelected ? styles.optionItemSelected : {})
+                          }}
+                          onClick={() => selectAnswer(opt.key as any)}
+                        >
+                          <div style={{ ...styles.optionMarker, ...(isSelected ? { backgroundColor: colors.primary, color: '#fff' } : {}) }}>{opt.key}</div>
+                          <div>{opt.text}</div>
                         </div>
                       );
-                    })
+                    })}
+                  </div>
+
+                  {isPracticeMode && (
+                    <div style={{ marginTop: '24px', borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
+                      <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={() => setRevealExplanation(!revealExplanation)}>
+                        {revealExplanation ? 'Hide Explanation' : 'Reveal Practice Explanation'}
+                      </button>
+
+                      {revealExplanation && (
+                        <div style={styles.explanationBox}>
+                          <div style={{ fontWeight: 700, color: colors.primary, marginBottom: '8px' }}>Topic Overview ({examQuestions[currentIdx].topic_explanation || 'General'}):</div>
+                          <p style={{ marginBottom: '12px' }}>{examQuestions[currentIdx].topic_explanation}</p>
+
+                          <div style={{ fontWeight: 700, color: colors.success, marginBottom: '8px' }}>Correct Choice Breakdown:</div>
+                          <p style={{ marginBottom: '12px' }}>{examQuestions[currentIdx].correct_explanation}</p>
+
+                          <div style={{ fontWeight: 700, color: colors.danger, marginBottom: '8px' }}>Incorrect Alternatives:</div>
+                          <p>{examQuestions[currentIdx].wrong_explanations || 'No incorrect details set.'}</p>
+                        </div>
+                      )}
+                    </div>
                   )}
-                </div>
-              </div>
-            </div>
 
-          </div>
-        )}
-
-        {/* ================= EXAM SCREEN ================= */}
-        {screen === 'EXAM' && examQuestions.length > 0 && (
-          <div className="exam-screen">
-            <div className="exam-header">
-              <div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{examType} Exam Room</h2>
-                <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Session: <strong style={{ color: 'white' }}>{examSessionId}</strong></p>
-              </div>
-
-              <div className="timer-panel">
-                <span className="timer-icon">⏳</span>
-                <span className="timer-countdown">{formatTimer(timeLeft)}</span>
-              </div>
-            </div>
-
-            {fallbackNotice && (
-              <div style={{ padding: '0.8rem 1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning)', borderRadius: '6px', color: 'var(--warning)', fontSize: '0.9rem', marginBottom: '1.5rem', fontWeight: 600 }}>
-                {fallbackNotice}
-              </div>
-            )}
-
-            {/* Pacing Indicator inside Mock exams */}
-            {getPacingFeedback() && (
-              <div className={`pacing-strip ${getPacingFeedback()?.class}`} style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '4px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                marginBottom: '1rem',
-                backgroundColor: getPacingFeedback()?.class === 'pacing-behind' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                color: getPacingFeedback()?.class === 'pacing-behind' ? '#fca5a5' : '#a7f3d0'
-              }}>
-                {getPacingFeedback()?.text}
-              </div>
-            )}
-
-            <div className="exam-layout">
-              {/* Question Selection Card */}
-              <div className="question-card">
-                <div className="question-meta-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <span className="question-number-badge">Question {currentIdx + 1} of {examQuestions.length}</span>
-                  <span className="subject-badge" style={{ backgroundColor: '#1e293b', color: '#3b82f6', border: '1px solid #3b82f6' }}>
-                    {examType} Year {examQuestions[currentIdx].year}
-                  </span>
-                </div>
-
-                <p className="question-text" style={{ fontSize: '1.15rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                  {examQuestions[currentIdx].question_text}
-                </p>
-
-                <div className="options-list">
-                  {[
-                    { key: 'A', text: examQuestions[currentIdx].option_a },
-                    { key: 'B', text: examQuestions[currentIdx].option_b },
-                    { key: 'C', text: examQuestions[currentIdx].option_c },
-                    { key: 'D', text: examQuestions[currentIdx].option_d },
-                  ].map((opt) => {
-                    const isSelected = answers[examQuestions[currentIdx].id] === opt.key;
-                    return (
-                      <div
-                        key={opt.key}
-                        className={`option-item ${isSelected ? 'selected' : ''}`}
-                        onClick={() => selectAnswer(opt.key as any)}
-                      >
-                        <div className="option-marker">{opt.key}</div>
-                        <div className="option-text">{opt.text}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Single Subject Practice Explanation Expansion */}
-                {isPracticeMode && (
-                  <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                    <button className="btn btn-secondary" onClick={() => setRevealExplanation(!revealExplanation)}>
-                      {revealExplanation ? '🙈 Hide Explanation' : '💡 Reveal Practice Explanation'}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px', gap: '12px' }}>
+                    <button style={{ ...styles.btn, ...styles.btnSecondary }} disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev - 1)}>
+                      Previous
                     </button>
 
-                    {revealExplanation && (
-                      <div style={{ marginTop: '1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '6px', padding: '1rem', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                        <div style={{ fontWeight: 'bold', color: 'var(--accent)', marginBottom: '0.3rem' }}>Topic Overview ({examQuestions[currentIdx].topic_explanation || 'General'}):</div>
-                        <p style={{ marginBottom: '0.8rem' }}>{examQuestions[currentIdx].topic_explanation}</p>
+                    <button style={{ ...styles.btn, ...(flagged[examQuestions[currentIdx].id] ? styles.btnDanger : styles.btnSecondary) }} onClick={toggleFlag}>
+                      {flagged[examQuestions[currentIdx].id] ? 'Unflag Question' : 'Flag for Review'}
+                    </button>
 
-                        <div style={{ fontWeight: 'bold', color: 'var(--success)', marginBottom: '0.3rem' }}>Correct Choice Breakdown:</div>
-                        <p style={{ marginBottom: '0.8rem' }}>{examQuestions[currentIdx].correct_explanation}</p>
-
-                        <div style={{ fontWeight: 'bold', color: 'var(--danger)', marginBottom: '0.3rem' }}>Incorrect Alternatives:</div>
-                        <p>{examQuestions[currentIdx].wrong_explanations || 'No incorrect details set.'}</p>
-                      </div>
+                    {currentIdx < examQuestions.length - 1 ? (
+                      <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setCurrentIdx(prev => prev + 1)}>
+                        Next Question
+                      </button>
+                    ) : (
+                      <button style={{ ...styles.btn, ...styles.btnSuccess }} onClick={manualSubmitExam}>
+                        Complete Exam
+                      </button>
                     )}
                   </div>
-                )}
-
-                {/* Previous / Next row */}
-                <div className="navigation-row" style={{ marginTop: '2rem' }}>
-                  <button className="btn" disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev - 1)}>
-                    ← Previous
-                  </button>
-
-                  <button className={`btn ${flagged[examQuestions[currentIdx].id] ? 'btn-danger' : 'btn-secondary'}`} onClick={toggleFlag}>
-                    {flagged[examQuestions[currentIdx].id] ? '🚩 Unflag Question' : '🏳️ Flag for Review'}
-                  </button>
-
-                  {currentIdx < examQuestions.length - 1 ? (
-                    <button className="btn btn-primary" onClick={() => setCurrentIdx(prev => prev + 1)}>
-                      Next Question →
-                    </button>
-                  ) : (
-                    <button className="btn btn-success" onClick={manualSubmitExam}>
-                      Complete & Finish Exam
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Right column palette panel */}
-              <div className="palette-card">
-                <h3 className="card-title">Test Navigation</h3>
-                <p className="palette-desc" style={{ fontSize: '0.8rem' }}>Quick jump to any question box:</p>
-
-                <div className="palette-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-                  {examQuestions.map((q, idx) => {
-                    const isCurrent = idx === currentIdx;
-                    const isAnswered = !!answers[q.id];
-                    const isFlagged = flagged[q.id];
-
-                    let btnClass = 'palette-btn';
-                    if (isCurrent) btnClass += ' active';
-                    if (isFlagged) btnClass += ' flagged';
-                    else if (isAnswered) btnClass += ' answered';
-
-                    return (
-                      <button key={q.id} className={btnClass} onClick={() => setCurrentIdx(idx)}>
-                        {idx + 1}
-                      </button>
-                    );
-                  })}
                 </div>
 
-                <div className="palette-legend" style={{ fontSize: '0.8rem', marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div className="legend-item"><span className="legend-color unanswered"></span> Unanswered</div>
-                  <div className="legend-item"><span className="legend-color answered"></span> Answered</div>
-                  <div className="legend-item"><span className="legend-color flagged" style={{ backgroundColor: '#ef4444' }}></span> Flagged Review</div>
-                  <div className="legend-item"><span className="legend-color current"></span> Active Question</div>
-                </div>
+                {/* Palette Panel */}
+                <div style={styles.paletteCard}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>Navigation</h3>
+                  <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '16px' }}>Quick jump to any question</p>
 
-                <div style={{ marginTop: '2rem' }}>
-                  <button className="btn btn-danger" style={{ width: '100%' }} onClick={manualSubmitExam}>
+                  <div style={styles.paletteGrid}>
+                    {examQuestions.map((q, idx) => {
+                      const isCurrent = idx === currentIdx;
+                      const isAnswered = !!answers[q.id];
+                      const isFlagged = flagged[q.id];
+
+                      let btnStyle: React.CSSProperties = { ...styles.paletteBtn };
+                      if (isCurrent) btnStyle = { ...btnStyle, ...styles.paletteBtnActive };
+                      else if (isFlagged) btnStyle = { ...btnStyle, ...styles.paletteBtnFlagged };
+                      else if (isAnswered) btnStyle = { ...btnStyle, ...styles.paletteBtnAnswered };
+
+                      return (
+                        <button key={q.id} style={btnStyle} onClick={() => setCurrentIdx(idx)}>
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={styles.legendItem}>
+                      <span style={{ ...styles.legendDot, backgroundColor: colors.border }}></span> Unanswered
+                    </div>
+                    <div style={styles.legendItem}>
+                      <span style={{ ...styles.legendDot, backgroundColor: colors.success }}></span> Answered
+                    </div>
+                    <div style={styles.legendItem}>
+                      <span style={{ ...styles.legendDot, backgroundColor: colors.danger }}></span> Flagged
+                    </div>
+                    <div style={styles.legendItem}>
+                      <span style={{ ...styles.legendDot, backgroundColor: colors.primary }}></span> Active
+                    </div>
+                  </div>
+
+                  <button style={{ ...styles.btn, ...styles.btnDanger, width: '100%', marginTop: '24px' }} onClick={manualSubmitExam}>
                     Submit Test Now
                   </button>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ================= RESULT SCREEN ================= */}
-        {screen === 'RESULT' && activeResult && (
-          <div className="result-container" style={{ maxWidth: '640px', margin: '4rem auto' }}>
-            <div className="result-header">
-              <h1 className="result-congrats" style={{ color: hasPassed ? '#10b981' : '#f59e0b' }}>
-                {hasPassed ? 'Congratulations!' : 'Exam Attempt Completed'}
-              </h1>
-              <p className="result-subtitle">Your score has been successfully cataloged offline.</p>
-            </div>
+          {/* ================= RESULT SCREEN ================= */}
+          {screen === 'RESULT' && activeResult && (
+            <div style={{ maxWidth: '560px', margin: '40px auto' }}>
+              <div style={styles.card}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: activeResult.percentage >= 50 ? colors.success : colors.warning, marginBottom: '8px' }}>
+                    {activeResult.percentage >= 50 ? 'Congratulations!' : 'Exam Attempt Completed'}
+                  </h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px' }}>Your score has been cataloged offline.</p>
+                </div>
 
-            <div className={`percentage-circle ${hasPassed ? 'passed' : 'failed'}`}>
-              <span className="percentage-value">{activeResult.percentage.toFixed(0)}%</span>
-              <span className="percentage-label">Total Percentage</span>
-            </div>
+                <div style={{
+                  ...styles.resultCircle,
+                  ...(activeResult.percentage >= 50 ? styles.resultCirclePassed : styles.resultCircleFailed)
+                }}>
+                  <span style={{ fontSize: '36px', fontWeight: 800, color: colors.text }}>{activeResult.percentage.toFixed(0)}%</span>
+                  <span style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 600, textTransform: 'uppercase', marginTop: '4px' }}>Score</span>
+                </div>
 
-            <div className="score-summary-grid" style={{ marginBottom: '2rem' }}>
-              <div className="score-summary-card">
-                <div className="score-summary-val" style={{ color: 'var(--accent)' }}>{activeResult.score} / {activeResult.total_questions}</div>
-                <div className="score-summary-label">Correct Answers</div>
-              </div>
-              <div className="score-summary-card">
-                <div className="score-summary-val">{activeResult.synced ? 'Synced ✓' : 'Pending ⏳'}</div>
-                <div className="score-summary-label">Central Cloud Backup</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <button className="btn btn-secondary" onClick={() => setScreen('REVIEW')}>
-                📝 Review Incorrect & Answers
-              </button>
-              <button className="btn btn-primary" onClick={() => setScreen('DASHBOARD')}>
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ================= REVIEW SCREEN ================= */}
-        {screen === 'REVIEW' && activeResult && (
-          <div style={{ maxWidth: '800px', margin: '3rem auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <div>
-                <h1 style={{ fontSize: '1.6rem', fontWeight: 800 }}>Question-by-Question Review</h1>
-                <p style={{ color: '#94a3b8' }}>Review incorrect selections and read explanations.</p>
-              </div>
-              <button className="btn btn-primary" onClick={() => setScreen('DASHBOARD')}>Return to Dashboard</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {JSON.parse(activeResult.details || '[]').map((item: any, idx: number) => {
-                return (
-                  <div key={idx} className="admin-card" style={{ borderLeft: `6px solid ${item.is_correct ? '#10b981' : '#ef4444'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                      <strong style={{ fontSize: '1.05rem', color: '#3b82f6' }}>Question {idx + 1}</strong>
-                      <span className={`badge ${item.is_correct ? 'badge-success' : 'badge-danger'}`}>
-                        {item.is_correct ? 'Correct ✓' : 'Incorrect ❌'}
-                      </span>
-                    </div>
-
-                    <p style={{ fontSize: '1.1rem', marginBottom: '1.2rem', lineHeight: '1.5' }}>{item.question_text}</p>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.2rem' }}>
-                      {[
-                        { key: 'A', text: item.option_a },
-                        { key: 'B', text: item.option_b },
-                        { key: 'C', text: item.option_c },
-                        { key: 'D', text: item.option_d },
-                      ].map(opt => {
-                        let rowStyle: React.CSSProperties = {
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '0.6rem 1rem',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)',
-                          fontSize: '0.95rem'
-                        };
-
-                        if (opt.key === item.correct_answer) {
-                          rowStyle.backgroundColor = 'rgba(16, 185, 129, 0.15)';
-                          rowStyle.borderColor = '#10b981';
-                        } else if (opt.key === item.user_answer) {
-                          rowStyle.backgroundColor = 'rgba(239, 68, 68, 0.15)';
-                          rowStyle.borderColor = '#ef4444';
-                        }
-
-                        return (
-                          <div key={opt.key} style={rowStyle}>
-                            <strong style={{ marginRight: '1rem', color: '#94a3b8' }}>{opt.key}.</strong>
-                            <span>{opt.text}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '1rem', borderRadius: '6px', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                      <div style={{ fontWeight: 'bold', color: 'var(--accent)', marginBottom: '0.3rem' }}>Topic: {item.topic_explanation || 'General Syllabus'}</div>
-                      <div style={{ fontWeight: 'bold', color: 'var(--success)', marginBottom: '0.3rem' }}>Correct Answer Explanation:</div>
-                      <p style={{ marginBottom: '0.5rem' }}>{item.correct_explanation}</p>
-                      {item.wrong_explanations && (
-                        <>
-                          <div style={{ fontWeight: 'bold', color: 'var(--danger)', marginBottom: '0.3rem' }}>Incorrect Answer Breakdown:</div>
-                          <p>{item.wrong_explanations}</p>
-                        </>
-                      )}
-                    </div>
+                <div style={styles.grid2}>
+                  <div style={{ ...styles.statCard, padding: '20px' }}>
+                    <div style={{ ...styles.statValue, fontSize: '24px', color: colors.primary }}>{activeResult.score} / {activeResult.total_questions}</div>
+                    <div style={styles.statLabel}>Correct Answers</div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                  <div style={{ ...styles.statCard, padding: '20px' }}>
+                    <div style={{ ...styles.statValue, fontSize: '24px', color: activeResult.synced ? colors.success : colors.warning }}>
+                      {activeResult.synced ? 'Synced' : 'Pending'}
+                    </div>
+                    <div style={styles.statLabel}>Cloud Backup</div>
+                  </div>
+                </div>
 
-      </main>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '32px' }}>
+                  <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={() => setScreen('REVIEW')}>
+                    Review Answers
+                  </button>
+                  <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>
+                    Back to Dashboard
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= REVIEW SCREEN ================= */}
+          {screen === 'REVIEW' && activeResult && (
+            <div style={{ maxWidth: '840px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+                <div>
+                  <h1 style={{ fontSize: '22px', fontWeight: 800 }}>Question-by-Question Review</h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '4px' }}>Review incorrect selections and read explanations.</p>
+                </div>
+                <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>Return to Dashboard</button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {JSON.parse(activeResult.details || '[]').map((item: any, idx: number) => {
+                  return (
+                    <div key={idx} style={{ ...styles.reviewCard, borderLeftColor: item.is_correct ? colors.success : colors.danger }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '15px', color: colors.primary }}>Question {idx + 1}</strong>
+                        <span style={{ ...styles.badge, ...(item.is_correct ? styles.badgeSuccess : styles.badgeDanger) }}>
+                          {item.is_correct ? 'Correct' : 'Incorrect'}
+                        </span>
+                      </div>
+
+                      <p style={{ fontSize: '15px', marginBottom: '16px', lineHeight: 1.6, fontWeight: 500 }}>{item.question_text}</p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                        {[
+                          { key: 'A', text: item.option_a },
+                          { key: 'B', text: item.option_b },
+                          { key: 'C', text: item.option_c },
+                          { key: 'D', text: item.option_d },
+                        ].map(opt => {
+                          let rowStyle: React.CSSProperties = {
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            border: `1px solid ${colors.border}`,
+                            fontSize: '14px'
+                          };
+
+                          if (opt.key === item.correct_answer) {
+                            rowStyle.backgroundColor = colors.successLight;
+                            rowStyle.borderColor = colors.success;
+                          } else if (opt.key === item.user_answer) {
+                            rowStyle.backgroundColor = colors.dangerLight;
+                            rowStyle.borderColor = colors.danger;
+                          }
+
+                          return (
+                            <div key={opt.key} style={rowStyle}>
+                              <strong style={{ marginRight: '12px', color: colors.textMuted, width: '20px' }}>{opt.key}.</strong>
+                              <span>{opt.text}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{ backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', fontSize: '13px', lineHeight: 1.6 }}>
+                        <div style={{ fontWeight: 700, color: colors.primary, marginBottom: '6px' }}>Topic: {item.topic_explanation || 'General Syllabus'}</div>
+                        <div style={{ fontWeight: 700, color: colors.success, marginBottom: '6px' }}>Correct Answer Explanation:</div>
+                        <p style={{ marginBottom: '10px' }}>{item.correct_explanation}</p>
+                        {item.wrong_explanations && (
+                          <>
+                            <div style={{ fontWeight: 700, color: colors.danger, marginBottom: '6px' }}>Incorrect Answer Breakdown:</div>
+                            <p>{item.wrong_explanations}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
