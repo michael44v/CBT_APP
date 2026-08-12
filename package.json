@@ -9,5 +9,8 @@
     "desktop:dev": "npm run start -w desktop",
     "admin:dev": "npm run dev -w admin",
     "install:all": "npm install"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
   }
 }

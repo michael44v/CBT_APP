@@ -105,12 +105,25 @@ export default function App() {
     }
   };
 
-  const loadSyncLogs = async () => {
-    if (window.api && window.api.getSyncStatus) {
+ const loadSyncLogs = async () => {
+  if (window.api && window.api.getSyncStatus) {
+    try {
       const status = await window.api.getSyncStatus();
-      setSyncStatus(status);
+
+      setSyncStatus({
+        isOnline: Boolean(status?.isOnline),
+        logs: Array.isArray(status?.logs) ? status.logs : []
+      });
+    } catch (error) {
+      console.error('Failed to load sync status:', error);
+
+      setSyncStatus({
+        isOnline: false,
+        logs: []
+      });
     }
-  };
+  }
+};
 
   const loadResultsHistory = async () => {
     if (window.api && window.api.getResults) {
@@ -119,14 +132,23 @@ export default function App() {
     }
   };
 
-  const loadSyllabusData = async () => {
-    if (window.api && window.api.getSubjects) {
+ const loadSyllabusData = async () => {
+  if (window.api && window.api.getSubjects) {
+    try {
       const subs = await window.api.getSubjects(examType);
-      setSubjectsList(subs || []);
+
+      console.log("[RENDER] subjects response:", subs);
+      console.log("[RENDER] isArray:", Array.isArray(subs));
+
+      setSubjectsList(Array.isArray(subs) ? subs : []);
       setMockSelectedSubjects([]);
       setPracticeSubject('');
+    } catch (error) {
+      console.error("[RENDER] Failed to load subjects:", error);
+      setSubjectsList([]);
     }
-  };
+  }
+};
 
   const loadTopicsAndYears = async (subjectId: number) => {
     if (window.api && window.api.getTopics && window.api.getYearsForSubject) {

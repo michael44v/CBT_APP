@@ -50,9 +50,11 @@ function createMainWindow() {
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
+    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+
 
   mainWindow.once("ready-to-show", () => {
     if (splashWindow) {
@@ -171,7 +173,7 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
   // Call PHP API on cloud server
   try {
     const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-    const response = await fetch("http://localhost:8000/api/v1/activate.php", {
+    const response = await fetch("http://localhost:80/fillop/api/v1/activate.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, passcode, device_uuid, hardware_hash })
@@ -207,8 +209,22 @@ ipcMain.handle("auth:logout", async () => {
 // ================= IPC HANDLERS: SYLLABUS & METADATA =================
 
 ipcMain.handle("db:get-subjects", async (event, examType) => {
-  const db = dbService.getDb();
-  return db.prepare("SELECT * FROM subjects WHERE exam_type = ?").all(examType);
+  try {
+    const db = dbService.getDb();
+
+    const subjects = db
+      .prepare("SELECT * FROM subjects WHERE exam_type = ?")
+      .all(examType);
+
+    console.log("[IPC] get-subjects examType:", examType);
+    console.log("[IPC] get-subjects result:", subjects);
+    console.log("[IPC] isArray:", Array.isArray(subjects));
+
+    return subjects;
+  } catch (error) {
+    console.error("[IPC] get-subjects error:", error);
+    throw error;
+  }
 });
 
 ipcMain.handle("db:get-topics", async (event, subjectId) => {

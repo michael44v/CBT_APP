@@ -1,4 +1,4 @@
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
@@ -10,126 +10,193 @@ let db = null;
  * @param {string} dbPath The absolute path to the sqlite file.
  */
 function initDatabase(dbPath) {
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  return new Promise((resolve, reject) => {
+    const dir = path.dirname(dbPath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('[SQLite] Database connection failed:', err);
+        db = null;
+        return reject(err);
+      }
+
+      console.log('[SQLite] Database connected:', dbPath);
+
+      // Enable foreign keys.
+      db.run('PRAGMA foreign_keys = ON', (pragmaErr) => {
+        if (pragmaErr) {
+          console.error('[SQLite] Failed to enable foreign keys:', pragmaErr);
+          return reject(pragmaErr);
+        }
+
+        createTablesAndSeed()
+          .then(resolve)
+          .catch(reject);
+      });
+    });
+  });
+}
+
+function run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      resolve({
+        lastID: this.lastID,
+        changes: this.changes
+      });
+    });
+  });
+}
+
+function get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      resolve(row);
+    });
+  });
+}
+
+function all(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      resolve(rows);
+    });
+  });
+}
+
+function exec(sql) {
+  return new Promise((resolve, reject) => {
+    db.exec(sql, (err) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
+async function createTablesAndSeed() {
+  try {
+    await exec(`
+      CREATE TABLE IF NOT EXISTS activation (
+        email TEXT NOT NULL,
+        passcode TEXT NOT NULL PRIMARY KEY,
+        activated_at TEXT NOT NULL,
+        expiry_date TEXT,
+        is_active INTEGER DEFAULT 1
+      );
+
+      CREATE TABLE IF NOT EXISTS subjects (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        exam_type TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS topics (
+        id INTEGER PRIMARY KEY,
+        subject_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_type TEXT NOT NULL,
+        subject_id INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        topic_id INTEGER NOT NULL,
+        difficulty TEXT DEFAULT 'medium',
+        question_text TEXT NOT NULL,
+        option_a TEXT NOT NULL,
+        option_b TEXT NOT NULL,
+        option_c TEXT NOT NULL,
+        option_d TEXT NOT NULL,
+        correct_answer TEXT NOT NULL,
+        topic_explanation TEXT,
+        correct_explanation TEXT,
+        wrong_explanations TEXT,
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+        FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_type TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        total_questions INTEGER NOT NULL,
+        percentage REAL NOT NULL,
+        details TEXT,
+        submitted_at TEXT NOT NULL,
+        synced INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS sync_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        message TEXT,
+        timestamp TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_questions_filter
+        ON questions (exam_type, subject_id, year);
+
+      CREATE INDEX IF NOT EXISTS idx_questions_topic
+        ON questions (exam_type, subject_id, topic_id);
+    `);
+
+    console.log('[SQLite] Local database tables and indices verified.');
+
+    await seedDatabaseIfEmpty();
+
+    console.log('[SQLite] Database initialization complete.');
+  } catch (error) {
+    console.error('[SQLite] Initialization failure:', error);
+    throw error;
   }
-
-  db = new Database(dbPath, { verbose: console.log });
-
-  // Enable foreign keys
-  db.pragma('foreign_keys = ON');
-
-  // Create tables in order
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS activation (
-      email TEXT NOT NULL,
-      passcode TEXT NOT NULL PRIMARY KEY,
-      activated_at TEXT NOT NULL,
-      expiry_date TEXT,
-      is_active INTEGER DEFAULT 1
-    );
-
-    CREATE TABLE IF NOT EXISTS subjects (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      exam_type TEXT NOT NULL, -- 'JAMB' | 'WAEC' | 'NECO'
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS topics (
-      id INTEGER PRIMARY KEY,
-      subject_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS questions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      exam_type TEXT NOT NULL, -- 'JAMB' | 'WAEC' | 'NECO'
-      subject_id INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      topic_id INTEGER NOT NULL,
-      difficulty TEXT DEFAULT 'medium', -- 'easy' | 'medium' | 'hard'
-      question_text TEXT NOT NULL,
-      option_a TEXT NOT NULL,
-      option_b TEXT NOT NULL,
-      option_c TEXT NOT NULL,
-      option_d TEXT NOT NULL,
-      correct_answer TEXT NOT NULL, -- 'A' | 'B' | 'C' | 'D'
-      topic_explanation TEXT,
-      correct_explanation TEXT,
-      wrong_explanations TEXT,
-      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
-      FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS results (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      exam_type TEXT NOT NULL,
-      user_name TEXT NOT NULL,
-      score INTEGER NOT NULL,
-      total_questions INTEGER NOT NULL,
-      percentage REAL NOT NULL,
-      details TEXT, -- JSON breakdown per subject and answers
-      submitted_at TEXT NOT NULL, -- ISO timestamp
-      synced INTEGER DEFAULT 0 -- 0 for not synced, 1 for synced
-    );
-
-    CREATE TABLE IF NOT EXISTS sync_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      event_type TEXT NOT NULL, -- 'PULL_QUESTIONS', 'PUSH_RESULTS', 'NETWORK_STATUS'
-      status TEXT NOT NULL, -- 'SUCCESS', 'FAILED', 'PENDING'
-      message TEXT,
-      timestamp TEXT NOT NULL
-    );
-  `);
-
-  // Create high-performance indices for mock and practice filtering
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_questions_filter ON questions (exam_type, subject_id, year);
-    CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions (exam_type, subject_id, topic_id);
-  `);
-
-  console.log('[SQLite] Local database tables and indices verified.');
-
-  seedDatabaseIfEmpty();
 }
 
 /**
- * Seeding helper to pre-fill SQLite with rich test data matching PRD rules:
- * - 10 questions per subject, spread across 3 different years (2021, 2022, 2023)
+ * Seeds the database with the same initial subjects, topics and questions
+ * from the uploaded database service.
  */
-function seedDatabaseIfEmpty() {
-  const subjectCount = db.prepare('SELECT COUNT(*) as count FROM subjects').get();
-  if (subjectCount.count === 0) {
-    console.log('[SQLite] Seeding initial subjects, topics, and questions...');
+async function seedDatabaseIfEmpty() {
+  const subjectCount = await get(
+    'SELECT COUNT(*) AS count FROM subjects'
+  );
 
-    // Seed Subjects
-    const insertSubject = db.prepare(`
-      INSERT INTO subjects (id, name, exam_type)
-      VALUES (?, ?, ?)
-    `);
+  if (subjectCount.count !== 0) {
+    return;
+  }
 
-    // JAMB subjects
-    insertSubject.run(1, 'Mathematics', 'JAMB');
-    insertSubject.run(2, 'English', 'JAMB');
-    insertSubject.run(3, 'Physics', 'JAMB');
+  console.log('[SQLite] Seeding initial subjects, topics, and questions...');
 
-    // Seed Topics
-    const insertTopic = db.prepare(`
-      INSERT INTO topics (id, subject_id, name)
-      VALUES (?, ?, ?)
-    `);
-    insertTopic.run(1, 1, 'Algebra');
-    insertTopic.run(2, 1, 'Geometry');
-    insertTopic.run(3, 2, 'Comprehension');
-    insertTopic.run(4, 2, 'Synonyms');
-    insertTopic.run(5, 3, 'Mechanics');
+  const questionsToSeed = [
 
-    // Seed Questions (10 questions per subject, across 2021, 2022, 2023)
-    const questionsToSeed = [
       // Mathematics (Subject 1)
       { id: 1, exam_type: 'JAMB', subject_id: 1, year: 2021, topic_id: 1, difficulty: 'easy', question_text: 'Solve for x: 2x + 5 = 15', option_a: '5', option_b: '10', option_c: '15', option_d: '20', correct_answer: 'A', topic_explanation: 'Linear equations', correct_explanation: 'x = (15-5)/2 = 5', wrong_explanations: 'Other choices are incorrect.' },
       { id: 2, exam_type: 'JAMB', subject_id: 1, year: 2021, topic_id: 1, difficulty: 'medium', question_text: 'Find the roots of x^2 - 5x + 6 = 0', option_a: 'x=2,3', option_b: 'x=1,5', option_c: 'x=0,6', option_d: 'x=-2,-3', correct_answer: 'A', topic_explanation: 'Quadratic equations', correct_explanation: '(x-2)(x-3)=0 => x=2,3', wrong_explanations: 'Other roots do not satisfy.' },
@@ -165,46 +232,132 @@ function seedDatabaseIfEmpty() {
       { id: 28, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'medium', question_text: 'Calculate resistance if voltage is 12V and current is 3A', option_a: '4 Ohms', option_b: '36 Ohms', option_c: '15 Ohms', option_d: '9 Ohms', correct_answer: 'A', topic_explanation: "Ohm's law", correct_explanation: 'R = V/I = 12/3 = 4 Ohms', wrong_explanations: 'Arithmetic verification.' },
       { id: 29, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'hard', question_text: 'What is the escape velocity of a projectile from Earth surface?', option_a: '11.2 km/s', option_b: '11.2 m/s', option_c: '9.8 km/s', option_d: '42.1 km/s', correct_answer: 'A', topic_explanation: 'Gravitational fields', correct_explanation: 'Standard physical value for earth.', wrong_explanations: 'Other units or figures are incorrect.' },
       { id: 30, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'easy', question_text: 'Which instrument is used to measure temperature?', option_a: 'Thermometer', option_b: 'Barometer', option_c: 'Anemometer', option_d: 'Hygrometer', correct_answer: 'A', topic_explanation: 'Heat and temperature', correct_explanation: 'Thermometers measure heat degrees.', wrong_explanations: 'Barometers measure pressure.' }
+  ];
+
+  await exec('BEGIN TRANSACTION');
+
+  try {
+    await run(`
+      INSERT INTO subjects (id, name, exam_type)
+      VALUES (?, ?, ?)
+    `, [1, 'Mathematics', 'JAMB']);
+
+    await run(`
+      INSERT INTO subjects (id, name, exam_type)
+      VALUES (?, ?, ?)
+    `, [2, 'English', 'JAMB']);
+
+    await run(`
+      INSERT INTO subjects (id, name, exam_type)
+      VALUES (?, ?, ?)
+    `, [3, 'Physics', 'JAMB']);
+
+    const topics = [
+      [1, 1, 'Algebra'],
+      [2, 1, 'Geometry'],
+      [3, 2, 'Comprehension'],
+      [4, 2, 'Synonyms'],
+      [5, 3, 'Mechanics']
     ];
 
-    const insertQuestion = db.prepare(`
-      INSERT INTO questions (
-        id, exam_type, subject_id, year, topic_id, difficulty,
-        question_text, option_a, option_b, option_c, option_d, correct_answer,
-        topic_explanation, correct_explanation, wrong_explanations
-      ) VALUES (
-        @id, @exam_type, @subject_id, @year, @topic_id, @difficulty,
-        @question_text, @option_a, @option_b, @option_c, @option_d, @correct_answer,
-        @topic_explanation, @correct_explanation, @wrong_explanations
-      )
-    `);
+    for (const topic of topics) {
+      await run(`
+        INSERT INTO topics (id, subject_id, name)
+        VALUES (?, ?, ?)
+      `, topic);
+    }
 
-    db.transaction(() => {
-      for (const q of questionsToSeed) {
-        insertQuestion.run(q);
-      }
-    })();
-    console.log('[SQLite] Local database successfully seeded with subjects, topics, and questions.');
+    for (const q of questionsToSeed) {
+      await run(`
+        INSERT INTO questions (
+          id,
+          exam_type,
+          subject_id,
+          year,
+          topic_id,
+          difficulty,
+          question_text,
+          option_a,
+          option_b,
+          option_c,
+          option_d,
+          correct_answer,
+          topic_explanation,
+          correct_explanation,
+          wrong_explanations
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        q.id,
+        q.exam_type,
+        q.subject_id,
+        q.year,
+        q.topic_id,
+        q.difficulty,
+        q.question_text,
+        q.option_a,
+        q.option_b,
+        q.option_c,
+        q.option_d,
+        q.correct_answer,
+        q.topic_explanation,
+        q.correct_explanation,
+        q.wrong_explanations
+      ]);
+    }
+
+    await exec('COMMIT');
+
+    console.log(
+      '[SQLite] Local database successfully seeded with subjects, topics, and questions.'
+    );
+  } catch (error) {
+    try {
+      await exec('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('[SQLite] Rollback failed:', rollbackError);
+    }
+
+    throw error;
   }
 }
 
 function closeDatabase() {
-  if (db) {
-    db.close();
-    db = null;
-    console.log('[SQLite] Local database connection closed.');
-  }
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      resolve();
+      return;
+    }
+
+    db.close((err) => {
+      if (err) {
+        console.error('[SQLite] Database close failed:', err);
+        reject(err);
+        return;
+      }
+
+      db = null;
+      console.log('[SQLite] Local database connection closed.');
+      resolve();
+    });
+  });
 }
 
 function getDb() {
   if (!db) {
-    throw new Error('Database is not initialized. Please call initDatabase first.');
+    throw new Error(
+      'Database is not initialized. Please call initDatabase first.'
+    );
   }
+
   return db;
 }
 
 module.exports = {
   initDatabase,
   getDb,
-  closeDatabase
+  closeDatabase,
+  run,
+  get,
+  all,
+  exec
 };
