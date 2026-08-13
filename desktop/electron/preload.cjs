@@ -33,6 +33,9 @@ contextBridge.exposeInMainWorld("api", {
   getResults: () =>
     ipcRenderer.invoke("db:get-results"),
 
+  getNews: () =>
+    ipcRenderer.invoke("db:get-news"),
+
   // Sync API
   getSyncStatus: () => ipcRenderer.invoke("sync:get-status"),
   startSync: () => ipcRenderer.invoke("sync:trigger"),

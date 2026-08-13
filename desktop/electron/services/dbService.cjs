@@ -162,6 +162,14 @@ async function createTablesAndSeed() {
         timestamp TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS news (
+        id INTEGER PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        icon_name TEXT,
+        created_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_questions_filter
         ON questions (exam_type, subject_id, year);
 

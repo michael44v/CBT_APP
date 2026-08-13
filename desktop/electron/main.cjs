@@ -398,6 +398,10 @@ ipcMain.handle("db:get-results", async () => {
   return await dbService.all("SELECT * FROM results ORDER BY submitted_at DESC");
 });
 
+ipcMain.handle("db:get-news", async () => {
+  return await dbService.all("SELECT * FROM news ORDER BY created_at DESC");
+});
+
 // ================= IPC HANDLERS: SYNC SIMULATION =================
 
 ipcMain.handle("sync:get-status", async () => {
