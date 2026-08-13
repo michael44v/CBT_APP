@@ -24,6 +24,10 @@ $topics = $topics_res ? $topics_res->fetch_all(MYSQLI_ASSOC) : [];
 $questions_res = $db->query("SELECT * FROM questions");
 $questions = $questions_res ? $questions_res->fetch_all(MYSQLI_ASSOC) : [];
 
+// Pull all news
+$news_res = $db->query("SELECT * FROM news ORDER BY created_at DESC");
+$news = $news_res ? $news_res->fetch_all(MYSQLI_ASSOC) : [];
+
 // Software / DB update settings & notifications
 $settings = [
     "latest_version" => "1.0.0",
@@ -44,5 +48,6 @@ echo json_encode([
     "subjects" => $subjects,
     "topics" => $topics,
     "questions" => $questions,
+    "news" => $news,
     "settings" => $settings
 ]);

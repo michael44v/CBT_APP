@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 const API_BASE = 'http://localhost:80/fillop/api/v1';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'PROMOS' | 'QUESTIONS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'PROMOS' | 'QUESTIONS' | 'NEWS'>('DASHBOARD');
 
   // Stats
   const [stats, setStats] = useState({
@@ -21,6 +21,7 @@ export default function App() {
   const [passcodes, setPasscodes] = useState<any[]>([]);
   const [promos, setPromos] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
 
   // Search/Filters
   const [userSearch, setUserSearch] = useState('');
@@ -66,6 +67,13 @@ export default function App() {
   const [csvInput, setCsvInput] = useState('');
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSuccessMsg, setImportSuccessMsg] = useState('');
+
+  // New News Form
+  const [newNewsForm, setNewNewsForm] = useState({
+    title: '',
+    content: '',
+    icon_name: 'newspaper'
+  });
 
   // Load stats
   const fetchStats = async () => {
@@ -134,6 +142,19 @@ export default function App() {
     }
   };
 
+  // Load News
+  const fetchNews = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/news.php`);
+      const data = await res.json();
+      if (data.success) {
+        setNews(data.news);
+      }
+    } catch (e) {
+      console.error('Failed to load news', e);
+    }
+  };
+
   // Refresh tab data
   useEffect(() => {
     fetchStats();
@@ -141,6 +162,7 @@ export default function App() {
     if (activeTab === 'PASSCODES') fetchPasscodes();
     if (activeTab === 'PROMOS') fetchPromos();
     if (activeTab === 'QUESTIONS') fetchQuestions();
+    if (activeTab === 'NEWS') fetchNews();
   }, [activeTab]);
 
   // Handle user search debounce
@@ -348,6 +370,53 @@ export default function App() {
     }
   };
 
+  // Handle News Posting
+  const handleAddNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/news.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', ...newNewsForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('News article posted successfully!');
+        fetchNews();
+        setNewNewsForm({
+          title: '',
+          content: '',
+          icon_name: 'newspaper',
+        });
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Failed to post news.', 'error');
+    }
+  };
+
+  // Handle News Deletion
+  const handleDeleteNews = async (id: number) => {
+    if (!window.confirm('Delete this news article permanently?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/news.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message);
+        fetchNews();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Delete news failed.', 'error');
+    }
+  };
+
   // Bulk CSV Import
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -392,6 +461,7 @@ export default function App() {
           <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>🔑 Passcodes</button>
           <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>🎟️ Promo Codes</button>
           <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>📚 Question Bank</button>
+          <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>📰 Admin News</button>
         </nav>
       </aside>
 
@@ -422,6 +492,7 @@ export default function App() {
               {activeTab === 'PASSCODES' && 'Product Passcodes & Bulk Licensing'}
               {activeTab === 'PROMOS' && 'Promotions & Referral Codes'}
               {activeTab === 'QUESTIONS' && 'Question Bank Master Management'}
+              {activeTab === 'NEWS' && 'Admin News Management'}
             </h1>
             <p className="admin-subtitle">Fillop CBT Guru Cloud Admin Panel</p>
           </div>
@@ -707,6 +778,92 @@ export default function App() {
                           </span>
                         </td>
                         <td>{new Date(pr.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ================== TAB: NEWS ================== */}
+        {activeTab === 'NEWS' && (
+          <div>
+            <div className="admin-card">
+              <h2 className="card-title">Publish New Admin Announcement / News</h2>
+              <form onSubmit={handleAddNews} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Article Title</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. JAMB 2026 CBT Update"
+                      value={newNewsForm.title}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Icon Name</label>
+                    <select
+                      className="form-input"
+                      value={newNewsForm.icon_name}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, icon_name: e.target.value })}
+                    >
+                      <option value="newspaper">📰 Newspaper</option>
+                      <option value="star">⭐ Star / Guidance</option>
+                      <option value="rocket">🚀 Rocket / Launch</option>
+                      <option value="bell">🔔 Bell / Notification</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">News Content (Medium Style)</label>
+                  <textarea
+                    className="form-input"
+                    style={{ height: '200px', resize: 'vertical', fontFamily: 'inherit' }}
+                    placeholder="Write detailed informational news here..."
+                    value={newNewsForm.content}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, content: e.target.value })}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn" style={{ width: 'fit-content' }}>Publish Announcement 📣</button>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <h2 className="card-title">Active News Articles</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Icon</th>
+                    <th>Title</th>
+                    <th>Content Preview</th>
+                    <th>Published At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {news.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No news published yet.</td></tr>
+                  ) : (
+                    news.map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ fontSize: '1.5rem' }}>
+                          {item.icon_name === 'star' && '⭐'}
+                          {item.icon_name === 'rocket' && '🚀'}
+                          {item.icon_name === 'bell' && '🔔'}
+                          {item.icon_name === 'newspaper' && '📰'}
+                        </td>
+                        <td style={{ fontWeight: 'bold' }}>{item.title}</td>
+                        <td style={{ maxWidth: '400px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{item.content}</td>
+                        <td>{new Date(item.created_at).toLocaleString()}</td>
+                        <td>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteNews(item.id)}>Delete</button>
+                        </td>
                       </tr>
                     ))
                   )}
