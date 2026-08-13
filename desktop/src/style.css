@@ -920,6 +920,11 @@ input:checked + .toggle-slider:before {
   letter-spacing: 0.5px;
 }
 
+/* News item list styles */
+.news-item-hover:hover {
+  background-color: rgba(29, 48, 144, 0.08) !important;
+}
+
 /* Scrollbar tweaks */
 ::-webkit-scrollbar {
   width: 8px;

@@ -1,11 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus } from './global';
 
-type Screen = 'ACTIVATION' | 'DASHBOARD' | 'EXAM' | 'RESULT' | 'REVIEW';
+type Screen = 'ACTIVATION' | 'DASHBOARD' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('ACTIVATION');
   const [activation, setActivation] = useState<{ email: string; passcode: string } | null>(null);
+
+  // News State
+  const [newsList, setNewsList] = useState<any[]>([]);
+  const [selectedNews, setSelectedNews] = useState<any | null>(null);
+
+  // Leaderboard State
+  const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState<boolean>(false);
+  const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<string>('This Week');
+
+  // Mini Ads State
+  const [activeAdIdx, setActiveAdIdx] = useState<number>(0);
+  const adsList = [
+    { text: "Get Premium CBT Upgrades", color: "rgb(245, 158, 11)", icon: "💎" },
+    { text: "Practice for JAMB/WAEC Offline", color: "rgb(16, 185, 129)", icon: "📚" },
+    { text: "Contact Fillop Tech Support", color: "rgb(59, 130, 246)", icon: "📞" }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveAdIdx(prev => (prev + 1) % adsList.length);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -67,15 +92,28 @@ export default function App() {
   // Post Exam results display
   const [activeResult, setActiveResult] = useState<Result | null>(null);
 
+  const loadNewsList = async () => {
+    if (window.api && window.api.getNews) {
+      try {
+        const list = await window.api.getNews();
+        setNewsList(list || []);
+      } catch (e) {
+        console.error('Failed to load news:', e);
+      }
+    }
+  };
+
   // Check Activation Status on Load
   useEffect(() => {
     checkActivation();
     loadSyncLogs();
+    loadNewsList();
 
     if (window.api && window.api.onSyncStatusChanged) {
       window.api.onSyncStatusChanged(() => {
         loadSyncLogs();
         loadResultsHistory();
+        loadNewsList();
       });
     }
 
@@ -89,6 +127,7 @@ export default function App() {
     if (screen === 'DASHBOARD') {
       loadSyllabusData();
       loadResultsHistory();
+      loadNewsList();
     }
   }, [screen, examType]);
 
@@ -101,6 +140,27 @@ export default function App() {
       setYearsList([]);
     }
   }, [practiceSubject]);
+
+  const handleOpenLeaderboard = async () => {
+    if (!syncStatus.isOnline) {
+      alert("⚠️ Leaderboard is an online feature. Please make sure 'Simulate Network' is checked and your device is online.");
+      return;
+    }
+    setShowLeaderboard(true);
+    setLeaderboardLoading(true);
+    try {
+      const res = await fetch("http://localhost:80/fillop/api/v1/leaderboard.php");
+      const data = await res.json();
+      if (data.success) {
+        setLeaderboardData(data.leaderboard || []);
+        setLeaderboardTimeframe(data.timeframe || 'This Week');
+      }
+    } catch (e) {
+      console.error("Failed to fetch leaderboard:", e);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
 
   const checkActivation = async () => {
     if (window.api && window.api.getActivationStatus) {
@@ -575,6 +635,42 @@ export default function App() {
             ))}
           </nav>
 
+          {/* Mini Ads Slider Section */}
+          <div style={{
+            margin: '0 16px 16px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255,255,255,0.08)',
+            border: isDarkMode ? '1px solid #2d2d2d' : '1px solid rgba(255, 255, 255, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            minHeight: '60px',
+            transition: 'all 0.5s ease-in-out',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{
+              fontSize: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              backgroundColor: adsList[activeAdIdx].color,
+              color: '#fff',
+              flexShrink: 0
+            }}>
+              {adsList[activeAdIdx].icon}
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: isDarkMode ? '#f59e0b' : '#ffedd5', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Sponsored Link</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>
+                {adsList[activeAdIdx].text}
+              </span>
+            </div>
+          </div>
+
           <div style={styles.sidebarFooter}>
             Offline Terminal v2.0
           </div>
@@ -690,6 +786,58 @@ export default function App() {
             </div>
           )}
 
+          {/* ================= NEWS DETAIL SCREEN (Medium Style) ================= */}
+          {screen === 'NEWS_DETAIL' && selectedNews && (
+            <div style={{ maxWidth: '720px', margin: '40px auto', padding: '0 20px' }}>
+              {/* Back Button */}
+              <button
+                style={{ ...styles.btn, ...styles.btnSecondary, marginBottom: '32px' }}
+                onClick={() => {
+                  setSelectedNews(null);
+                  setScreen('DASHBOARD');
+                }}
+              >
+                ← Back to Dashboard
+              </button>
+
+              <article style={{ backgroundColor: colors.surface, borderRadius: '16px', padding: '40px', border: `1px solid ${colors.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                {/* Header Section */}
+                <header style={{ marginBottom: '32px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', marginBottom: '12px' }}>
+                    <span>
+                      {selectedNews.icon_name === 'star' && '⭐'}
+                      {selectedNews.icon_name === 'rocket' && '🚀'}
+                      {selectedNews.icon_name === 'bell' && '🔔'}
+                      {selectedNews.icon_name === 'newspaper' && '📰'}
+                    </span>
+                    <span>Official Announcement</span>
+                  </div>
+
+                  <h1 style={{ fontSize: '36px', fontWeight: 800, color: colors.text, lineHeight: 1.2, marginBottom: '20px' }}>
+                    {selectedNews.title}
+                  </h1>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px' }}>
+                      FC
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '14px', color: colors.text }}>Fillop CBT Administrator</div>
+                      <div style={{ fontSize: '12px', color: colors.textSecondary }}>
+                        Published on {new Date(selectedNews.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} • 2 min read
+                      </div>
+                    </div>
+                  </div>
+                </header>
+
+                {/* Content Section */}
+                <section style={{ fontSize: '18px', lineHeight: 1.8, color: colors.text, whiteSpace: 'pre-line' }}>
+                  {selectedNews.content}
+                </section>
+              </article>
+            </div>
+          )}
+
           {/* ================= DASHBOARD SCREEN ================= */}
           {screen === 'DASHBOARD' && activation && (
             <div style={{ display: 'flex', gap: '24px', maxWidth: '1200px' }}>
@@ -702,8 +850,16 @@ export default function App() {
                       Active profile: <strong style={{ color: colors.primary }}>{activation.email}</strong>
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', backgroundColor: colors.primaryLight, borderRadius: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.primary }}>OFFLINE TERMINAL</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button
+                      onClick={handleOpenLeaderboard}
+                      style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700 }}
+                    >
+                      🏆 Weekly Leaderboard
+                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', backgroundColor: colors.primaryLight, borderRadius: '12px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: colors.primary }}>OFFLINE TERMINAL</span>
+                    </div>
                   </div>
                 </div>
 
@@ -881,11 +1037,55 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Panel: Sync Logs */}
-              <div style={{ width: '340px', flexShrink: 0 }}>
+              {/* Right Panel: Admin News & Sync Logs */}
+              <div style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* News Card */}
+                <div style={styles.card}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, marginBottom: '16px', letterSpacing: '0.5px' }}>Latest Admin News</h3>
+                  <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {newsList.length === 0 ? (
+                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No announcements published.</p>
+                    ) : (
+                      newsList.map(item => (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            setSelectedNews(item);
+                            setScreen('NEWS_DETAIL');
+                          }}
+                          style={{
+                            display: 'flex',
+                            gap: '12px',
+                            cursor: 'pointer',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            transition: 'background-color 0.2s',
+                            borderBottom: `1px solid ${colors.border}`
+                          }}
+                          className="news-item-hover"
+                        >
+                          <div style={{ fontSize: '20px', flexShrink: 0, marginTop: '2px' }}>
+                            {item.icon_name === 'star' && '⭐'}
+                            {item.icon_name === 'rocket' && '🚀'}
+                            {item.icon_name === 'bell' && '🔔'}
+                            {item.icon_name === 'newspaper' && '📰'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: colors.text, marginBottom: '2px', lineHeight: 1.3 }}>{item.title}</div>
+                            <div style={{ fontSize: '11px', color: colors.textSecondary, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3 }}>
+                              {item.content}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Sync Log Card */}
                 <div style={styles.card}>
                   <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, marginBottom: '16px', letterSpacing: '0.5px' }}>Sync Log</h3>
-                  <div style={{ maxHeight: '560px', overflowY: 'auto' }}>
+                  <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
                     {syncStatus.logs.length === 0 ? (
                       <p style={{ color: colors.textMuted, fontSize: '13px' }}>No synchronization entries.</p>
                     ) : (
@@ -1186,6 +1386,151 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* ================= LEADERBOARD MODAL ================= */}
+      {showLeaderboard && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '640px',
+            padding: '32px',
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+            position: 'relative'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '24px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: colors.text }}>
+                  🏆 CBT Weekly Leaderboard
+                </h2>
+                <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px' }}>
+                  Top performing students on the Fillop CBT network ({leaderboardTimeframe})
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  color: colors.textSecondary,
+                  cursor: 'pointer',
+                  fontWeight: 700
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {leaderboardLoading ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: colors.textSecondary }}>
+                Loading top performers...
+              </div>
+            ) : (
+              <div>
+                {/* #1 Top Performer Spotlight Card */}
+                {leaderboardData.length > 0 && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(29, 48, 144, 0.1))',
+                    border: `2px solid ${colors.warning}`,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    marginBottom: '24px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)'
+                  }}>
+                    <div style={{ fontSize: '28px', marginBottom: '6px' }}>👑</div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: colors.warning, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>
+                      Best Performer of the Week
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: colors.text, marginBottom: '6px' }}>
+                      {leaderboardData[0].email}
+                    </div>
+                    <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                      Stats: <strong style={{ color: colors.success }}>{Number(leaderboardData[0].average_percentage).toFixed(1)}% Avg</strong> • {leaderboardData[0].total_correct} Correct across {leaderboardData[0].total_exams} Exams ({leaderboardData[0].exam_type})
+                    </div>
+                  </div>
+                )}
+
+                {/* Leaderboard List Table */}
+                <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  {leaderboardData.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: colors.textMuted, padding: '20px 0' }}>No synchronized weekly results found.</p>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: `2px solid ${colors.border}`, paddingBottom: '8px' }}>
+                          <th style={{ padding: '10px 8px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>Rank</th>
+                          <th style={{ padding: '10px 8px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>Candidate</th>
+                          <th style={{ padding: '10px 8px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase' }}>Exam</th>
+                          <th style={{ padding: '10px 8px', fontSize: '12px', color: colors.textMuted, textTransform: 'uppercase', textAlign: 'right' }}>Avg Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leaderboardData.map((item, idx) => {
+                          const isTop = idx === 0;
+                          return (
+                            <tr
+                              key={item.email}
+                              style={{
+                                borderBottom: `1px solid ${colors.border}`,
+                                backgroundColor: isTop ? 'rgba(245, 158, 11, 0.04)' : 'transparent'
+                              }}
+                            >
+                              <td style={{ padding: '12px 8px', fontWeight: 700, fontSize: '15px' }}>
+                                {idx === 0 && '🥇'}
+                                {idx === 1 && '🥈'}
+                                {idx === 2 && '🥉'}
+                                {idx > 2 && `${idx + 1}`}
+                              </td>
+                              <td style={{ padding: '12px 8px', fontWeight: isTop ? 700 : 500, fontSize: '13px', color: colors.text }}>
+                                {item.email}
+                              </td>
+                              <td style={{ padding: '12px 8px', fontSize: '12px', color: colors.textSecondary }}>
+                                <span style={{ padding: '2px 8px', backgroundColor: colors.primaryLight, borderRadius: '4px', fontWeight: 600, color: colors.primary }}>
+                                  {item.exam_type}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 8px', fontWeight: 700, fontSize: '14px', color: colors.success, textAlign: 'right' }}>
+                                {Number(item.average_percentage).toFixed(0)}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    style={{ ...styles.btn, ...styles.btnPrimary }}
+                    onClick={() => setShowLeaderboard(false)}
+                  >
+                    Got it!
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

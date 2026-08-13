@@ -82,6 +82,17 @@ async function downloadQuestions() {
     const questions = Array.isArray(data.questions) ? data.questions : [];
     const news = Array.isArray(data.news) ? data.news : [];
 
+    // Fetch existing question IDs from local database before wiping to count brand new ones
+    const localQuestions = await all('SELECT id FROM questions');
+    const existingLocalIds = new Set(localQuestions.map(q => q.id));
+
+    let newQuestionsAddedCount = 0;
+    for (const q of questions) {
+      if (!existingLocalIds.has(q.id)) {
+        newQuestionsAddedCount++;
+      }
+    }
+
     /*
      * Use a real SQLite transaction.
      * sqlite3 does not support better-sqlite3's db.transaction().
@@ -177,7 +188,7 @@ async function downloadQuestions() {
     await logSyncEvent(
       'PULL_QUESTIONS',
       'SUCCESS',
-      `Synchronized ${questions.length} questions, ${subjects.length} subjects, and ${topics.length} topics.`
+      `Synchronized ${questions.length} questions (${newQuestionsAddedCount} new questions added), ${subjects.length} subjects, and ${topics.length} topics.`
     );
 
     return true;
