@@ -5,8 +5,8 @@ if (!function_exists('getDbConnection')) {
         static $conn = null;
         if ($conn === null) {
             $host = getenv('DB_HOST') ?: "localhost";
-            $username = getenv('DB_USER') ?: "filop_admin";
-            $password = getenv('DB_PASS') ?: "victor47009A?";
+            $username = getenv('DB_USER') ?: "root";
+            $password = getenv('DB_PASS') ?: "";
             $dbname = getenv('DB_NAME') ?: "fillop";
            // $port = getenv('DB_PORT') ?: 3306;
 

@@ -7,6 +7,15 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('ACTIVATION');
   const [activation, setActivation] = useState<{ email: string; passcode: string } | null>(null);
 
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
   // Activation credentials
   const [actEmail, setActEmail] = useState('');
   const [actPasscode, setActPasscode] = useState('');
@@ -421,23 +430,23 @@ export default function App() {
 
   // --- Design Tokens ---
   const colors = {
-    primary: '#4f46e5',
-    primaryDark: '#3730a3',
-    primaryLight: '#e0e7ff',
-    sidebar: '#1e1b4b',
-    sidebarHover: '#312e81',
-    bg: '#f5f3ff',
-    surface: '#ffffff',
-    text: '#1e293b',
-    textSecondary: '#64748b',
-    textMuted: '#94a3b8',
-    border: '#e2e8f0',
+    primary: 'rgb(29, 48, 144)',
+    primaryDark: 'rgb(18, 30, 95)',
+    primaryLight: isDarkMode ? 'rgba(29, 48, 144, 0.3)' : 'rgba(29, 48, 144, 0.1)',
+    sidebar: isDarkMode ? '#1e1e1e' : 'rgb(29, 48, 144)',
+    sidebarHover: isDarkMode ? '#2d2d2d' : 'rgba(255, 255, 255, 0.1)',
+    bg: isDarkMode ? '#121212' : 'rgb(244, 243, 246)',
+    surface: isDarkMode ? '#1e1e1e' : '#ffffff',
+    text: isDarkMode ? '#f4f3f6' : '#1e293b',
+    textSecondary: isDarkMode ? '#a1a0a5' : '#64748b',
+    textMuted: isDarkMode ? '#717075' : '#94a3b8',
+    border: isDarkMode ? '#2d2d2d' : '#e2e8f0',
     success: '#10b981',
-    successLight: '#d1fae5',
+    successLight: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5',
     danger: '#ef4444',
-    dangerLight: '#fee2e2',
+    dangerLight: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
     warning: '#f59e0b',
-    warningLight: '#fef3c7',
+    warningLight: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
   };
 
   const styles: Record<string, React.CSSProperties> = {
@@ -544,7 +553,7 @@ export default function App() {
       {activation && screen !== 'ACTIVATION' && (
         <aside style={styles.sidebar}>
           <div style={styles.sidebarBrand}>
-            <div style={styles.sidebarBrandIcon}>F</div>
+            <img src="/icon.png" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid white' }} alt="App Icon" />
             <span style={styles.sidebarBrandText}>Fillop CBT</span>
           </div>
 
@@ -591,6 +600,13 @@ export default function App() {
           </div>
 
           <div style={styles.headerRight}>
+            <button
+              style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }}
+              onClick={() => setIsDarkMode(!isDarkMode)}
+            >
+              {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
+
             {activation && screen === 'DASHBOARD' && (
               <button style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }} onClick={handleLogout}>
                 Log Out
@@ -624,9 +640,7 @@ export default function App() {
             <div style={{ maxWidth: '440px', margin: '80px auto' }}>
               <div style={styles.card}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                  <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#fff', fontSize: '24px', fontWeight: 800 }}>
-                    F
-                  </div>
+                  <img src="/icon.png" style={{ width: '80px', height: '80px', borderRadius: '50%', margin: '0 auto 20px', display: 'block', border: `3px solid ${colors.primary}` }} alt="App Icon" />
                   <h1 style={{ fontSize: '24px', fontWeight: 800, color: colors.text, marginBottom: '8px' }}>Terminal Activation</h1>
                   <p style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: 1.5 }}>
                     Enter your registration email and 12-digit subscription passcode to activate Fillop CBT Guru offline.

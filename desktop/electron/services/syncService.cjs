@@ -80,6 +80,7 @@ async function downloadQuestions() {
     const subjects = Array.isArray(data.subjects) ? data.subjects : [];
     const topics = Array.isArray(data.topics) ? data.topics : [];
     const questions = Array.isArray(data.questions) ? data.questions : [];
+    const news = Array.isArray(data.news) ? data.news : [];
 
     /*
      * Use a real SQLite transaction.
@@ -93,6 +94,7 @@ async function downloadQuestions() {
       await run('DELETE FROM questions');
       await run('DELETE FROM topics');
       await run('DELETE FROM subjects');
+      await run('DELETE FROM news');
 
       // Insert subjects.
       for (const sub of subjects) {
@@ -109,6 +111,15 @@ async function downloadQuestions() {
           `INSERT INTO topics (id, subject_id, name)
            VALUES (?, ?, ?)`,
           [top.id, top.subject_id, top.name]
+        );
+      }
+
+      // Insert news.
+      for (const item of news) {
+        await run(
+          `INSERT INTO news (id, title, content, icon_name, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [item.id, item.title, item.content, item.icon_name, item.created_at]
         );
       }
 
