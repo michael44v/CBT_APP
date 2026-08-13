@@ -28,17 +28,33 @@ foreach ($data['results'] as $result) {
     $total_questions = intval($result['total_questions'] ?? 0);
     $percentage = floatval($result['percentage'] ?? 0.0);
     $details = trim($result['details'] ?? '{}');
-    $submitted_at = trim($result['submitted_at'] ?? date('Y-m-d H:i:s'));
+
+    // Safely parse and convert potential ISO 8601 or other timestamp strings to MySQL compatible format
+    $raw_submitted_at = trim($result['submitted_at'] ?? '');
+    $parsed_time = !empty($raw_submitted_at) ? strtotime($raw_submitted_at) : false;
+    if ($parsed_time === false) {
+        $submitted_at = date('Y-m-d H:i:s');
+    } else {
+        $submitted_at = date('Y-m-d H:i:s', $parsed_time);
+    }
 
     if (empty($email)) {
         continue;
     }
 
-    // Insert sync record
+    // Insert sync record with safe execution and error handling
     $stmt = $db->prepare("INSERT INTO results (email, exam_type, score, total_questions, percentage, details, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssiidss", $email, $exam_type, $score, $total_questions, $percentage, $details, $submitted_at);
-    $stmt->execute();
-    $synced_count++;
+    if ($stmt) {
+        $stmt->bind_param("ssiidss", $email, $exam_type, $score, $total_questions, $percentage, $details, $submitted_at);
+        if ($stmt->execute()) {
+            $synced_count++;
+        } else {
+            error_log("Failed to execute sync statement for email: $email, error: " . $stmt->error);
+        }
+        $stmt->close();
+    } else {
+        error_log("Failed to prepare sync statement: " . $db->error);
+    }
 }
 
 echo json_encode([
