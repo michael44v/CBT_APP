@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus } from './global';
+import { Sun, Moon } from 'lucide-react';
 
 type Screen = 'ACTIVATION' | 'DASHBOARD' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
@@ -696,13 +697,46 @@ export default function App() {
           </div>
 
           <div style={styles.headerRight}>
-            <button
-              style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }}
-              onClick={() => setIsDarkMode(!isDarkMode)}
-            >
-              {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-            </button>
 
+
+   <button
+  type="button"
+  onClick={() => setIsDarkMode(!isDarkMode)}
+  aria-label="Toggle dark mode"
+  style={{
+    width: '60px',
+    height: '32px',
+    border: 'none',
+    borderRadius: '999px',
+    padding: '3px',
+    cursor: 'pointer',
+    background: isDarkMode ? '#374151' : '#e5e7eb',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: isDarkMode ? 'flex-end' : 'flex-start',
+    transition: 'all 0.25s ease',
+  }}
+>
+  <span
+    style={{
+      width: '26px',
+      height: '26px',
+      borderRadius: '50%',
+      background: isDarkMode ? '#111827' : '#ffffff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+      transition: 'all 0.25s ease',
+    }}
+  >
+    {isDarkMode ? (
+      <Moon size={15} strokeWidth={2.2} color="#fff" />
+    ) : (
+      <Sun size={15} strokeWidth={2.2} color="#374151" />
+    )}
+  </span>
+</button>
             {activation && screen === 'DASHBOARD' && (
               <button style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }} onClick={handleLogout}>
                 Log Out
@@ -855,7 +889,7 @@ export default function App() {
                       onClick={handleOpenLeaderboard}
                       style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700 }}
                     >
-                      🏆 Weekly Leaderboard
+                       Weekly Leaderboard
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', backgroundColor: colors.primaryLight, borderRadius: '12px' }}>
                       <span style={{ fontSize: '13px', fontWeight: 700, color: colors.primary }}>OFFLINE TERMINAL</span>
@@ -1417,7 +1451,7 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
                 <h2 style={{ fontSize: '24px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: colors.text }}>
-                  🏆 CBT Weekly Leaderboard
+                   CBT Weekly Leaderboard
                 </h2>
                 <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px' }}>
                   Top performing students on the Fillop CBT network ({leaderboardTimeframe})
