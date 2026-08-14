@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="necoBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#006633"/>
+      <stop offset="100%" stop-color="#009944"/>
+    </linearGradient>
+    <linearGradient id="goldGradNeco" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#E6B800"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="92" fill="url(#necoBg)" stroke="url(#goldGradNeco)" stroke-width="6"/>
+  <circle cx="100" cy="100" r="78" fill="none" stroke="#ffffff" stroke-width="3"/>
+
+  <!-- Torch / Map emblem -->
+  <path d="M 92,120 L 108,120 L 104,75 L 96,75 Z" fill="url(#goldGradNeco)"/>
+  <!-- Flame -->
+  <path d="M 100,45 C 112,58 115,68 100,75 C 85,68 88,58 100,45 Z" fill="#FF3300"/>
+  <path d="M 100,52 C 106,60 108,66 100,71 C 92,66 94,60 100,52 Z" fill="#FFCC00"/>
+
+  <!-- Text NECO -->
+  <text x="100" y="152" font-family="'Arial Black', sans-serif" font-weight="900" font-size="28" fill="#ffffff" text-anchor="middle" letter-spacing="2">NECO</text>
+  <text x="100" y="170" font-family="Arial, sans-serif" font-weight="700" font-size="8" fill="#FFD700" text-anchor="middle">NATIONAL EXAMINATIONS COUNCIL</text>
+</svg>

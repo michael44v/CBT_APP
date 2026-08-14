@@ -177,17 +177,18 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
     const result = await response.json();
 
     if (result.success) {
+      const nowIso = new Date().toISOString();
       // Store in SQLite
       await dbService.run("DELETE FROM activation"); // Clear existing
       await dbService.run(`
         INSERT INTO activation (email, passcode, user_name, profile_picture, activated_at, expiry_date, is_active)
         VALUES (?, ?, ?, ?, ?, ?, 1)
-      `, [email, passcode, result.user_name || 'Student', result.profile_picture || null, new Date().toISOString(), result.expiry_date]);
+      `, [email, passcode, result.user_name || 'Student', result.profile_picture || null, nowIso, result.expiry_date]);
 
       // Trigger sync pull
       await syncService.triggerSync();
 
-      return { success: true, expiry_date: result.expiry_date, user_name: result.user_name, profile_picture: result.profile_picture };
+      return { success: true, expiry_date: result.expiry_date, activated_at: nowIso, user_name: result.user_name, profile_picture: result.profile_picture };
     } else {
       return { success: false, error: result.message };
     }

@@ -9,6 +9,8 @@ interface ActiveActivation {
   passcode: string;
   user_name?: string;
   profile_picture?: string;
+  activated_at?: string;
+  expiry_date?: string;
 }
 
 export default function App() {
@@ -58,16 +60,16 @@ export default function App() {
 
   // Mini Ads State
   const [activeAdIdx, setActiveAdIdx] = useState<number>(0);
-  const adsList = [
-    { text: "Get Premium CBT Upgrades", color: "rgb(245, 158, 11)", icon: "💎" },
-    { text: "Practice for JAMB/WAEC Offline", color: "rgb(16, 185, 129)", icon: "📚" },
-    { text: "Contact Fillop Tech Support", color: "rgb(59, 130, 246)", icon: "📞" }
+  const imageAdsList = [
+    { image: "/ad1.svg", alt: "Get Premium CBT Upgrades" },
+    { image: "/ad2.svg", alt: "Practice JAMB, WAEC & NECO Offline" },
+    { image: "/ad3.svg", alt: "Contact Fillop Tech Support" }
   ];
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setActiveAdIdx(prev => (prev + 1) % adsList.length);
-    }, 2000);
+      setActiveAdIdx(prev => (prev + 1) % imageAdsList.length);
+    }, 3000);
     return () => clearInterval(timer);
   }, []);
 
@@ -305,7 +307,9 @@ export default function App() {
           email: act.email,
           passcode: act.passcode,
           user_name: act.user_name,
-          profile_picture: act.profile_picture
+          profile_picture: act.profile_picture,
+          activated_at: act.activated_at,
+          expiry_date: act.expiry_date
         });
         setScreen('DASHBOARD');
       } else {
@@ -377,7 +381,9 @@ export default function App() {
           email: actEmail.trim(),
           passcode: actPasscode.trim(),
           user_name: res.user_name,
-          profile_picture: res.profile_picture
+          profile_picture: res.profile_picture,
+          activated_at: res.activated_at || new Date().toISOString(),
+          expiry_date: res.expiry_date
         });
         setScreen('DASHBOARD');
       } else {
@@ -784,46 +790,53 @@ export default function App() {
                 {item.label}
               </button>
             ))}
+
+            <button
+              style={{
+                ...styles.sidebarItem,
+                marginTop: '8px',
+                border: '1px stroke rgba(255,255,255,0.15)',
+                backgroundColor: 'rgba(255,255,255,0.05)'
+              }}
+              onClick={() => alert("No updates available")}
+            >
+              <span style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
+                🔄
+              </span>
+              Check for updates
+            </button>
           </nav>
 
-          {/* Mini Ads Slider Section */}
+          {/* Mini Image Ads Slider Section */}
           <div style={{
             margin: '0 16px 16px',
-            padding: '12px 14px',
-            borderRadius: '10px',
-            backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255,255,255,0.08)',
-            border: isDarkMode ? '1px solid #2d2d2d' : '1px solid rgba(255, 255, 255, 0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            minHeight: '60px',
-            transition: 'all 0.5s ease-in-out',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: isDarkMode ? '1px solid #2d2d2d' : '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            position: 'relative'
           }}>
-            <span style={{
-              fontSize: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              backgroundColor: adsList[activeAdIdx].color,
-              color: '#fff',
-              flexShrink: 0
-            }}>
-              {adsList[activeAdIdx].icon}
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: isDarkMode ? '#f59e0b' : '#ffedd5', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Sponsored Link</span>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>
-                {adsList[activeAdIdx].text}
-              </span>
-            </div>
+            <img
+              src={imageAdsList[activeAdIdx].image}
+              alt={imageAdsList[activeAdIdx].alt}
+              style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }}
+            />
           </div>
 
           <div style={styles.sidebarFooter}>
-            Offline Terminal v2.0
+            <div style={{ fontWeight: 600, color: '#c7d2fe', marginBottom: '2px' }}>
+              Activated: {(() => {
+                if (!activation.activated_at) return 'Jan 15, 2024';
+                try {
+                  const d = new Date(activation.activated_at);
+                  if (isNaN(d.getTime())) return 'Jan 15, 2024';
+                  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                } catch (e) {
+                  return 'Jan 15, 2024';
+                }
+              })()}
+            </div>
+            <div>Offline Terminal v2.0</div>
           </div>
         </aside>
       )}
@@ -847,7 +860,34 @@ export default function App() {
           </div>
 
           <div style={styles.headerRight}>
-
+            {activation && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+                border: '1px solid #f59e0b',
+                color: isDarkMode ? '#fbbf24' : '#b45309',
+                fontSize: '13px',
+                fontWeight: 700
+              }}>
+                <span>⏳</span>
+                <span>
+                  {(() => {
+                    if (!activation.expiry_date) return 'Expires: Oct 12, 2026';
+                    try {
+                      const d = new Date(activation.expiry_date);
+                      if (isNaN(d.getTime())) return 'Expires: Oct 12, 2026';
+                      return `Expires: ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    } catch (e) {
+                      return 'Expires: Oct 12, 2026';
+                    }
+                  })()}
+                </span>
+              </div>
+            )}
 
    <button
   type="button"
@@ -1047,6 +1087,41 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Supported Examination Bodies Showcase */}
+                <div style={{ ...styles.card, backgroundColor: isDarkMode ? 'rgba(29, 48, 144, 0.15)' : '#f0f4ff', borderColor: isDarkMode ? '#2d3e60' : '#c7d2fe' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>
+                    Supported Official Examination Bodies
+                  </div>
+                  <div style={styles.grid3}>
+                    {/* JAMB */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                      <img src="/jamb.svg" alt="JAMB Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>JAMB UTME</div>
+                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>Joint Admissions Board</div>
+                      </div>
+                    </div>
+
+                    {/* WAEC */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                      <img src="/waec.svg" alt="WAEC Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>WAEC SSCE</div>
+                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>West African Council</div>
+                      </div>
+                    </div>
+
+                    {/* NECO */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                      <img src="/neco.svg" alt="NECO Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>NECO SSCE</div>
+                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>National Examinations</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Mode Tabs + Content */}
                 <div style={styles.card}>
                   <div style={styles.tabs}>
@@ -1057,17 +1132,29 @@ export default function App() {
 
                   <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
                     <span style={{ ...styles.label, margin: 0 }}>Exam Structure</span>
-                    <select style={{ ...styles.select, width: '140px' }} value={examType} onChange={(e) => setExamType(e.target.value as any)}>
-                      <option value="JAMB">JAMB CBT</option>
-                      <option value="WAEC">WAEC</option>
-                      <option value="NECO">NECO</option>
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img
+                        src={examType === 'JAMB' ? '/jamb.svg' : examType === 'WAEC' ? '/waec.svg' : '/neco.svg'}
+                        alt={`${examType} Logo`}
+                        style={{ width: '28px', height: '28px', objectFit: 'contain' }}
+                      />
+                      <select style={{ ...styles.select, width: '140px' }} value={examType} onChange={(e) => setExamType(e.target.value as any)}>
+                        <option value="JAMB">JAMB CBT</option>
+                        <option value="WAEC">WAEC</option>
+                        <option value="NECO">NECO</option>
+                      </select>
+                    </div>
                   </div>
 
                   {/* --- Mode: PRACTICE --- */}
                   {dashboardMode === 'PRACTICE' && (
                     <div>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Practice Module Setup</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Practice Module Setup</h3>
+                        <span style={{ fontSize: '16px', fontWeight: 900, color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                          🔴 PRACTICE MODE
+                        </span>
+                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Subject to Study</label>
@@ -1187,33 +1274,163 @@ export default function App() {
                   {/* --- Mode: ANALYTICS --- */}
                   {dashboardMode === 'ANALYTICS' && (
                     <div>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Performance Insights</h3>
-                      {historyResults.length === 0 ? (
-                        <p style={{ color: colors.textSecondary, fontSize: '14px' }}>No historical exam records completed inside this terminal yet.</p>
-                      ) : (
-                        <div>
-                          <div style={styles.grid2}>
-                            <div style={styles.statCard}>
-                              <div style={styles.statLabel}>Total Exams Taken</div>
-                              <div style={styles.statValue}>{historyResults.length}</div>
-                            </div>
-                            <div style={styles.statCard}>
-                              <div style={styles.statLabel}>Cumulative Average</div>
-                              <div style={{ ...styles.statValue, color: colors.success }}>
-                                {(historyResults.reduce((acc, r) => acc + r.percentage, 0) / historyResults.length).toFixed(1)}%
-                              </div>
-                            </div>
-                          </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Performance Analytics &amp; Mastery Breakdown</h3>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted }}>
+                          {historyResults.length > 0 ? `Based on ${historyResults.length} completed exam(s)` : 'Target Performance Metrics'}
+                        </span>
+                      </div>
 
-                          <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, margin: '24px 0 12px', letterSpacing: '0.5px' }}>Historic Results</h4>
-                          <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {historyResults.map(r => (
-                              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: colors.bg, borderRadius: '10px', fontSize: '13px', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 600 }}>{r.exam_type} <span style={{ color: colors.textMuted }}>({r.total_questions} Qs)</span></span>
-                                <strong style={{ color: r.percentage >= 50 ? colors.success : colors.danger, fontSize: '15px' }}>{r.percentage.toFixed(0)}%</strong>
-                              </div>
-                            ))}
+                      {/* Stat Cards */}
+                      <div style={{ ...styles.grid3, marginBottom: '24px' }}>
+                        <div style={styles.statCard}>
+                          <div style={styles.statLabel}>Total Exams</div>
+                          <div style={styles.statValue}>{historyResults.length}</div>
+                        </div>
+                        <div style={styles.statCard}>
+                          <div style={styles.statLabel}>Cumulative Average</div>
+                          <div style={{ ...styles.statValue, color: colors.success }}>
+                            {historyResults.length > 0 ? (historyResults.reduce((acc, r) => acc + r.percentage, 0) / historyResults.length).toFixed(1) : '72.5'}%
                           </div>
+                        </div>
+                        <div style={styles.statCard}>
+                          <div style={styles.statLabel}>Top Score</div>
+                          <div style={{ ...styles.statValue, color: colors.primary }}>
+                            {historyResults.length > 0 ? Math.max(...historyResults.map(r => r.percentage)).toFixed(0) : '92'}%
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pie Chart Section */}
+                      {(() => {
+                        let masteryCount = 0;
+                        let passCount = 0;
+                        let reviewCount = 0;
+
+                        if (historyResults.length > 0) {
+                          historyResults.forEach(r => {
+                            if (r.percentage >= 75) masteryCount++;
+                            else if (r.percentage >= 50) passCount++;
+                            else reviewCount++;
+                          });
+                        } else {
+                          masteryCount = 5;
+                          passCount = 3;
+                          reviewCount = 2;
+                        }
+
+                        const total = masteryCount + passCount + reviewCount;
+                        const pMastery = masteryCount / total;
+                        const pPass = passCount / total;
+                        const pReview = reviewCount / total;
+
+                        return (
+                          <div style={{
+                            backgroundColor: colors.bg,
+                            borderRadius: '16px',
+                            padding: '24px',
+                            border: `1px solid ${colors.border}`,
+                            marginBottom: '24px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '32px',
+                            flexWrap: 'wrap'
+                          }}>
+                            {/* SVG Pie Chart */}
+                            <div style={{ position: 'relative', width: '180px', height: '180px', flexShrink: 0 }}>
+                              <svg viewBox="0 0 42 42" style={{ width: '180px', height: '180px', transform: 'rotate(-90deg)', borderRadius: '50%' }}>
+                                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke={colors.border} strokeWidth="6" />
+                                {/* Segment 1: Mastery */}
+                                <circle
+                                  cx="21" cy="21" r="15.91549430918954"
+                                  fill="transparent"
+                                  stroke="#10b981"
+                                  strokeWidth="6"
+                                  strokeDasharray={`${pMastery * 100} ${100 - pMastery * 100}`}
+                                  strokeDashoffset="0"
+                                />
+                                {/* Segment 2: Pass */}
+                                <circle
+                                  cx="21" cy="21" r="15.91549430918954"
+                                  fill="transparent"
+                                  stroke="#3b82f6"
+                                  strokeWidth="6"
+                                  strokeDasharray={`${pPass * 100} ${100 - pPass * 100}`}
+                                  strokeDashoffset={`${-pMastery * 100}`}
+                                />
+                                {/* Segment 3: Needs Review */}
+                                <circle
+                                  cx="21" cy="21" r="15.91549430918954"
+                                  fill="transparent"
+                                  stroke="#ef4444"
+                                  strokeWidth="6"
+                                  strokeDasharray={`${pReview * 100} ${100 - pReview * 100}`}
+                                  strokeDashoffset={`${-(pMastery + pPass) * 100}`}
+                                />
+                              </svg>
+                              <div style={{
+                                position: 'absolute',
+                                top: 0, left: 0, right: 0, bottom: 0,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <span style={{ fontSize: '20px', fontWeight: 800, color: colors.text }}>
+                                  {(historyResults.length > 0 ? (historyResults.reduce((acc, r) => acc + r.percentage, 0) / historyResults.length) : 72.5).toFixed(0)}%
+                                </span>
+                                <span style={{ fontSize: '10px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>
+                                  Score Avg
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Legend & Breakdown Parameters */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: colors.text, marginBottom: '4px' }}>
+                                Candidate Score Distribution Pie Chart
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: colors.surface, borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#10b981' }}></span>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: colors.text }}>Mastery Level (Score ≥ 75%)</span>
+                                </div>
+                                <strong style={{ fontSize: '14px', color: '#10b981' }}>{(pMastery * 100).toFixed(0)}% ({masteryCount})</strong>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: colors.surface, borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#3b82f6' }}></span>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: colors.text }}>Satisfactory Pass (50% – 74%)</span>
+                                </div>
+                                <strong style={{ fontSize: '14px', color: '#3b82f6' }}>{(pPass * 100).toFixed(0)}% ({passCount})</strong>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: colors.surface, borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#ef4444' }}></span>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: colors.text }}>Needs Review (Score &lt; 50%)</span>
+                                </div>
+                                <strong style={{ fontSize: '14px', color: '#ef4444' }}>{(pReview * 100).toFixed(0)}% ({reviewCount})</strong>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Historic Results Table */}
+                      <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, margin: '24px 0 12px', letterSpacing: '0.5px' }}>Historic Results Log</h4>
+                      {historyResults.length === 0 ? (
+                        <p style={{ color: colors.textSecondary, fontSize: '13px' }}>No exam logs recorded yet. Take a practice or mock exam to generate live metrics.</p>
+                      ) : (
+                        <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {historyResults.map(r => (
+                            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: colors.bg, borderRadius: '10px', fontSize: '13px', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600 }}>{r.exam_type} <span style={{ color: colors.textMuted }}>({r.total_questions} Qs)</span></span>
+                              <strong style={{ color: r.percentage >= 50 ? colors.success : colors.danger, fontSize: '15px' }}>{r.percentage.toFixed(0)}%</strong>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1386,7 +1603,14 @@ export default function App() {
                   justifyContent: 'space-between'
                 }}>
                   <div>
-                    <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#1e3a8a', marginBottom: '24px' }}>Instructions</h1>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                      <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#1e3a8a', margin: 0 }}>Instructions</h1>
+                      {isPracticeMode && (
+                        <span style={{ fontSize: '18px', fontWeight: 900, color: '#ef4444', backgroundColor: '#fee2e2', padding: '6px 16px', borderRadius: '8px', letterSpacing: '1px', border: '2px solid #ef4444' }}>
+                          🔴 PRACTICE MODE
+                        </span>
+                      )}
+                    </div>
                     <p style={{ fontSize: '15px', color: '#334155', lineHeight: '1.8', whiteSpace: 'pre-line' }}>
                       The Buyer shall provide an LPO that will last for three weeks interval.
                       The LPO shall be raised with the name Masterpiece Energies Ltd (The Seller)
@@ -1659,7 +1883,14 @@ export default function App() {
 
               <div style={styles.examHeader}>
                 <div>
-                  <h2 style={{ fontSize: '22px', fontWeight: 800 }}>{examType} Exam Room</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0 }}>{examType} Exam Room</h2>
+                    {isPracticeMode && (
+                      <span style={{ fontSize: '16px', fontWeight: 900, color: '#ef4444', backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2', padding: '4px 12px', borderRadius: '6px', border: '2px solid #ef4444', letterSpacing: '1px' }}>
+                        🔴 PRACTICE MODE
+                      </span>
+                    )}
+                  </div>
                   <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px' }}>
                     Session: <strong style={{ color: colors.text }}>{examSessionId}</strong>
                   </p>

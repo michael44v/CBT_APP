@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160" width="300" height="160">
+  <defs>
+    <linearGradient id="ad2Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="160" fill="url(#ad2Grad)"/>
+  <circle cx="280" cy="120" r="60" fill="#ffffff" opacity="0.1"/>
+
+  <rect x="16" y="16" width="110" height="22" rx="11" fill="#1e293b"/>
+  <text x="71" y="31" font-family="sans-serif" font-weight="800" font-size="10" fill="#10b981" text-anchor="middle">OFFLINE PRACTICE</text>
+
+  <text x="16" y="68" font-family="sans-serif" font-weight="900" font-size="18" fill="#ffffff">NECO &amp; JAMB CBT</text>
+  <text x="16" y="88" font-family="sans-serif" font-weight="700" font-size="13" fill="#d1fae5">100% Works Without Internet</text>
+
+  <rect x="16" y="110" width="120" height="32" rx="8" fill="#ffffff"/>
+  <text x="76" y="131" font-family="sans-serif" font-weight="800" font-size="12" fill="#059669" text-anchor="middle">Start Practice →</text>
+
+  <text x="230" y="110" font-size="50">📚</text>
+</svg>
