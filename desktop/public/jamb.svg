@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="jambBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#005826"/>
+      <stop offset="100%" stop-color="#008338"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE169"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#jambBg)" stroke="url(#goldGrad)" stroke-width="6"/>
+  <!-- Inner Ring -->
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="4,3"/>
+
+  <!-- Emblem Shield -->
+  <path d="M 100,35 L 145,55 C 145,115 100,145 100,145 C 100,145 55,115 55,55 Z" fill="url(#goldGrad)" stroke="#ffffff" stroke-width="2"/>
+  <path d="M 100,42 L 138,59 C 138,110 100,136 100,136 C 100,136 62,110 62,59 Z" fill="#005826"/>
+
+  <!-- Book / Eagle Icon in Shield -->
+  <path d="M 80,85 Q 100,75 120,85 L 120,110 Q 100,100 80,110 Z" fill="url(#goldGrad)"/>
+  <line x1="100" y1="78" x2="100" y2="105" stroke="#005826" stroke-width="2"/>
+  <polygon points="100,52 108,68 92,68" fill="url(#goldGrad)"/>
+
+  <!-- Text Arc JAMB -->
+  <text x="100" y="172" font-family="'Arial Black', sans-serif" font-weight="900" font-size="28" fill="#ffffff" text-anchor="middle" letter-spacing="3">JAMB</text>
+  <text x="100" y="188" font-family="Arial, sans-serif" font-weight="700" font-size="9" fill="#FFE169" text-anchor="middle">SERVICE &amp; INTEGRITY</text>
+</svg>
