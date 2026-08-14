@@ -102,6 +102,8 @@ async function createTablesAndSeed() {
       CREATE TABLE IF NOT EXISTS activation (
         email TEXT NOT NULL,
         passcode TEXT NOT NULL PRIMARY KEY,
+        user_name TEXT,
+        profile_picture TEXT,
         activated_at TEXT NOT NULL,
         expiry_date TEXT,
         is_active INTEGER DEFAULT 1
@@ -239,7 +241,19 @@ async function seedDatabaseIfEmpty() {
       { id: 27, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'easy', question_text: "State Hooke's law relationship", option_a: 'Force is proportional to extension', option_b: 'Force is proportional to velocity', option_c: 'Energy is conserved', option_d: 'Pressure is constant', correct_answer: 'A', topic_explanation: 'Elasticity', correct_explanation: "Hooke's law: F = ke", wrong_explanations: 'Other options describe other laws.' },
       { id: 28, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'medium', question_text: 'Calculate resistance if voltage is 12V and current is 3A', option_a: '4 Ohms', option_b: '36 Ohms', option_c: '15 Ohms', option_d: '9 Ohms', correct_answer: 'A', topic_explanation: "Ohm's law", correct_explanation: 'R = V/I = 12/3 = 4 Ohms', wrong_explanations: 'Arithmetic verification.' },
       { id: 29, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'hard', question_text: 'What is the escape velocity of a projectile from Earth surface?', option_a: '11.2 km/s', option_b: '11.2 m/s', option_c: '9.8 km/s', option_d: '42.1 km/s', correct_answer: 'A', topic_explanation: 'Gravitational fields', correct_explanation: 'Standard physical value for earth.', wrong_explanations: 'Other units or figures are incorrect.' },
-      { id: 30, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'easy', question_text: 'Which instrument is used to measure temperature?', option_a: 'Thermometer', option_b: 'Barometer', option_c: 'Anemometer', option_d: 'Hygrometer', correct_answer: 'A', topic_explanation: 'Heat and temperature', correct_explanation: 'Thermometers measure heat degrees.', wrong_explanations: 'Barometers measure pressure.' }
+      { id: 30, exam_type: 'JAMB', subject_id: 3, year: 2023, topic_id: 5, difficulty: 'easy', question_text: 'Which instrument is used to measure temperature?', option_a: 'Thermometer', option_b: 'Barometer', option_c: 'Anemometer', option_d: 'Hygrometer', correct_answer: 'A', topic_explanation: 'Heat and temperature', correct_explanation: 'Thermometers measure heat degrees.', wrong_explanations: 'Barometers measure pressure.' },
+
+      // Chemistry (Subject 4)
+      { id: 31, exam_type: 'JAMB', subject_id: 4, year: 2021, topic_id: 6, difficulty: 'easy', question_text: 'What is the chemical formula of ozone?', option_a: 'O3', option_b: 'O2', option_c: 'H2O', option_d: 'CO2', correct_answer: 'A', topic_explanation: 'Oxygen group', correct_explanation: 'Ozone is a triatomic molecule consisting of three oxygen atoms.', wrong_explanations: 'O2 is molecular oxygen.' },
+      { id: 32, exam_type: 'JAMB', subject_id: 4, year: 2021, topic_id: 6, difficulty: 'medium', question_text: 'Which of the following is a noble gas?', option_a: 'Helium', option_b: 'Oxygen', option_c: 'Nitrogen', option_d: 'Chlorine', correct_answer: 'A', topic_explanation: 'Periodic table groups', correct_explanation: 'Helium belongs to Group 18 (Noble gases).', wrong_explanations: 'Others are highly reactive nonmetals.' },
+      { id: 33, exam_type: 'JAMB', subject_id: 4, year: 2021, topic_id: 6, difficulty: 'easy', question_text: 'What is the pH of pure water at 25 degrees Celsius?', option_a: '7', option_b: '1', option_c: '14', option_d: '4', correct_answer: 'A', topic_explanation: 'Acids and bases', correct_explanation: 'Pure water is neutral with pH of 7.', wrong_explanations: '1 is highly acidic, 14 is highly basic.' },
+      { id: 34, exam_type: 'JAMB', subject_id: 4, year: 2022, topic_id: 6, difficulty: 'easy', question_text: 'What is the oxidation state of oxygen in most oxides?', option_a: '-2', option_b: '-1', option_c: '+1', option_d: '0', correct_answer: 'A', topic_explanation: 'Oxidation numbers', correct_explanation: 'Oxygen typically gains 2 electrons to form -2 oxidation state.', wrong_explanations: '-1 is for peroxides.' },
+      { id: 35, exam_type: 'JAMB', subject_id: 4, year: 2022, topic_id: 6, difficulty: 'medium', question_text: 'Identify the gas that turns limewater milky.', option_a: 'Carbon dioxide', option_b: 'Oxygen', option_c: 'Hydrogen', option_d: 'Ammonia', correct_answer: 'A', topic_explanation: 'Gas testing', correct_explanation: 'CO2 reacts with Ca(OH)2 to precipitate white CaCO3.', wrong_explanations: 'Hydrogen burns with a pop sound.' },
+      { id: 36, exam_type: 'JAMB', subject_id: 4, year: 2022, topic_id: 6, difficulty: 'hard', question_text: 'How many moles of hydrogen atoms are in 1 mole of methane?', option_a: '4', option_b: '1', option_c: '2', option_d: '6', correct_answer: 'A', topic_explanation: 'Mole concept', correct_explanation: 'Methane (CH4) has 4 hydrogen atoms per molecule.', wrong_explanations: 'CH4 has 1 carbon atom.' },
+      { id: 37, exam_type: 'JAMB', subject_id: 4, year: 2023, topic_id: 6, difficulty: 'easy', question_text: 'The primary constituent of natural gas is ___', option_a: 'Methane', option_b: 'Ethane', option_c: 'Propane', option_d: 'Butane', correct_answer: 'A', topic_explanation: 'Hydrocarbons', correct_explanation: 'Natural gas is mainly methane (about 70-90%).', wrong_explanations: 'Butane is liquified petroleum gas.' },
+      { id: 38, exam_type: 'JAMB', subject_id: 4, year: 2023, topic_id: 6, difficulty: 'medium', question_text: 'Which metal is extracted from bauxite?', option_a: 'Aluminum', option_b: 'Iron', option_c: 'Copper', option_d: 'Zinc', correct_answer: 'A', topic_explanation: 'Extraction of metals', correct_explanation: 'Bauxite is the primary ore of aluminum.', wrong_explanations: 'Hematite is iron ore.' },
+      { id: 39, exam_type: 'JAMB', subject_id: 4, year: 2023, topic_id: 6, difficulty: 'hard', question_text: 'Which of the following is an isotope of hydrogen?', option_a: 'Deuterium', option_b: 'Helium', option_c: 'Lithium', option_d: 'Beryllium', correct_answer: 'A', topic_explanation: 'Isotopy', correct_explanation: 'Deuterium is hydrogen-2.', wrong_explanations: 'Others are completely different elements.' },
+      { id: 40, exam_type: 'JAMB', subject_id: 4, year: 2023, topic_id: 6, difficulty: 'easy', question_text: 'What is the lightest element in the periodic table?', option_a: 'Hydrogen', option_b: 'Helium', option_c: 'Lithium', option_d: 'Oxygen', correct_answer: 'A', topic_explanation: 'Element properties', correct_explanation: 'Hydrogen has an atomic number of 1.', wrong_explanations: 'Helium has atomic number 2.' }
   ];
 
   await exec('BEGIN TRANSACTION');
@@ -260,12 +274,18 @@ async function seedDatabaseIfEmpty() {
       VALUES (?, ?, ?)
     `, [3, 'Physics', 'JAMB']);
 
+    await run(`
+      INSERT INTO subjects (id, name, exam_type)
+      VALUES (?, ?, ?)
+    `, [4, 'Chemistry', 'JAMB']);
+
     const topics = [
       [1, 1, 'Algebra'],
       [2, 1, 'Geometry'],
       [3, 2, 'Comprehension'],
       [4, 2, 'Synonyms'],
-      [5, 3, 'Mechanics']
+      [5, 3, 'Mechanics'],
+      [6, 4, 'Atomic Structure']
     ];
 
     for (const topic of topics) {

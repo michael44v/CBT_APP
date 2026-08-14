@@ -41,6 +41,16 @@ if (!$code_row) {
     exit();
 }
 
+// Fetch user profile name and profile picture from users table matching email
+$user_stmt = $db->prepare("SELECT name, profile_picture FROM users WHERE email = ?");
+$user_stmt->bind_param("s", $email);
+$user_stmt->execute();
+$user_res = $user_stmt->get_result();
+$user_row = $user_res->fetch_assoc();
+
+$user_name = $user_row ? $user_row['name'] : 'Student';
+$profile_picture = $user_row ? $user_row['profile_picture'] : null;
+
 if ($code_row['status'] === 'suspended') {
     echo json_encode(["success" => false, "message" => "This passcode has been suspended. Please contact Fillop Tech support."]);
     exit();
@@ -68,7 +78,9 @@ if ($device_row) {
     echo json_encode([
         "success" => true,
         "message" => "Device re-authenticated successfully.",
-        "expiry_date" => $expiry_date
+        "expiry_date" => $expiry_date,
+        "user_name" => $user_name,
+        "profile_picture" => $profile_picture
     ]);
     exit();
 }
@@ -108,5 +120,7 @@ if (empty($expires_at_val)) {
 echo json_encode([
     "success" => true,
     "message" => "Activation successful! App is now registered on this device.",
-    "expiry_date" => date('c', strtotime($expires_at_val))
+    "expiry_date" => date('c', strtotime($expires_at_val)),
+    "user_name" => $user_name,
+    "profile_picture" => $profile_picture
 ]);

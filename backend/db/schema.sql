@@ -245,6 +245,7 @@ CREATE TABLE `users` (
   `phone` varchar(50) DEFAULT NULL,
   `state` varchar(50) DEFAULT NULL,
   `school` varchar(150) DEFAULT NULL,
+  `profile_picture` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
