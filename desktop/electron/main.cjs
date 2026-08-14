@@ -161,7 +161,7 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
       if (cached.expiry_date && new Date(cached.expiry_date).getTime() < Date.now()) {
         return { success: false, error: "Your local subscription passcode has expired." };
       }
-      return { success: true, expiry_date: cached.expiry_date };
+      return { success: true, expiry_date: cached.expiry_date, user_name: cached.user_name, profile_picture: cached.profile_picture };
     }
     return { success: false, error: "Network offline. Activation requires an active internet connection on first login." };
   }
@@ -180,14 +180,14 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
       // Store in SQLite
       await dbService.run("DELETE FROM activation"); // Clear existing
       await dbService.run(`
-        INSERT INTO activation (email, passcode, activated_at, expiry_date, is_active)
-        VALUES (?, ?, ?, ?, 1)
-      `, [email, passcode, new Date().toISOString(), result.expiry_date]);
+        INSERT INTO activation (email, passcode, user_name, profile_picture, activated_at, expiry_date, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+      `, [email, passcode, result.user_name || 'Student', result.profile_picture || null, new Date().toISOString(), result.expiry_date]);
 
       // Trigger sync pull
       await syncService.triggerSync();
 
-      return { success: true, expiry_date: result.expiry_date };
+      return { success: true, expiry_date: result.expiry_date, user_name: result.user_name, profile_picture: result.profile_picture };
     } else {
       return { success: false, error: result.message };
     }

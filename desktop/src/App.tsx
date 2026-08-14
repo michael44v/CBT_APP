@@ -2,11 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus } from './global';
 import { Sun, Moon } from 'lucide-react';
 
-type Screen = 'ACTIVATION' | 'DASHBOARD' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
+type Screen = 'ACTIVATION' | 'DASHBOARD' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
+
+interface ActiveActivation {
+  email: string;
+  passcode: string;
+  user_name?: string;
+  profile_picture?: string;
+}
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('ACTIVATION');
-  const [activation, setActivation] = useState<{ email: string; passcode: string } | null>(null);
+  const [activation, setActivation] = useState<ActiveActivation | null>(null);
 
   // News State
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -14,6 +21,37 @@ export default function App() {
 
   // Leaderboard State
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
+
+  // Calculator State
+  const [isCalcOpen, setIsCalcOpen] = useState<boolean>(false);
+  const [calcDisplay, setCalcDisplay] = useState<string>('');
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState<boolean>(false);
+  const [calcPos, setCalcPos] = useState({ x: 400, y: 150 });
+  const [dragStart, setDragStart] = useState<{ x: number, y: number } | null>(null);
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (dragStart) {
+        setCalcPos({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y
+        });
+      }
+    };
+    const handleGlobalMouseUp = () => {
+      setDragStart(null);
+    };
+
+    if (dragStart) {
+      window.addEventListener('mousemove', handleGlobalMouseMove);
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [dragStart]);
+
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState<boolean>(false);
   const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<string>('This Week');
@@ -93,6 +131,9 @@ export default function App() {
   // Post Exam results display
   const [activeResult, setActiveResult] = useState<Result | null>(null);
 
+  // Active Exam Subjects
+  const [examSubjects, setExamSubjects] = useState<Subject[]>([]);
+
   const loadNewsList = async () => {
     if (window.api && window.api.getNews) {
       try {
@@ -122,6 +163,99 @@ export default function App() {
       stopTimer();
     };
   }, []);
+
+  // JAMB 10-Key Keyboard Shortcuts Integration
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore keys if the user is typing in inputs or textareas
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      if (screen !== 'EXAM' && screen !== 'INSTRUCTIONS') {
+        return;
+      }
+
+      const key = e.key.toUpperCase();
+
+      if (screen === 'INSTRUCTIONS') {
+        if (key === 'S') {
+          // START EXAM
+          setScreen('EXAM');
+          startTimer(timeLeft);
+        } else if (key === 'P' || e.key === 'Escape') {
+          // CANCEL
+          setScreen('DASHBOARD');
+        }
+        return;
+      }
+
+      // Inside EXAM screen:
+      if (examQuestions.length === 0) return;
+      const currentQuestion = examQuestions[currentIdx];
+
+      if (key === 'A') {
+        selectAnswer('A');
+      } else if (key === 'B') {
+        selectAnswer('B');
+      } else if (key === 'C') {
+        selectAnswer('C');
+      } else if (key === 'D') {
+        selectAnswer('D');
+      } else if (key === 'N') {
+        // Next
+        if (currentIdx < examQuestions.length - 1) {
+          setCurrentIdx(prev => prev + 1);
+        }
+      } else if (key === 'P') {
+        // Previous
+        if (currentIdx > 0) {
+          setCurrentIdx(prev => prev - 1);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        // Cycle active selection up: D -> C -> B -> A
+        const currentAns = answers[currentQuestion.id];
+        if (!currentAns) {
+          selectAnswer('D');
+        } else if (currentAns === 'D') {
+          selectAnswer('C');
+        } else if (currentAns === 'C') {
+          selectAnswer('B');
+        } else if (currentAns === 'B') {
+          selectAnswer('A');
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        // Cycle active selection down: A -> B -> C -> D
+        const currentAns = answers[currentQuestion.id];
+        if (!currentAns) {
+          selectAnswer('A');
+        } else if (currentAns === 'A') {
+          selectAnswer('B');
+        } else if (currentAns === 'B') {
+          selectAnswer('C');
+        } else if (currentAns === 'C') {
+          selectAnswer('D');
+        }
+      } else if (key === 'S') {
+        // Submit Test Confirmation Trigger
+        setShowSubmitConfirm(true);
+      } else if (key === 'Y') {
+        // If the submit confirmation dialog is visible, confirm and submit!
+        if (showSubmitConfirm) {
+          setShowSubmitConfirm(false);
+          processSubmission();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [screen, examQuestions, currentIdx, answers, showSubmitConfirm, timeLeft]);
 
   // Sync state & syllabus lists upon dashboard activation
   useEffect(() => {
@@ -167,7 +301,12 @@ export default function App() {
     if (window.api && window.api.getActivationStatus) {
       const act = await window.api.getActivationStatus();
       if (act && act.is_active) {
-        setActivation({ email: act.email, passcode: act.passcode });
+        setActivation({
+          email: act.email,
+          passcode: act.passcode,
+          user_name: act.user_name,
+          profile_picture: act.profile_picture
+        });
         setScreen('DASHBOARD');
       } else {
         setScreen('ACTIVATION');
@@ -234,7 +373,12 @@ export default function App() {
     try {
       const res = await window.api.activateApp(actEmail.trim(), actPasscode.trim());
       if (res.success) {
-        setActivation({ email: actEmail.trim(), passcode: actPasscode.trim() });
+        setActivation({
+          email: actEmail.trim(),
+          passcode: actPasscode.trim(),
+          user_name: res.user_name,
+          profile_picture: res.profile_picture
+        });
         setScreen('DASHBOARD');
       } else {
         setActError(res.error || 'Failed to authenticate subscription.');
@@ -298,6 +442,9 @@ export default function App() {
         return;
       }
 
+      const activeSub = subjectsList.find(s => s.id === Number(practiceSubject));
+      setExamSubjects(activeSub ? [activeSub] : []);
+
       const sessId = `session-${Date.now()}`;
       setExamSessionId(sessId);
       setExamQuestions(qList);
@@ -305,21 +452,27 @@ export default function App() {
 
       const totalSecs = practiceTimed ? 60 * 60 : 0;
       setTimeLeft(totalSecs);
-      setScreen('EXAM');
-      startTimer(totalSecs);
+      setScreen('INSTRUCTIONS');
     } catch (e) {
       console.error(e);
     }
   };
 
   const startMockSession = async () => {
-    if (mockSelectedSubjects.length === 0) {
-      alert('Please choose at least one subject.');
-      return;
-    }
-    if (mockSelectedSubjects.length > 4) {
-      alert('Mock exams are limited to a maximum of 4 subjects.');
-      return;
+    if (examType === 'JAMB') {
+      if (mockSelectedSubjects.length !== 4) {
+        alert('JAMB Mock exams require exactly 4 subjects.');
+        return;
+      }
+    } else {
+      if (mockSelectedSubjects.length === 0) {
+        alert('Please choose at least one subject.');
+        return;
+      }
+      if (mockSelectedSubjects.length > 4) {
+        alert('Mock exams are limited to a maximum of 4 subjects.');
+        return;
+      }
     }
     if (mockSelectionMode === 'YEAR' && !mockSelectedYear) {
       alert('Please choose a past paper year.');
@@ -348,15 +501,18 @@ export default function App() {
         setFallbackNotice(res.fallbackNote);
       }
 
+      const activeSubs = subjectsList.filter(s => mockSelectedSubjects.includes(s.id));
+      setExamSubjects(activeSubs);
+
       const sessId = `session-${Date.now()}`;
       setExamSessionId(sessId);
       setExamQuestions(res.questions);
       setCurrentIdx(0);
 
-      const totalSecs = res.questions.length * 40;
+      // Enforce 120 minutes for mock exam
+      const totalSecs = 120 * 60;
       setTimeLeft(totalSecs);
-      setScreen('EXAM');
-      startTimer(totalSecs);
+      setScreen('INSTRUCTIONS');
     } catch (e) {
       console.error(e);
     }
@@ -431,14 +587,8 @@ export default function App() {
     await processSubmission();
   };
 
-  const manualSubmitExam = async () => {
-    const total = examQuestions.length;
-    const answeredCount = Object.keys(answers).length;
-    const unansweredCount = total - answeredCount;
-
-    if (window.confirm(`Are you sure you want to finish your test?\nTotal questions: ${total}\nAnswered: ${answeredCount}\nUnanswered: ${unansweredCount}`)) {
-      await processSubmission();
-    }
+  const manualSubmitExam = () => {
+    setShowSubmitConfirm(true);
   };
 
   const processSubmission = async () => {
@@ -1144,18 +1294,375 @@ export default function App() {
             </div>
           )}
 
+          {/* ================= INSTRUCTIONS SCREEN ================= */}
+          {screen === 'INSTRUCTIONS' && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              backgroundColor: '#d0e5f9',
+              margin: '-32px', // Override parent padding
+              padding: '0',
+              fontFamily: 'Inter, system-ui, sans-serif',
+              userSelect: 'none',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              {/* Top Bar Callout 1, 2, 3 */}
+              <div style={{
+                height: '60px',
+                backgroundColor: '#3b82f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 20px',
+                borderBottom: '3px solid #1d4ed8'
+              }}>
+                {/* Callout 1: Selected Subjects */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {examSubjects.map((sub) => (
+                    <div key={sub.id} style={{
+                      backgroundColor: '#1d4ed8',
+                      color: 'white',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      padding: '8px 16px',
+                      borderRadius: '4px',
+                      textTransform: 'uppercase',
+                      border: '1px solid #1e40af'
+                    }}>
+                      {sub.name}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Callout 2: Calculator Icon */}
+                <div
+                  onClick={() => setIsCalcOpen(!isCalcOpen)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '11px',
+                    marginRight: '20px'
+                  }}
+                >
+                  <span style={{ fontSize: '20px' }}>📟</span>
+                  <span>Calculator</span>
+                </div>
+
+                {/* Callout 3: Timer countdown */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'white',
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  border: '2px solid #1d4ed8',
+                  color: '#1e40af',
+                  fontWeight: 700,
+                  fontSize: '16px'
+                }}>
+                  <span>⏱️</span>
+                  <span>{(timeLeft / 60).toFixed(2)} min</span>
+                </div>
+              </div>
+
+              {/* Main Body */}
+              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                {/* Left Panel - Instructions (Callout 5) */}
+                <div style={{
+                  flex: 1,
+                  padding: '40px',
+                  backgroundColor: 'white',
+                  overflowY: 'auto',
+                  borderRight: '1px solid #93c5fd',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#1e3a8a', marginBottom: '24px' }}>Instructions</h1>
+                    <p style={{ fontSize: '15px', color: '#334155', lineHeight: '1.8', whiteSpace: 'pre-line' }}>
+                      The Buyer shall provide an LPO that will last for three weeks interval.
+                      The LPO shall be raised with the name Masterpiece Energies Ltd (The Seller)
+                      The Buyer shall provide a Bank Guarantee or a Post-Dated Cheque equivalent to the value of the Purchase Order.
+                      Payment shall be made via e-payment to the Seller's designated account. The Seller reserves the right to suspend further deliveries if payments are outstanding beyond the due date.
+                      Any disputes on invoices must be raised within 5 business days from the date of receipt.PRODUCT QUALITY & LIABILITYThe Seller guarantees that the AGO supplied meets the specifications listed in Clause 3. In case of any quality dispute, a sample shall be analyzed by a mutually agreed independent laboratory at the instance and cost to the Buyer. If the product is found to be non-compliant, the seller shall replace the defective product.
+                      8. FORCE MAJEURENeither Party shall be held liable for failure to perform obligations due to circumstances beyond their reasonable control, including but not limited to:Government regulations or restrictionsNatural disasters, wars, or acts of terrorismStrikes, protests, or industrial actionShortage of raw materials or fuel supply interruptions
+                    </p>
+                  </div>
+
+                  {/* Actions (Callout 8, 9) */}
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
+                    <button
+                      onClick={() => {
+                        setScreen('EXAM');
+                        startTimer(timeLeft);
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '16px 36px',
+                        fontSize: '18px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 6px rgba(239, 68, 68, 0.2)',
+                        transition: 'transform 0.1s'
+                      }}
+                      onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                      onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      START EXAM
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setScreen('DASHBOARD');
+                      }}
+                      style={{
+                        backgroundColor: '#f97316',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '16px 36px',
+                        fontSize: '18px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 6px rgba(249, 115, 22, 0.2)',
+                        transition: 'transform 0.1s'
+                      }}
+                      onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                      onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      CANCEL
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Panel - Sidebar (Callout 7) */}
+                <div style={{
+                  width: '320px',
+                  backgroundColor: '#93c5fd',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                  overflowY: 'auto',
+                  borderLeft: '1px solid #60a5fa'
+                }}>
+                  {/* Clickable customized QR Code (Callout 4) */}
+                  <a
+                    href={`https://filloptech.com/profile/${activation?.passcode || '015209'}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Click to view candidate result analysis"
+                    style={{
+                      backgroundColor: 'white',
+                      padding: '12px',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textDecoration: 'none',
+                      border: '2px solid transparent',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#1d4ed8'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                  >
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://filloptech.com/profile/${activation?.passcode || '015209'}`)}`}
+                      style={{ width: '130px', height: '130px', display: 'block' }}
+                      alt="QR Code"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          const fallback = parent.querySelector('.qr-fallback') as HTMLElement;
+                          if (fallback) fallback.removeAttribute('hidden');
+                        }
+                      }}
+                    />
+                    {/* SVG QR Placeholder Fallback */}
+                    <div className="qr-fallback" hidden style={{ width: '130px', height: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9', borderRadius: '8px', position: 'relative' }}>
+                      <span style={{ fontSize: '36px' }}>📱</span>
+                      <span style={{ fontSize: '10px', position: 'absolute', bottom: '10px', fontWeight: 700, color: '#475569' }}>FILLOP PROFILE</span>
+                    </div>
+                    <span style={{ color: '#1e3a8a', fontWeight: 800, fontSize: '14px', marginTop: '8px' }}>Your Details...</span>
+                  </a>
+
+                  {/* Candidate Photo */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    backgroundColor: 'white',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                  }}>
+                    <img
+                      src={activation?.profile_picture || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"}
+                      style={{
+                        width: '120px',
+                        height: '140px',
+                        objectFit: 'cover',
+                        borderRadius: '6px',
+                        border: '3px solid #1e3a8a'
+                      }}
+                      alt="Candidate Portrait"
+                      onError={(e) => {
+                        e.currentTarget.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231e3a8a'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+                      }}
+                    />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: '#1e3a8a' }}>
+                        {activation?.user_name || "Daniel Ezekiel Sunday"}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+                        Passcode:
+                      </div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace', letterSpacing: '1px' }}>
+                        {activation?.passcode || "015209"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keyboard Usage pink panel (Callout 6) */}
+                  <div style={{
+                    backgroundColor: '#ffe4e6',
+                    border: '1px solid #fecdd3',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    color: '#881337',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.02)'
+                  }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '12px', borderBottom: '1px solid #fecdd3', paddingBottom: '6px' }}>
+                      Keyboard Usage
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', fontWeight: 700 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>A, B, C, D</span>
+                        <span style={{ fontWeight: 500 }}>Select option A, B, C, D</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>N</span>
+                        <span style={{ fontWeight: 500 }}>Next/Forward</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>P</span>
+                        <span style={{ fontWeight: 500 }}>Previous/Back</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>⬆️ / ⬇️</span>
+                        <span style={{ fontWeight: 500 }}>Cycle choices</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>S</span>
+                        <span style={{ fontWeight: 500 }}>Submit/End Exam</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Y</span>
+                        <span style={{ fontWeight: 500 }}>Confirm/End Exam</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ================= EXAM SCREEN ================= */}
           {screen === 'EXAM' && examQuestions.length > 0 && (
             <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+              {/* Subject Navigation Tabs & Calculator Trigger */}
+              <div style={{
+                backgroundColor: colors.surface,
+                padding: '16px 24px',
+                borderRadius: '12px',
+                border: `1px solid ${colors.border}`,
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                {/* Callout 1: Active Subject Navigation tabs */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {examSubjects.map((sub) => {
+                    const isActive = sub.id === examQuestions[currentIdx]?.subject_id;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => {
+                          const targetIdx = examQuestions.findIndex(q => q.subject_id === sub.id);
+                          if (targetIdx !== -1) {
+                            setCurrentIdx(targetIdx);
+                          }
+                        }}
+                        style={{
+                          backgroundColor: isActive ? '#1d4ed8' : colors.bg,
+                          color: isActive ? 'white' : colors.text,
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          padding: '10px 18px',
+                          borderRadius: '6px',
+                          textTransform: 'uppercase',
+                          border: `1px solid ${isActive ? '#1e40af' : colors.border}`,
+                          cursor: 'pointer',
+                          boxShadow: isActive ? '0 2px 4px rgba(29, 78, 216, 0.2)' : 'none',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {sub.name}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {/* Callout 2: Calculator Trigger */}
+                  <button
+                    onClick={() => setIsCalcOpen(!isCalcOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: colors.bg,
+                      color: colors.text,
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      padding: '10px 18px',
+                      borderRadius: '6px',
+                      border: `1px solid ${colors.border}`,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>📟</span>
+                    {isCalcOpen ? 'Hide Calculator' : 'Use Calculator'}
+                  </button>
+
+                  <div style={styles.timerPanel}>
+                    {formatTimer(timeLeft)}
+                  </div>
+                </div>
+              </div>
+
               <div style={styles.examHeader}>
                 <div>
                   <h2 style={{ fontSize: '22px', fontWeight: 800 }}>{examType} Exam Room</h2>
                   <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px' }}>
                     Session: <strong style={{ color: colors.text }}>{examSessionId}</strong>
                   </p>
-                </div>
-                <div style={styles.timerPanel}>
-                  {formatTimer(timeLeft)}
                 </div>
               </div>
 
@@ -1562,6 +2069,228 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= DRAGGABLE SCIENTIFIC CALCULATOR ================= */}
+      {isCalcOpen && (
+        <div style={{
+          position: 'fixed',
+          left: `${calcPos.x}px`,
+          top: `${calcPos.y}px`,
+          width: '320px',
+          backgroundColor: '#1e293b',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          zIndex: 99999,
+          border: '2px solid #475569',
+          overflow: 'hidden',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }}>
+          {/* Header */}
+          <div
+            onMouseDown={(e) => {
+              setDragStart({
+                x: e.clientX - calcPos.x,
+                y: e.clientY - calcPos.y
+              });
+            }}
+            style={{
+              padding: '12px 16px',
+              backgroundColor: '#0f172a',
+              color: 'white',
+              cursor: 'move',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontWeight: 700,
+              fontSize: '14px',
+              userSelect: 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📟</span>
+              <span>CBT Scientific Calculator</span>
+            </div>
+            <button
+              onClick={() => setIsCalcOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ef4444',
+                fontSize: '18px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Screen / Display */}
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#020617',
+            textAlign: 'right',
+            color: '#10b981',
+            fontSize: '24px',
+            fontFamily: 'monospace',
+            fontWeight: 700,
+            letterSpacing: '1px',
+            minHeight: '70px',
+            wordBreak: 'break-all',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)'
+          }}>
+            {calcDisplay || '0'}
+          </div>
+
+          {/* Keypad Grid */}
+          <div style={{
+            padding: '12px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: '8px',
+            backgroundColor: '#1e293b'
+          }}>
+            {/* Scientific keys */}
+            {[
+              { label: 'sin', action: () => setCalcDisplay(prev => prev + 'sin(') },
+              { label: 'cos', action: () => setCalcDisplay(prev => prev + 'cos(') },
+              { label: 'tan', action: () => setCalcDisplay(prev => prev + 'tan(') },
+              { label: 'log', action: () => setCalcDisplay(prev => prev + 'log(') },
+              { label: 'ln', action: () => setCalcDisplay(prev => prev + 'ln(') },
+
+              { label: '√', action: () => setCalcDisplay(prev => prev + 'sqrt(') },
+              { label: '^', action: () => setCalcDisplay(prev => prev + '^') },
+              { label: '(', action: () => setCalcDisplay(prev => prev + '(') },
+              { label: ')', action: () => setCalcDisplay(prev => prev + ')') },
+              { label: 'Del', action: () => setCalcDisplay(prev => prev.slice(0, -1)), style: { backgroundColor: '#ef4444', color: 'white' } },
+
+              // Numbers and Basic Operators
+              { label: '7', action: () => setCalcDisplay(prev => prev + '7') },
+              { label: '8', action: () => setCalcDisplay(prev => prev + '8') },
+              { label: '9', action: () => setCalcDisplay(prev => prev + '9') },
+              { label: '/', action: () => setCalcDisplay(prev => prev + '/') },
+              { label: 'C', action: () => setCalcDisplay(''), style: { backgroundColor: '#dc2626', color: 'white' } },
+
+              { label: '4', action: () => setCalcDisplay(prev => prev + '4') },
+              { label: '5', action: () => setCalcDisplay(prev => prev + '5') },
+              { label: '6', action: () => setCalcDisplay(prev => prev + '6') },
+              { label: '*', action: () => setCalcDisplay(prev => prev + '*') },
+              { label: ' ', action: () => {}, style: { opacity: 0, cursor: 'default' } }, // Blank placeholder
+
+              { label: '1', action: () => setCalcDisplay(prev => prev + '1') },
+              { label: '2', action: () => setCalcDisplay(prev => prev + '2') },
+              { label: '3', action: () => setCalcDisplay(prev => prev + '3') },
+              { label: '-', action: () => setCalcDisplay(prev => prev + '-') },
+              { label: ' ', action: () => {}, style: { opacity: 0, cursor: 'default' } }, // Blank placeholder
+
+              { label: '0', action: () => setCalcDisplay(prev => prev + '0') },
+              { label: '.', action: () => setCalcDisplay(prev => prev + '.') },
+              { label: '+', action: () => setCalcDisplay(prev => prev + '+') },
+              { label: '=', action: () => {
+                  try {
+                    // Replace visual tokens with JS Math counterparts
+                    let processed = calcDisplay
+                      .replace(/sin\(/g, 'Math.sin(')
+                      .replace(/cos\(/g, 'Math.cos(')
+                      .replace(/tan\(/g, 'Math.tan(')
+                      .replace(/log\(/g, 'Math.log10(')
+                      .replace(/ln\(/g, 'Math.log(')
+                      .replace(/sqrt\(/g, 'Math.sqrt(')
+                      .replace(/\^/g, '**');
+
+                    const result = new Function(`return (${processed})`)();
+                    if (result === undefined || isNaN(result)) {
+                      setCalcDisplay('Error');
+                    } else {
+                      setCalcDisplay(Number(result.toFixed(6)).toString());
+                    }
+                  } catch (err) {
+                    setCalcDisplay('Error');
+                  }
+                }, style: { gridColumn: 'span 2', backgroundColor: '#f97316', color: 'white' } }
+            ].map((btn, index) => (
+              <button
+                key={index}
+                onClick={btn.action}
+                style={{
+                  padding: '10px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: btn.style?.opacity === 0 ? 'default' : 'pointer',
+                  backgroundColor: '#334155',
+                  color: '#f8fafc',
+                  transition: 'background-color 0.1s',
+                  userSelect: 'none',
+                  ...btn.style
+                }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ================= SUBMIT CONFIRMATION OVERLAY ================= */}
+      {showSubmitConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '440px',
+            padding: '32px',
+            border: `2px solid ${colors.border}`,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+            textAlign: 'center',
+            fontFamily: 'Inter, system-ui, sans-serif'
+          }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
+              Submit Examination?
+            </h2>
+            <p style={{ fontSize: '14px', color: colors.textSecondary, marginBottom: '24px', lineHeight: 1.5 }}>
+              Are you sure you want to complete and submit your exam results now?
+              <br />
+              <strong style={{ color: colors.primary }}>Press "Y" or click Confirm below to submit.</strong>
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  setShowSubmitConfirm(false);
+                  processSubmission();
+                }}
+                style={{ ...styles.btn, ...styles.btnSuccess }}
+              >
+                Confirm (Y)
+              </button>
+              <button
+                onClick={() => setShowSubmitConfirm(false)}
+                style={{ ...styles.btn, ...styles.btnSecondary }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
