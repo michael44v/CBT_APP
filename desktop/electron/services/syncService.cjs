@@ -57,9 +57,14 @@ async function downloadQuestions() {
     const fetch = (...args) =>
       import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
-    const response = await fetch(
-      'http://localhost:80/fillop/api/v1/sync/pull.php'
-    );
+    // Fetch active local activation info
+    const actRow = get('SELECT * FROM activation WHERE is_active = 1 LIMIT 1');
+    let url = 'http://localhost:80/fillop/api/v1/sync/pull.php';
+    if (actRow && actRow.email && actRow.passcode) {
+      url += `?email=${encodeURIComponent(actRow.email)}&passcode=${encodeURIComponent(actRow.passcode)}`;
+    }
+
+    const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(
@@ -82,6 +87,7 @@ async function downloadQuestions() {
     const topics = Array.isArray(data.topics) ? data.topics : [];
     const questions = Array.isArray(data.questions) ? data.questions : [];
     const news = Array.isArray(data.news) ? data.news : [];
+    const passcodeInfo = data.passcode_info || null;
 
     // Fetch existing question IDs from local database before wiping to count brand new ones
     const localQuestions = all('SELECT id FROM questions');
@@ -169,6 +175,14 @@ async function downloadQuestions() {
             q.correct_explanation,
             q.wrong_explanations
           ]
+        );
+      }
+
+      // Update passcode permissions locally if passcode_info returned
+      if (passcodeInfo && actRow) {
+        run(
+          `UPDATE activation SET exam_category = ?, allowed_subjects = ?, expiry_date = ? WHERE passcode = ?`,
+          [passcodeInfo.exam_category, passcodeInfo.allowed_subjects, passcodeInfo.expires_at, actRow.passcode]
         );
       }
     });

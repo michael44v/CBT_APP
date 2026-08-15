@@ -17,35 +17,60 @@ if (!$data) {
     exit();
 }
 
-$name = trim($data['name'] ?? '');
+$name = trim($data['name'] ?? 'Candidate');
 $email = trim($data['email'] ?? '');
 $phone = trim($data['phone'] ?? '');
 $state = trim($data['state'] ?? '');
 $school = trim($data['school'] ?? '');
-$pack_type = trim($data['pack_type'] ?? 'individual_1'); // 'individual_1' | 'individual_5' | 'individual_10' | 'institutional_bulk'
-$bulk_count = intval($data['bulk_count'] ?? 1);
+
+$exam_category = strtoupper(trim($data['exam_category'] ?? 'JAMB')); // JAMB, WAEC, NECO, ALL
+$selected_subjects = $data['selected_subjects'] ?? []; // array or comma-separated string
+$max_devices = max(1, intval($data['max_devices'] ?? 1));
+$duration_months = max(1, intval($data['duration_months'] ?? 1));
+$duration_days = $duration_months * 30;
+
 $promo_code_input = strtoupper(trim($data['promo_code'] ?? ''));
 
-if (empty($name) || empty($email)) {
-    echo json_encode(["success" => false, "message" => "Name and Email are required fields."]);
+if (empty($email)) {
+    echo json_encode(["success" => false, "message" => "Email address is required."]);
     exit();
 }
 
-$db = getDbConnection();
-
-// Prices in NGN
-$prices = [
-    'individual_1' => 1500,
-    'individual_5' => 6500,
-    'individual_10' => 12000,
-    'institutional_bulk' => 1000 // Price per login
-];
-
-$base_price = $prices[$pack_type] ?? 1500;
-$total_amount = $base_price;
-if ($pack_type === 'institutional_bulk') {
-    $total_amount = $base_price * max(1, $bulk_count);
+// Convert selected_subjects to array and list
+if (is_string($selected_subjects)) {
+    $selected_subjects_arr = array_filter(array_map('trim', explode(',', $selected_subjects)));
+} else if (is_array($selected_subjects)) {
+    $selected_subjects_arr = $selected_subjects;
+} else {
+    $selected_subjects_arr = [];
 }
+
+$num_subjects = count($selected_subjects_arr);
+
+// Validate subject selection rules per category
+if ($exam_category === 'JAMB') {
+    if ($num_subjects < 4 || $num_subjects > 5) {
+        echo json_encode(["success" => false, "message" => "JAMB requires a minimum of 4 subjects and a maximum of 5 subjects."]);
+        exit();
+    }
+} else if ($exam_category === 'WAEC' || $exam_category === 'NECO' || $exam_category === 'ALL') {
+    if ($num_subjects < 4 || $num_subjects > 9) {
+        echo json_encode(["success" => false, "message" => "$exam_category requires a minimum of 4 subjects and a maximum of 9 subjects."]);
+        exit();
+    }
+}
+
+// Pricing formula:
+// 500 per category, 300 per subject, 100 per month, 100 per device
+$num_categories = ($exam_category === 'ALL') ? 3 : 1;
+$category_cost = $num_categories * 500;
+$subject_cost = $num_subjects * 300;
+$duration_cost = $duration_months * 100;
+$device_cost = $max_devices * 100;
+
+$total_amount = $category_cost + $subject_cost + $duration_cost + $device_cost;
+
+$db = getDbConnection();
 
 // Check promo code if any
 $discount = 0;
@@ -93,12 +118,9 @@ if (!$user_row) {
     $stmt->execute();
 }
 
-// Generate payment reference
+$allowed_subjects_str = implode(',', $selected_subjects_arr);
 $payment_reference = 'FILLOP-' . uniqid() . '-' . time();
 
-// Save metadata/pending passcode creation to complete after webhook/verification
-// For MVP we serialize checkout context in a temporary file/table or local session simulation.
-// Let's write a simple transient JSON mapping for verification simulation.
 $pending_file = dirname(__FILE__) . '/pending_payments.json';
 $pending = [];
 if (file_exists($pending_file)) {
@@ -108,8 +130,10 @@ if (file_exists($pending_file)) {
 $pending[$payment_reference] = [
     'name' => $name,
     'email' => $email,
-    'pack_type' => $pack_type,
-    'bulk_count' => $pack_type === 'institutional_bulk' ? $bulk_count : ($pack_type === 'individual_1' ? 1 : ($pack_type === 'individual_5' ? 5 : 10)),
+    'exam_category' => $exam_category,
+    'allowed_subjects' => $allowed_subjects_str,
+    'max_devices' => $max_devices,
+    'duration_days' => $duration_days,
     'final_amount' => $final_amount,
     'promo_id' => $promo_id,
     'created_at' => date('Y-m-d H:i:s')
@@ -117,30 +141,21 @@ $pending[$payment_reference] = [
 
 file_put_contents($pending_file, json_encode($pending, JSON_PRETTY_PRINT));
 
-// If final amount is 0 (Free due to promo code), we can auto-verify without Paystack!
 if ($final_amount == 0) {
     echo json_encode([
         "success" => true,
         "message" => "Registration successful. Free promo applied!",
         "amount" => 0,
         "reference" => $payment_reference,
-        "payment_url" => null, // trigger instant verification
         "auto_verify" => true
     ]);
     exit();
 }
 
-// Simulate Paystack Initialization
-// In real life, we would curl 'https://api.paystack.co/transaction/initialize'
-// with authorization Bearer secret key and send: email, amount (in kobo), reference, callback_url.
-// Let's write the simulated curl response beautifully, but also support direct simulation.
-$paystack_url = "https://checkout.paystack.com/mock-gateway-" . $payment_reference;
-
 echo json_encode([
     "success" => true,
-    "message" => "Transaction initialized successfully.",
+    "message" => "Subscription calculated successfully.",
     "amount" => $final_amount,
     "reference" => $payment_reference,
-    "payment_url" => $paystack_url,
     "auto_verify" => false
 ]);

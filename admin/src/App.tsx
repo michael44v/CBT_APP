@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-// Setup default backend url
 const API_BASE = 'http://localhost:80/fillop/api/v1';
+
+const ALL_SUBJECT_OPTIONS = ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Economics", "Government", "Literature"];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'PROMOS' | 'QUESTIONS' | 'NEWS'>('DASHBOARD');
@@ -37,6 +38,8 @@ export default function App() {
     max_devices: 1,
     duration_days: 180,
     organization_name: '',
+    exam_category: 'JAMB',
+    allowed_subjects: ['Mathematics', 'English', 'Physics', 'Chemistry'],
   });
 
   // New Promo Form
@@ -155,7 +158,6 @@ export default function App() {
     }
   };
 
-  // Refresh tab data
   useEffect(() => {
     fetchStats();
     if (activeTab === 'USERS') fetchUsers();
@@ -165,18 +167,14 @@ export default function App() {
     if (activeTab === 'NEWS') fetchNews();
   }, [activeTab]);
 
-  // Handle user search debounce
   useEffect(() => {
     if (activeTab !== 'USERS') return;
     const handler = setTimeout(() => {
       fetchUsers();
     }, 300);
-    return () => {
-      clearTimeout(handler);
-    };
+    return () => clearTimeout(handler);
   }, [userSearch]);
 
-  // Handle question filter changes
   useEffect(() => {
     if (activeTab === 'QUESTIONS') {
       fetchQuestions();
@@ -190,7 +188,6 @@ export default function App() {
     }, 4000);
   };
 
-  // Suspend/Reactivate user
   const handleToggleUserStatus = async (email: string, currentStatus: string) => {
     try {
       const action = currentStatus === 'suspended' ? 'reactivate' : 'suspend';
@@ -212,7 +209,6 @@ export default function App() {
     }
   };
 
-  // Generate Passcode
   const handleGeneratePasscode = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -231,6 +227,8 @@ export default function App() {
           max_devices: 1,
           duration_days: 180,
           organization_name: '',
+          exam_category: 'JAMB',
+          allowed_subjects: ['Mathematics', 'English', 'Physics', 'Chemistry'],
         });
       } else {
         showNotification(data.message, 'error');
@@ -240,7 +238,35 @@ export default function App() {
     }
   };
 
-  // Revoke Passcode
+  const handleUpdatePasscodeSubjects = async (passcode: string, currentCategory: string, currentSubjs: string) => {
+    const newCategory = window.prompt("Enter Exam Category (JAMB, WAEC, NECO, ALL):", currentCategory || 'JAMB');
+    if (!newCategory) return;
+    const newSubjsStr = window.prompt("Enter Comma-Separated Subjects (or subject IDs):", currentSubjs || 'Mathematics,English,Physics,Chemistry');
+    if (newSubjsStr === null) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_subjects',
+          passcode,
+          exam_category: newCategory.trim().toUpperCase(),
+          allowed_subjects: newSubjsStr.trim()
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message);
+        fetchPasscodes();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Update subject allocations failed.', 'error');
+    }
+  };
+
   const handleRevokePasscode = async (passcode: string) => {
     if (!window.confirm('Are you sure you want to suspend/revoke this passcode?')) return;
     try {
@@ -260,7 +286,6 @@ export default function App() {
     }
   };
 
-  // Extend Passcode
   const handleExtendPasscode = async (passcode: string) => {
     const daysStr = window.prompt('Enter number of days to extend this passcode subscription:', '30');
     if (!daysStr) return;
@@ -286,7 +311,6 @@ export default function App() {
     }
   };
 
-  // Add Promo Code
   const handleAddPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -315,7 +339,6 @@ export default function App() {
     }
   };
 
-  // Add single question
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -350,7 +373,6 @@ export default function App() {
     }
   };
 
-  // Delete question
   const handleDeleteQuestion = async (id: number) => {
     if (!window.confirm('Delete this question permanently?')) return;
     try {
@@ -370,7 +392,6 @@ export default function App() {
     }
   };
 
-  // Handle News Posting
   const handleAddNews = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -396,7 +417,6 @@ export default function App() {
     }
   };
 
-  // Handle News Deletion
   const handleDeleteNews = async (id: number) => {
     if (!window.confirm('Delete this news article permanently?')) return;
     try {
@@ -417,7 +437,6 @@ export default function App() {
     }
   };
 
-  // Bulk CSV Import
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
     setImportErrors([]);
@@ -450,7 +469,6 @@ export default function App() {
 
   return (
     <div className="admin-layout">
-      {/* Sidebar */}
       <aside className="admin-sidebar">
         <div className="sidebar-brand">
           <span>🛡️</span> Fillop Guru Admin
@@ -465,7 +483,6 @@ export default function App() {
         </nav>
       </aside>
 
-      {/* Main Content Area */}
       <main className="admin-body">
         {notification && (
           <div style={{
@@ -489,7 +506,7 @@ export default function App() {
             <h1 className="admin-title">
               {activeTab === 'DASHBOARD' && 'Management Dashboard'}
               {activeTab === 'USERS' && 'Candidates / Subscriptions'}
-              {activeTab === 'PASSCODES' && 'Product Passcodes & Bulk Licensing'}
+              {activeTab === 'PASSCODES' && 'Passcode Subject Allocations & Licensing'}
               {activeTab === 'PROMOS' && 'Promotions & Referral Codes'}
               {activeTab === 'QUESTIONS' && 'Question Bank Master Management'}
               {activeTab === 'NEWS' && 'Admin News Management'}
@@ -498,7 +515,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* ================== TAB: DASHBOARD ================== */}
         {activeTab === 'DASHBOARD' && (
           <div>
             <div className="dashboard-stats">
@@ -521,17 +537,16 @@ export default function App() {
             </div>
 
             <div className="admin-card">
-              <h2 className="card-title">System Overview</h2>
+              <h2 className="card-title">Subject Access Control & Usage Statistics</h2>
               <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                Fillop CBT Guru is currently managing <strong>{stats.total_questions} questions</strong> across JAMB, WAEC, and NECO configurations.
-                Passcodes are dynamically linked to organizational hierarchies and validated offline-first, restricting concurrent usage per device fingerprint.
+                Fillop CBT Guru enforces subject restrictions tied directly to passcodes.
+                Currently, <strong>{stats.total_questions} questions</strong> are active across Mathematics, English, Physics, Chemistry, Biology, Economics, Government, and Literature.
               </p>
               <button className="btn btn-secondary" onClick={fetchStats}>🔄 Refresh Core Analytics</button>
             </div>
           </div>
         )}
 
-        {/* ================== TAB: USERS ================== */}
         {activeTab === 'USERS' && (
           <div className="admin-card">
             <div className="card-title">
@@ -585,11 +600,10 @@ export default function App() {
           </div>
         )}
 
-        {/* ================== TAB: PASSCODES ================== */}
         {activeTab === 'PASSCODES' && (
           <div>
             <div className="admin-card">
-              <h2 className="card-title">Generate New Passcode / Org Batch</h2>
+              <h2 className="card-title">Generate Passcode with Subject Combination</h2>
               <form onSubmit={handleGeneratePasscode} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
                 <div className="form-group">
                   <label className="form-label">Associated Email</label>
@@ -601,6 +615,19 @@ export default function App() {
                     onChange={(e) => setNewPasscodeForm({ ...newPasscodeForm, email: e.target.value })}
                     required
                   />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Exam Category</label>
+                  <select
+                    className="form-input"
+                    value={newPasscodeForm.exam_category}
+                    onChange={(e) => setNewPasscodeForm({ ...newPasscodeForm, exam_category: e.target.value })}
+                  >
+                    <option value="JAMB">JAMB</option>
+                    <option value="WAEC">WAEC</option>
+                    <option value="NECO">NECO</option>
+                    <option value="ALL">ALL (JAMB/WAEC/NECO)</option>
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Max Devices (Seats)</label>
@@ -624,30 +651,52 @@ export default function App() {
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Organization Link (Optional)</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. Hope Academy"
-                    value={newPasscodeForm.organization_name}
-                    onChange={(e) => setNewPasscodeForm({ ...newPasscodeForm, organization_name: e.target.value })}
-                  />
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Allowed Subject Combination</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    {ALL_SUBJECT_OPTIONS.map(sub => {
+                      const isChecked = newPasscodeForm.allowed_subjects.includes(sub);
+                      return (
+                        <label key={sub} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setNewPasscodeForm({
+                                  ...newPasscodeForm,
+                                  allowed_subjects: newPasscodeForm.allowed_subjects.filter(s => s !== sub)
+                                });
+                              } else {
+                                setNewPasscodeForm({
+                                  ...newPasscodeForm,
+                                  allowed_subjects: [...newPasscodeForm.allowed_subjects, sub]
+                                });
+                              }
+                            }}
+                          />
+                          {sub}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-                <button type="submit" className="btn" style={{ height: '42px' }}>Generate ⚡</button>
+
+                <button type="submit" className="btn" style={{ height: '42px', gridColumn: '1 / -1' }}>Generate Passcode ⚡</button>
               </form>
             </div>
 
             <div className="admin-card">
-              <h2 className="card-title">Existing Passcodes</h2>
+              <h2 className="card-title">Existing Passcodes & Subject Allocations</h2>
               <table>
                 <thead>
                   <tr>
                     <th>Passcode</th>
                     <th>Linked Email</th>
-                    <th>Organization</th>
+                    <th>Exam Category</th>
+                    <th>Allowed Subjects</th>
                     <th>Device Slots</th>
-                    <th>Duration</th>
                     <th>Status</th>
                     <th>Expiry Date</th>
                     <th>Actions</th>
@@ -664,21 +713,22 @@ export default function App() {
                         <tr key={p.id}>
                           <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent)' }}>{p.passcode}</td>
                           <td>{p.email}</td>
-                          <td>{p.organization_name || 'Individual'}</td>
+                          <td><span className="badge badge-info">{p.exam_category || 'ALL'}</span></td>
+                          <td style={{ maxWidth: '220px', fontSize: '12px' }}>{p.allowed_subjects || 'All Subjects'}</td>
                           <td>
                             <strong>{p.activated_devices}</strong> / {p.max_devices} slots Used
                           </td>
-                          <td>{p.duration_days} Days</td>
                           <td>
                             <span className={`badge ${statusClass}`}>
                               {p.status === 'suspended' ? 'Suspended' : isExpired ? 'Expired' : 'Active'}
                             </span>
                           </td>
                           <td>{p.expires_at ? new Date(p.expires_at).toLocaleDateString() : 'Unactivated'}</td>
-                          <td style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.6rem' }} onClick={() => handleExtendPasscode(p.passcode)}>Extend ⏳</button>
+                          <td style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleUpdatePasscodeSubjects(p.passcode, p.exam_category, p.allowed_subjects)}>Edit Subjects ✏️</button>
+                            <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleExtendPasscode(p.passcode)}>Extend ⏳</button>
                             {p.status === 'active' && (
-                              <button className="btn btn-danger btn-sm" style={{ padding: '0.3rem 0.6rem' }} onClick={() => handleRevokePasscode(p.passcode)}>Suspend</button>
+                              <button className="btn btn-danger btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleRevokePasscode(p.passcode)}>Suspend</button>
                             )}
                           </td>
                         </tr>
@@ -691,7 +741,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ================== TAB: PROMOS ================== */}
         {activeTab === 'PROMOS' && (
           <div>
             <div className="admin-card">
@@ -787,7 +836,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ================== TAB: NEWS ================== */}
         {activeTab === 'NEWS' && (
           <div>
             <div className="admin-card">
@@ -873,14 +921,12 @@ export default function App() {
           </div>
         )}
 
-        {/* ================== TAB: QUESTIONS ================== */}
         {activeTab === 'QUESTIONS' && (
           <div>
             <div className="admin-card">
               <h2 className="card-title">Bulk CSV Import Question Bank</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
                 Paste your CSV content below. The parser rigorously enforces the presence of first-class filterable columns: <strong>exam_type, subject_id, and year</strong>.
-                Invalid rows missing any of these parameters are strictly rejected to avoid orphaned data.
               </p>
               <form onSubmit={handleBulkImport}>
                 <div className="form-group">
@@ -893,7 +939,7 @@ export default function App() {
                     required
                   />
                 </div>
-                <button type="submit" className="btn btn-success">Start Rigorous Bulk Upload 🚀</button>
+                <button type="submit" className="btn btn-success">Start Bulk Upload 🚀</button>
               </form>
 
               {importSuccessMsg && (

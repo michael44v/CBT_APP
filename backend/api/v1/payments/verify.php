@@ -18,7 +18,6 @@ if (empty($reference)) {
     exit();
 }
 
-$pending_file = dirname(dirname(__FILE__)) . '/register.php'; // get directory where json lives
 $pending_json_path = dirname(dirname(__FILE__)) . '/pending_payments.json';
 
 if (!file_exists($pending_json_path)) {
@@ -36,21 +35,21 @@ if (!isset($pending[$reference])) {
 $details = $pending[$reference];
 $db = getDbConnection();
 
-// Generate secure random passcodes
 function generateUniquePasscode() {
     return 'GP-' . strtoupper(bin2hex(random_bytes(4))) . '-' . strtoupper(bin2hex(random_bytes(4)));
 }
 
 $passcode = generateUniquePasscode();
-$max_devices = intval($details['bulk_count']);
-$duration_days = 180; // default duration
+$max_devices = intval($details['max_devices'] ?? 1);
+$duration_days = intval($details['duration_days'] ?? 180);
+$exam_category = trim($details['exam_category'] ?? 'ALL');
+$allowed_subjects = trim($details['allowed_subjects'] ?? '');
 
-// Insert passcode
-$stmt = $db->prepare("INSERT INTO passcodes (passcode, email, max_devices, duration_days, status) VALUES (?, ?, ?, ?, 'active')");
-$stmt->bind_param("ssii", $passcode, $details['email'], $max_devices, $duration_days);
+// Insert passcode with exam_category and allowed_subjects
+$stmt = $db->prepare("INSERT INTO passcodes (passcode, email, exam_category, allowed_subjects, max_devices, duration_days, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
+$stmt->bind_param("ssssii", $passcode, $details['email'], $exam_category, $allowed_subjects, $max_devices, $duration_days);
 $stmt->execute();
 
-// Increment promo count if used
 if (!empty($details['promo_id'])) {
     $promo_id = intval($details['promo_id']);
     $stmt = $db->prepare("UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id = ?");
@@ -58,7 +57,6 @@ if (!empty($details['promo_id'])) {
     $stmt->execute();
 }
 
-// Clean up pending
 unset($pending[$reference]);
 file_put_contents($pending_json_path, json_encode($pending, JSON_PRETTY_PRINT));
 
@@ -67,7 +65,8 @@ echo json_encode([
     "message" => "Payment verified successfully!",
     "passcode" => $passcode,
     "email" => $details['email'],
+    "exam_category" => $exam_category,
+    "allowed_subjects" => $allowed_subjects,
     "max_devices" => $max_devices,
-    "duration_days" => $duration_days,
-    "download_url" => "https://filloptech.com/downloads/cbt-guru-installer.exe"
+    "duration_days" => $duration_days
 ]);

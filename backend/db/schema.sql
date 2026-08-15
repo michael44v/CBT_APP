@@ -75,6 +75,8 @@ CREATE TABLE `passcodes` (
   `passcode` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `organization_id` int(11) DEFAULT NULL,
+  `exam_category` varchar(50) DEFAULT 'ALL',
+  `allowed_subjects` text DEFAULT NULL,
   `max_devices` int(11) DEFAULT 1,
   `activated_devices` int(11) DEFAULT 0,
   `status` varchar(20) DEFAULT 'active',

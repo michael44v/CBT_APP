@@ -65,6 +65,9 @@ if (!empty($code_row['expires_at'])) {
     }
 }
 
+$exam_category = $code_row['exam_category'] ?? 'ALL';
+$allowed_subjects = $code_row['allowed_subjects'] ?? '';
+
 // Check if device already registered
 $stmt = $db->prepare("SELECT * FROM devices WHERE passcode_id = ? AND device_uuid = ?");
 $stmt->bind_param("is", $code_row['id'], $device_uuid);
@@ -73,14 +76,15 @@ $res = $stmt->get_result();
 $device_row = $res->fetch_assoc();
 
 if ($device_row) {
-    // Already bound, just succeed
     $expiry_date = $code_row['expires_at'] ? date('c', strtotime($code_row['expires_at'])) : date('c', time() + ($code_row['duration_days'] * 86400));
     echo json_encode([
         "success" => true,
         "message" => "Device re-authenticated successfully.",
         "expiry_date" => $expiry_date,
         "user_name" => $user_name,
-        "profile_picture" => $profile_picture
+        "profile_picture" => $profile_picture,
+        "exam_category" => $exam_category,
+        "allowed_subjects" => $allowed_subjects
     ]);
     exit();
 }
@@ -104,7 +108,6 @@ $new_activated = $code_row['activated_devices'] + 1;
 $expires_at_val = $code_row['expires_at'];
 
 if (empty($expires_at_val)) {
-    // Set expiry from first activation date
     $days = intval($code_row['duration_days']);
     $expires_at_val = date('Y-m-d H:i:s', time() + ($days * 86400));
 
@@ -122,5 +125,7 @@ echo json_encode([
     "message" => "Activation successful! App is now registered on this device.",
     "expiry_date" => date('c', strtotime($expires_at_val)),
     "user_name" => $user_name,
-    "profile_picture" => $profile_picture
+    "profile_picture" => $profile_picture,
+    "exam_category" => $exam_category,
+    "allowed_subjects" => $allowed_subjects
 ]);
