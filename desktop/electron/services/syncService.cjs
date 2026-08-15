@@ -3,16 +3,17 @@ const {
   run,
   get,
   all,
-  exec
+  exec,
+  transaction
 } = require('./dbService.cjs');
 
 let simulateOnline = true;
 let syncTimer = null;
 let changeCallback = null;
 
-async function logSyncEvent(eventType, status, message) {
+function logSyncEvent(eventType, status, message) {
   try {
-    await run(
+    run(
       `INSERT INTO sync_logs (event_type, status, message, timestamp)
        VALUES (?, ?, ?, ?)`,
       [eventType, status, message, new Date().toISOString()]
@@ -38,7 +39,7 @@ function checkInternet() {
  */
 async function downloadQuestions() {
   if (!checkInternet()) {
-    await logSyncEvent(
+    logSyncEvent(
       'PULL_QUESTIONS',
       'FAILED',
       'Sync offline: Simulation set to offline.'
@@ -46,7 +47,7 @@ async function downloadQuestions() {
     return false;
   }
 
-  await logSyncEvent(
+  logSyncEvent(
     'PULL_QUESTIONS',
     'PENDING',
     'Connecting to Fillop central sync API...'
@@ -69,7 +70,7 @@ async function downloadQuestions() {
     const data = await response.json();
 
     if (!data.success) {
-      await logSyncEvent(
+      logSyncEvent(
         'PULL_QUESTIONS',
         'FAILED',
         `Server returned failure: ${data.message || 'Unknown server error'}`
@@ -83,7 +84,7 @@ async function downloadQuestions() {
     const news = Array.isArray(data.news) ? data.news : [];
 
     // Fetch existing question IDs from local database before wiping to count brand new ones
-    const localQuestions = await all('SELECT id FROM questions');
+    const localQuestions = all('SELECT id FROM questions');
     const existingLocalIds = new Set(localQuestions.map(q => q.id));
 
     let newQuestionsAddedCount = 0;
@@ -94,22 +95,19 @@ async function downloadQuestions() {
     }
 
     /*
-     * Use a real SQLite transaction.
-     * sqlite3 does not support better-sqlite3's db.transaction().
+     * Use better-sqlite3 transaction
      */
-    await exec('BEGIN TRANSACTION');
-
-    try {
+    const performUpdate = transaction(() => {
       // Clear old metadata.
       // Delete questions first because they reference topics/subjects.
-      await run('DELETE FROM questions');
-      await run('DELETE FROM topics');
-      await run('DELETE FROM subjects');
-      await run('DELETE FROM news');
+      run('DELETE FROM questions');
+      run('DELETE FROM topics');
+      run('DELETE FROM subjects');
+      run('DELETE FROM news');
 
       // Insert subjects.
       for (const sub of subjects) {
-        await run(
+        run(
           `INSERT INTO subjects (id, name, exam_type)
            VALUES (?, ?, ?)`,
           [sub.id, sub.name, sub.exam_type]
@@ -118,7 +116,7 @@ async function downloadQuestions() {
 
       // Insert topics.
       for (const top of topics) {
-        await run(
+        run(
           `INSERT INTO topics (id, subject_id, name)
            VALUES (?, ?, ?)`,
           [top.id, top.subject_id, top.name]
@@ -127,7 +125,7 @@ async function downloadQuestions() {
 
       // Insert news.
       for (const item of news) {
-        await run(
+        run(
           `INSERT INTO news (id, title, content, icon_name, created_at)
            VALUES (?, ?, ?, ?, ?)`,
           [item.id, item.title, item.content, item.icon_name, item.created_at]
@@ -136,7 +134,7 @@ async function downloadQuestions() {
 
       // Insert questions.
       for (const q of questions) {
-        await run(
+        run(
           `INSERT INTO questions (
             id,
             exam_type,
@@ -173,19 +171,9 @@ async function downloadQuestions() {
           ]
         );
       }
+    });
 
-      await exec('COMMIT');
-    } catch (transactionError) {
-      try {
-        await exec('ROLLBACK');
-      } catch (rollbackError) {
-        console.error('[Sync Service] Rollback failed:', rollbackError);
-      }
-
-      throw transactionError;
-    }
-
-    await logSyncEvent(
+    logSyncEvent(
       'PULL_QUESTIONS',
       'SUCCESS',
       `Synchronized ${questions.length} questions (${newQuestionsAddedCount} new questions added), ${subjects.length} subjects, and ${topics.length} topics.`
@@ -193,7 +181,7 @@ async function downloadQuestions() {
 
     return true;
   } catch (err) {
-    await logSyncEvent(
+    logSyncEvent(
       'PULL_QUESTIONS',
       'FAILED',
       `Cloud sync service unreachable: ${err.message}`
@@ -208,7 +196,7 @@ async function downloadQuestions() {
  */
 async function uploadResults() {
   if (!checkInternet()) {
-    await logSyncEvent(
+    logSyncEvent(
       'PUSH_RESULTS',
       'FAILED',
       'Sync offline: Simulation set to offline.'
@@ -217,8 +205,7 @@ async function uploadResults() {
   }
 
   try {
-    // sqlite3 is asynchronous, so use the async helper from dbService.
-    const unsynced = await all(
+    const unsynced = all(
       'SELECT * FROM results WHERE synced = 0'
     );
 
@@ -229,14 +216,14 @@ async function uploadResults() {
       return true;
     }
 
-    await logSyncEvent(
+    logSyncEvent(
       'PUSH_RESULTS',
       'PENDING',
       `Syncing ${pendingCount} pending candidate result records...`
     );
 
     // Fetch local user email from activation.
-    const actRow = await get(
+    const actRow = get(
       'SELECT email FROM activation LIMIT 1'
     );
 
@@ -278,7 +265,7 @@ async function uploadResults() {
     const resultData = await response.json();
 
     if (!resultData.success) {
-      await logSyncEvent(
+      logSyncEvent(
         'PUSH_RESULTS',
         'FAILED',
         `Server rejected result records: ${
@@ -290,28 +277,16 @@ async function uploadResults() {
     }
 
     // Mark uploaded records as synchronized.
-    await exec('BEGIN TRANSACTION');
-
-    try {
+    transaction(() => {
       for (const res of unsynced) {
-        await run(
+        run(
           'UPDATE results SET synced = 1 WHERE id = ?',
           [res.id]
         );
       }
+    });
 
-      await exec('COMMIT');
-    } catch (transactionError) {
-      try {
-        await exec('ROLLBACK');
-      } catch (rollbackError) {
-        console.error('[Sync Service] Rollback failed:', rollbackError);
-      }
-
-      throw transactionError;
-    }
-
-    await logSyncEvent(
+    logSyncEvent(
       'PUSH_RESULTS',
       'SUCCESS',
       `Successfully backed up ${pendingCount} test results to server.`
@@ -319,7 +294,7 @@ async function uploadResults() {
 
     return true;
   } catch (err) {
-    await logSyncEvent(
+    logSyncEvent(
       'PUSH_RESULTS',
       'FAILED',
       `Cloud sync service unreachable: ${err.message}`
@@ -357,7 +332,8 @@ function setOnlineStatus(isOnline) {
       'NETWORK_STATUS',
       'SUCCESS',
       'Connection restored. Running immediate central sync...'
-    ).then(() => triggerSync());
+    );
+    triggerSync();
   } else if (!isOnline && previous) {
     logSyncEvent(
       'NETWORK_STATUS',

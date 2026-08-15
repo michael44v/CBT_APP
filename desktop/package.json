@@ -10,6 +10,7 @@
     "build:react": "vite build",
     "electron": "wait-on http://localhost:5173 && electronmon .",
     "start": "concurrently \"npm run dev\" \"npm run electron\"",
+    "postinstall": "electron-builder install-app-deps",
     "dist": "npm run build:react && electron-builder",
     "dist:mac": "npm run build:react && electron-builder --mac",
     "dist:win": "npm run build:react && electron-builder --win"
@@ -30,14 +31,15 @@
   },
   "build": {
     "appId": "com.cbt.app",
-    "npmRebuild": false,
+    "npmRebuild": true,
     "productName": "CBT Practice App",
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "node_modules/**/*"
     ],
     "asarUnpack": [
-      "node_modules/better-sqlite3/**/*"
+      "**/*.node"
     ],
     "directories": {
       "buildResources": "build",

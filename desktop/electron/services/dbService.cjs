@@ -5,90 +5,62 @@ const fs = require('fs');
 let db = null;
 
 /**
- * Initializes the local SQLite database, creating tables and indices.
+ * Initializes the local SQLite database, creating tables and indices synchronously.
  * @param {string} dbPath The absolute path to the sqlite file.
  */
 function initDatabase(dbPath) {
-  return new Promise((resolve, reject) => {
-    try {
-      const dir = path.dirname(dbPath);
+  const dir = path.dirname(dbPath);
 
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 
-      db = new Database(dbPath);
+  db = new Database(dbPath);
 
-      console.log('[SQLite] Database connected:', dbPath);
+  console.log('[SQLite] Database connected:', dbPath);
 
-      // Enable foreign keys.
-      db.pragma('foreign_keys = ON');
+  // Enable foreign keys.
+  db.pragma('foreign_keys = ON');
 
-      createTables()
-        .then(resolve)
-        .catch(reject);
-    } catch (err) {
-      console.error('[SQLite] Database connection failed:', err);
-      db = null;
-      reject(err);
-    }
-  });
+  createTables();
 }
 
 function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = db.prepare(sql);
-      const info = stmt.run(...params);
+  if (!db) throw new Error('Database is not initialized.');
+  const stmt = db.prepare(sql);
+  const info = stmt.run(...params);
 
-      resolve({
-        lastID: info.lastInsertRowid,
-        changes: info.changes
-      });
-    } catch (err) {
-      reject(err);
-    }
-  });
+  return {
+    lastID: info.lastInsertRowid,
+    changes: info.changes
+  };
 }
 
 function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = db.prepare(sql);
-      const row = stmt.get(...params);
-      resolve(row);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  if (!db) throw new Error('Database is not initialized.');
+  const stmt = db.prepare(sql);
+  return stmt.get(...params);
 }
 
 function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = db.prepare(sql);
-      const rows = stmt.all(...params);
-      resolve(rows);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  if (!db) throw new Error('Database is not initialized.');
+  const stmt = db.prepare(sql);
+  return stmt.all(...params);
 }
 
 function exec(sql) {
-  return new Promise((resolve, reject) => {
-    try {
-      db.exec(sql);
-      resolve();
-    } catch (err) {
-      reject(err);
-    }
-  });
+  if (!db) throw new Error('Database is not initialized.');
+  db.exec(sql);
 }
 
-async function createTables() {
+function transaction(fn) {
+  if (!db) throw new Error('Database is not initialized.');
+  return db.transaction(fn)();
+}
+
+function createTables() {
   try {
-    await exec(`
+    exec(`
       CREATE TABLE IF NOT EXISTS activation (
         email TEXT NOT NULL,
         passcode TEXT NOT NULL PRIMARY KEY,
@@ -178,22 +150,13 @@ async function createTables() {
 }
 
 function closeDatabase() {
-  return new Promise((resolve, reject) => {
-    try {
-      if (!db) {
-        resolve();
-        return;
-      }
+  if (!db) {
+    return;
+  }
 
-      db.close();
-      db = null;
-      console.log('[SQLite] Local database connection closed.');
-      resolve();
-    } catch (err) {
-      console.error('[SQLite] Database close failed:', err);
-      reject(err);
-    }
-  });
+  db.close();
+  db = null;
+  console.log('[SQLite] Local database connection closed.');
 }
 
 function getDb() {
@@ -213,5 +176,6 @@ module.exports = {
   run,
   get,
   all,
-  exec
+  exec,
+  transaction
 };
