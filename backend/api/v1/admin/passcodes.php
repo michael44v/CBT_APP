@@ -29,10 +29,11 @@ if ($method === 'POST') {
         $max_devices = intval($data['max_devices'] ?? 1);
         $duration_days = intval($data['duration_days'] ?? 180);
         $org_name = trim($data['organization_name'] ?? '');
+        $exam_category = strtoupper(trim($data['exam_category'] ?? 'ALL'));
+        $allowed_subjects = is_array($data['allowed_subjects'] ?? null) ? implode(',', $data['allowed_subjects']) : trim($data['allowed_subjects'] ?? '');
 
         $org_id = null;
         if (!empty($org_name)) {
-            // Check or insert organization
             $stmt = $db->prepare("SELECT id FROM organizations WHERE name = ?");
             $stmt->bind_param("s", $org_name);
             $stmt->execute();
@@ -48,11 +49,10 @@ if ($method === 'POST') {
             }
         }
 
-        // Generate random passcode
         $passcode = 'GP-' . strtoupper(bin2hex(random_bytes(4))) . '-' . strtoupper(bin2hex(random_bytes(4)));
 
-        $stmt = $db->prepare("INSERT INTO passcodes (passcode, email, organization_id, max_devices, duration_days) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssiii", $passcode, $email, $org_id, $max_devices, $duration_days);
+        $stmt = $db->prepare("INSERT INTO passcodes (passcode, email, organization_id, exam_category, allowed_subjects, max_devices, duration_days, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')");
+        $stmt->bind_param("ssissii", $passcode, $email, $org_id, $exam_category, $allowed_subjects, $max_devices, $duration_days);
         $stmt->execute();
 
         echo json_encode([
@@ -61,11 +61,26 @@ if ($method === 'POST') {
             "passcode" => [
                 "passcode" => $passcode,
                 "email" => $email,
+                "exam_category" => $exam_category,
+                "allowed_subjects" => $allowed_subjects,
                 "max_devices" => $max_devices,
                 "duration_days" => $duration_days,
                 "status" => "active"
             ]
         ]);
+        exit();
+    }
+
+    if ($action === 'update_subjects') {
+        $passcode_val = trim($data['passcode'] ?? '');
+        $exam_category = strtoupper(trim($data['exam_category'] ?? 'ALL'));
+        $allowed_subjects = is_array($data['allowed_subjects'] ?? null) ? implode(',', $data['allowed_subjects']) : trim($data['allowed_subjects'] ?? '');
+
+        $stmt = $db->prepare("UPDATE passcodes SET exam_category = ?, allowed_subjects = ? WHERE passcode = ?");
+        $stmt->bind_param("sss", $exam_category, $allowed_subjects, $passcode_val);
+        $stmt->execute();
+
+        echo json_encode(["success" => true, "message" => "Subject allocations updated successfully for $passcode_val."]);
         exit();
     }
 
@@ -82,7 +97,6 @@ if ($method === 'POST') {
         $passcode_val = trim($data['passcode'] ?? '');
         $days = intval($data['days'] ?? 30);
 
-        // Fetch current expires_at
         $stmt = $db->prepare("SELECT id, expires_at, duration_days FROM passcodes WHERE passcode = ?");
         $stmt->bind_param("s", $passcode_val);
         $stmt->execute();

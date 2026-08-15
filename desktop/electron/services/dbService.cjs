@@ -66,6 +66,8 @@ function createTables() {
         passcode TEXT NOT NULL PRIMARY KEY,
         user_name TEXT,
         profile_picture TEXT,
+        exam_category TEXT DEFAULT 'ALL',
+        allowed_subjects TEXT DEFAULT '',
         activated_at TEXT NOT NULL,
         expiry_date TEXT,
         is_active INTEGER DEFAULT 1
@@ -140,6 +142,15 @@ function createTables() {
       CREATE INDEX IF NOT EXISTS idx_questions_topic
         ON questions (exam_type, subject_id, topic_id);
     `);
+
+    // Ensure columns exist if table was created in an earlier version
+    try {
+      exec(`ALTER TABLE activation ADD COLUMN exam_category TEXT DEFAULT 'ALL'`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE activation ADD COLUMN allowed_subjects TEXT DEFAULT ''`);
+    } catch (e) { /* Column already exists */ }
 
     console.log('[SQLite] Local database tables and indices verified.');
     console.log('[SQLite] Database initialization complete.');

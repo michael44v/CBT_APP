@@ -50,11 +50,9 @@ function createMainWindow() {
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
-    //mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
-
 
   mainWindow.once("ready-to-show", () => {
     if (splashWindow) {
@@ -77,7 +75,6 @@ async function initializeApp() {
 
     await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // Read local activation status
     const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
 
     updateSplashStatus("Verifying license signature...");
@@ -86,7 +83,6 @@ async function initializeApp() {
     const online = syncService.checkInternet();
     if (online) {
       updateSplashStatus("Online! Syncing updates from cloud...");
-      // Perform automated background sync on startup if online
       await syncService.triggerSync();
       await new Promise((resolve) => setTimeout(resolve, 500));
     } else {
@@ -116,12 +112,11 @@ async function initializeApp() {
 // ================= IPC HANDLERS: LICENSE & AUTH =================
 
 ipcMain.handle("auth:get-activation", async () => {
-  const row = dbService.get("SELECT * FROM activation LIMIT 1");
+  const row = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
   return row || null;
 });
 
 ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
-  // Generate safe device fingerprint
   const systemInfo = {
     platform: process.platform,
     arch: process.arch,
@@ -133,7 +128,6 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
     .update(JSON.stringify(systemInfo))
     .digest("hex");
 
-  // Read/Generate random UUID on first activation
   let device_uuid = "";
   const uuidPath = path.join(app.getPath("userData"), "deviceId.uuid");
   if (fs.existsSync(uuidPath)) {
@@ -143,7 +137,6 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
     fs.writeFileSync(uuidPath, device_uuid, "utf-8");
   }
 
-  // Backup UUID on HKEY_CURRENT_USER\Software\FillopTech\deviceId for Windows
   if (process.platform === "win32") {
     try {
       const { execSync } = require("child_process");
@@ -155,18 +148,23 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
 
   const isOnline = syncService.checkInternet();
   if (!isOnline) {
-    // If offline, check if this email/passcode is already registered inside SQLite activation cache
     const cached = dbService.get("SELECT * FROM activation WHERE email = ? AND passcode = ?", [email, passcode]);
     if (cached) {
       if (cached.expiry_date && new Date(cached.expiry_date).getTime() < Date.now()) {
         return { success: false, error: "Your local subscription passcode has expired." };
       }
-      return { success: true, expiry_date: cached.expiry_date, user_name: cached.user_name, profile_picture: cached.profile_picture };
+      return {
+        success: true,
+        expiry_date: cached.expiry_date,
+        user_name: cached.user_name,
+        profile_picture: cached.profile_picture,
+        exam_category: cached.exam_category,
+        allowed_subjects: cached.allowed_subjects
+      };
     }
     return { success: false, error: "Network offline. Activation requires an active internet connection on first login." };
   }
 
-  // Call PHP API on cloud server
   try {
     const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
     const response = await fetch("http://localhost:80/fillop/api/v1/activate.php", {
@@ -178,17 +176,32 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
 
     if (result.success) {
       const nowIso = new Date().toISOString();
-      // Store in SQLite
-      dbService.run("DELETE FROM activation"); // Clear existing
+      dbService.run("DELETE FROM activation");
       dbService.run(`
-        INSERT INTO activation (email, passcode, user_name, profile_picture, activated_at, expiry_date, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
-      `, [email, passcode, result.user_name || 'Student', result.profile_picture || null, nowIso, result.expiry_date]);
+        INSERT INTO activation (email, passcode, user_name, profile_picture, exam_category, allowed_subjects, activated_at, expiry_date, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `, [
+        email,
+        passcode,
+        result.user_name || 'Student',
+        result.profile_picture || null,
+        result.exam_category || 'ALL',
+        result.allowed_subjects || '',
+        nowIso,
+        result.expiry_date
+      ]);
 
-      // Trigger sync pull
       await syncService.triggerSync();
 
-      return { success: true, expiry_date: result.expiry_date, activated_at: nowIso, user_name: result.user_name, profile_picture: result.profile_picture };
+      return {
+        success: true,
+        expiry_date: result.expiry_date,
+        activated_at: nowIso,
+        user_name: result.user_name,
+        profile_picture: result.profile_picture,
+        exam_category: result.exam_category,
+        allowed_subjects: result.allowed_subjects
+      };
     } else {
       return { success: false, error: result.message };
     }
@@ -207,12 +220,44 @@ ipcMain.handle("auth:logout", async () => {
 ipcMain.handle("db:get-subjects", async (event, examType) => {
   try {
     const subjects = dbService.all("SELECT * FROM subjects WHERE exam_type = ?", [examType]);
+    const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
 
-    console.log("[IPC] get-subjects examType:", examType);
-    console.log("[IPC] get-subjects result:", subjects);
-    console.log("[IPC] isArray:", Array.isArray(subjects));
+    return subjects.map(s => {
+      let is_locked = false;
 
-    return subjects;
+      if (!actRow) {
+        // Free version: Only Mathematics and English are accessible
+        const sNameLower = s.name.toLowerCase();
+        if (sNameLower !== 'mathematics' && sNameLower !== 'english') {
+          is_locked = true;
+        }
+      } else {
+        // Passcode Activated Mode
+        const userCat = (actRow.exam_category || 'ALL').toUpperCase();
+        const allowedStr = actRow.allowed_subjects || '';
+
+        // 1. Check category restriction
+        if (userCat !== 'ALL' && userCat !== examType.toUpperCase()) {
+          is_locked = true;
+        }
+
+        // 2. Check subject restriction if allowedStr specified
+        if (!is_locked && allowedStr.trim() !== '') {
+          const allowedList = allowedStr.split(',').map(item => item.trim().toLowerCase());
+          const nameMatch = allowedList.includes(s.name.toLowerCase());
+          const idMatch = allowedList.includes(String(s.id));
+
+          if (!nameMatch && !idMatch) {
+            is_locked = true;
+          }
+        }
+      }
+
+      return {
+        ...s,
+        is_locked
+      };
+    });
   } catch (error) {
     console.error("[IPC] get-subjects error:", error);
     throw error;
@@ -231,6 +276,9 @@ ipcMain.handle("db:get-years", async (event, { examType, subjectId }) => {
 // ================= IPC HANDLERS: SELECTION ENGINE =================
 
 ipcMain.handle("db:generate-practice-questions", async (event, { examType, subjectId, topicId, year, limit }) => {
+  const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
+  const isFree = !actRow;
+
   let sql = "SELECT * FROM questions WHERE exam_type = ? AND subject_id = ?";
   const params = [examType, subjectId];
 
@@ -244,22 +292,29 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
   }
 
   sql += " ORDER BY RANDOM()";
-  if (limit) {
-    sql += " LIMIT ?";
-    params.push(limit);
+
+  // In Free Mode, max 10 questions per practice session
+  let maxLimit = limit || 30;
+  if (isFree) {
+    maxLimit = Math.min(maxLimit, 10);
   }
+
+  sql += " LIMIT ?";
+  params.push(maxLimit);
 
   const questions = dbService.all(sql, params);
   return questions;
 });
 
 ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectIds, byYear }) => {
+  const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
+  const isFree = !actRow;
+
   const allQuestions = [];
   let fallbackNote = "";
 
   for (const subjectId of subjectIds) {
-    // 1. Determine target count per subject
-    let needed = 50; // default for WAEC/NECO
+    let needed = 50; // default for WAEC / NECO
     if (examType === 'JAMB') {
       const subRow = dbService.get("SELECT name FROM subjects WHERE id = ?", [subjectId]);
       if (subRow && subRow.name.toLowerCase() === 'english') {
@@ -269,15 +324,16 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
       }
     }
 
+    if (isFree) {
+      needed = Math.min(needed, 10);
+    }
+
     let subjectQuestions = [];
 
-    // 2. Selection Mode: Past paper by year OR Stratified Random
     if (byYear) {
-      // Pull year-tagged questions for this subject
-      subjectQuestions = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year = ?", [examType, subjectId, byYear]);
+      subjectQuestions = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year = ? LIMIT ?", [examType, subjectId, byYear, needed]);
 
       if (subjectQuestions.length < needed) {
-        // Fallback/Padding Logic: Pad with questions from other years
         const pullCount = needed - subjectQuestions.length;
         const padding = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year != ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, byYear, pullCount]);
 
@@ -285,19 +341,15 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
         fallbackNote = `⚠️ Selected past paper (${byYear}) had incomplete data for some subjects and has been padded with questions from other years.`;
       }
     } else {
-      // Stratified Random Topic Draw Algorithm
       const topics = dbService.all("SELECT id FROM topics WHERE subject_id = ?", [subjectId]);
       const topicCount = topics.length;
 
       if (topicCount === 0) {
-        // Fallback to purely random if no topics configured
         subjectQuestions = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, needed]);
       } else {
-        // Calculate base and remainder shares
         const base = Math.floor(needed / topicCount);
         const remainder = needed % topicCount;
 
-        // Establish target count per topic
         const targets = {};
         for (let i = 0; i < topicCount; i++) {
           targets[topics[i].id] = base + (i < remainder ? 1 : 0);
@@ -306,7 +358,6 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
         const pool = {};
         let surplusPool = [];
 
-        // First pass: Draw up to target from each topic
         for (const topic of topics) {
           const tqs = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND topic_id = ? ORDER BY RANDOM()", [examType, subjectId, topic.id]);
 
@@ -315,16 +366,13 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
           const drawn = tqs.slice(0, target);
           subjectQuestions = subjectQuestions.concat(drawn);
 
-          // Track surplus questions for second pass
           if (tqs.length > target) {
             surplusPool = surplusPool.concat(tqs.slice(target));
           }
         }
 
-        // Second pass: Recompute and backfill shortfalls from the surplusPool
         if (subjectQuestions.length < needed) {
           const gap = needed - subjectQuestions.length;
-          // Shuffling surplusPool randomly to preserve balance
           surplusPool.sort(() => Math.random() - 0.5);
           const padding = surplusPool.slice(0, gap);
           subjectQuestions = subjectQuestions.concat(padding);
@@ -372,16 +420,13 @@ ipcMain.handle("db:get-saved-answers", async (event, examSessionId) => {
 ipcMain.handle("db:submit-result", async (event, { examType, examSessionId, userName, score, totalQuestions, percentage, details }) => {
   const submittedAt = new Date().toISOString();
 
-  // Save Result
   const info = dbService.run(`
     INSERT INTO results (exam_type, user_name, score, total_questions, percentage, details, submitted_at, synced)
     VALUES (?, ?, ?, ?, ?, ?, ?, 0)
   `, [examType, userName, score, totalQuestions, percentage, details, submittedAt]);
 
-  // Cleanup session answers
   dbService.run("DELETE FROM answers_session WHERE session_id = ?", [examSessionId]);
 
-  // If online, immediately upload result asynchronously
   if (syncService.checkInternet()) {
     syncService.uploadResults().catch(err => console.error("Immediate result sync failed:", err));
   }
