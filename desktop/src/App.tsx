@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus } from './global';
-import { Sun, Moon } from 'lucide-react';
+import {
+  Sun, Moon, Timer, Calculator, Lock, Unlock, ShoppingCart, Key,
+  Check, X, RotateCw, Crown, Award, Newspaper, Lightbulb, Eye,
+  Zap, LogOut, CheckCircle, XCircle, AlertCircle, HelpCircle, Trophy
+} from 'lucide-react';
 
 type Screen = 'ACTIVATION' | 'DASHBOARD' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
@@ -198,22 +202,14 @@ export default function App() {
       if (examQuestions.length === 0) return;
       const currentQuestion = examQuestions[currentIdx];
 
-      if (key === 'A') {
-        selectAnswer('A');
-      } else if (key === 'B') {
-        selectAnswer('B');
-      } else if (key === 'C') {
-        selectAnswer('C');
-      } else if (key === 'D') {
-        selectAnswer('D');
-      } else if (key === 'N') {
-        if (currentIdx < examQuestions.length - 1) {
-          setCurrentIdx(prev => prev + 1);
-        }
+      if (key === 'A') selectAnswer('A');
+      else if (key === 'B') selectAnswer('B');
+      else if (key === 'C') selectAnswer('C');
+      else if (key === 'D') selectAnswer('D');
+      else if (key === 'N') {
+        if (currentIdx < examQuestions.length - 1) setCurrentIdx(prev => prev + 1);
       } else if (key === 'P') {
-        if (currentIdx > 0) {
-          setCurrentIdx(prev => prev - 1);
-        }
+        if (currentIdx > 0) setCurrentIdx(prev => prev - 1);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         const currentAns = answers[currentQuestion.id];
@@ -263,7 +259,7 @@ export default function App() {
 
   const handleOpenLeaderboard = async () => {
     if (!syncStatus.isOnline) {
-      alert("⚠️ Leaderboard is an online feature. Please make sure 'Simulate Network' is checked and your device is online.");
+      alert("Leaderboard is an online feature. Please make sure 'Simulate Network' is checked and your device is online.");
       return;
     }
     setShowLeaderboard(true);
@@ -365,7 +361,6 @@ export default function App() {
     }
 
     if (!actPasscode.trim()) {
-      // Free Version Flow
       setIsFreeMode(true);
       setActivation(null);
       setScreen('DASHBOARD');
@@ -477,7 +472,6 @@ export default function App() {
   };
 
   const startMockSession = async () => {
-    // Check if any selected subject is locked
     const lockedSub = subjectsList.find(s => mockSelectedSubjects.includes(s.id) && (s as any).is_locked);
     if (lockedSub) {
       setUpgradeModalMessage(`Subject ${lockedSub.name} is restricted under your subscription settings. Please subscribe or buy a passcode to access all subjects.`);
@@ -574,18 +568,6 @@ export default function App() {
     return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
   };
 
-  const getPacingFeedback = () => {
-    if (isPracticeMode || timeLeft <= 0) return null;
-    const timeSpent = (examQuestions.length * 40) - timeLeft;
-    const expectedTimeSpent = (currentIdx + 1) * 40;
-    const diff = timeSpent - expectedTimeSpent;
-
-    if (diff > 45) {
-      return { text: `Behind pace by ${Math.round(diff / 60)}m (recommended: 40s/Q)`, class: 'behind' };
-    }
-    return { text: `Ideal pace maintained (~40s per question)`, class: 'on-track' };
-  };
-
   const selectAnswer = async (ans: 'A' | 'B' | 'C' | 'D') => {
     const q = examQuestions[currentIdx];
     if (!q) return;
@@ -629,6 +611,7 @@ export default function App() {
         option_c: q.option_c,
         option_d: q.option_d,
         correct_answer: q.correct_answer,
+        difficulty: q.difficulty || 'medium',
         user_answer: userAns,
         is_correct: isCorrect,
         topic_explanation: q.topic_explanation,
@@ -719,14 +702,8 @@ export default function App() {
     logMeta: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' },
     logEvent: { fontWeight: 600, color: colors.text },
     logStatus: { fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' },
-    logStatusSuccess: { backgroundColor: colors.successLight, color: colors.success },
-    logStatusFailed: { backgroundColor: colors.dangerLight, color: colors.danger },
-    logStatusPending: { backgroundColor: colors.warningLight, color: colors.warning },
-    logText: { color: colors.textSecondary, marginBottom: '2px' },
-    logTime: { color: colors.textMuted, fontSize: '11px' },
     checkboxGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', backgroundColor: colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` },
     checkboxLabel: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', cursor: 'pointer', padding: '6px 0' },
-    examHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
     timerPanel: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', backgroundColor: colors.primaryDark, color: '#fff', borderRadius: '12px', fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' },
     questionCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '32px', flex: 1, border: `1px solid ${colors.border}` },
     paletteCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', width: '280px', flexShrink: 0, border: `1px solid ${colors.border}` },
@@ -737,19 +714,9 @@ export default function App() {
     paletteBtn: { width: '100%', aspectRatio: '1', borderRadius: '8px', border: `1px solid ${colors.border}`, backgroundColor: colors.surface, fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: colors.textSecondary },
     paletteBtnActive: { borderColor: colors.primary, backgroundColor: colors.primary, color: '#fff' },
     paletteBtnAnswered: { borderColor: colors.success, backgroundColor: colors.successLight, color: colors.success },
-    paletteBtnFlagged: { borderColor: colors.danger, backgroundColor: colors.dangerLight, color: colors.danger },
-    legendItem: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: colors.textSecondary },
-    legendDot: { width: '10px', height: '10px', borderRadius: '50%' },
     resultCircle: { width: '160px', height: '160px', borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px', border: `8px solid ${colors.primaryLight}` },
-    resultCirclePassed: { borderColor: colors.success },
-    resultCircleFailed: { borderColor: colors.warning },
     reviewCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', border: `1px solid ${colors.border}`, borderLeftWidth: '6px' },
     badge: { display: 'inline-flex', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' },
-    badgeSuccess: { backgroundColor: colors.successLight, color: colors.success },
-    badgeDanger: { backgroundColor: colors.dangerLight, color: colors.danger },
-    pacingBehind: { padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, marginBottom: '16px', backgroundColor: colors.dangerLight, color: colors.danger },
-    pacingOnTrack: { padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, marginBottom: '16px', backgroundColor: colors.successLight, color: colors.success },
-    fallbackBanner: { padding: '14px 18px', backgroundColor: colors.warningLight, border: `1px solid ${colors.warning}`, borderRadius: '10px', color: '#92400e', fontSize: '14px', marginBottom: '20px', fontWeight: 600 },
     explanationBox: { marginTop: '16px', backgroundColor: colors.primaryLight, border: `1px solid #c7d2fe`, borderRadius: '10px', padding: '20px', fontSize: '14px', lineHeight: '1.6' },
   };
 
@@ -816,9 +783,7 @@ export default function App() {
               }}
               onClick={triggerBuyPasscodeOnline}
             >
-              <span style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
-                🛒
-              </span>
+              <ShoppingCart size={16} />
               Buy Passcode Online
             </button>
           </nav>
@@ -855,8 +820,8 @@ export default function App() {
               {screen === 'ACTIVATION' && 'Terminal Activation & Login'}
               {screen === 'DASHBOARD' && (isFreeMode ? 'Exam Dashboard (Free Mode)' : 'Exam Dashboard')}
               {screen === 'EXAM' && `${examType} Exam Room`}
-              {screen === 'RESULT' && 'Exam Results'}
-              {screen === 'REVIEW' && 'Question Review'}
+              {screen === 'RESULT' && 'Exam Results Summary'}
+              {screen === 'REVIEW' && 'Question & Answer Review'}
             </span>
             {activation && (
               <span style={{ fontSize: '13px', color: colors.textMuted, fontWeight: 500 }}>
@@ -871,36 +836,8 @@ export default function App() {
                 style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnSm }}
                 onClick={() => setScreen('ACTIVATION')}
               >
-                🔑 Activate Passcode
+                <Key size={14} /> Activate Passcode
               </button>
-            )}
-
-            {activation && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                padding: '3px 8px',
-                borderRadius: '20px',
-                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
-                border: '1px solid #f59e0b',
-                color: isDarkMode ? '#fbbf24' : '#b45309',
-                fontSize: '11px',
-                fontWeight: 700
-              }}>
-                <span>
-                  {(() => {
-                    if (!activation.expiry_date) return 'Activated';
-                    try {
-                      const d = new Date(activation.expiry_date);
-                      if (isNaN(d.getTime())) return 'Activated';
-                      return `Expires: ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    } catch (e) {
-                      return 'Activated';
-                    }
-                  })()}
-                </span>
-              </div>
             )}
 
             <button
@@ -944,7 +881,7 @@ export default function App() {
 
             {screen === 'DASHBOARD' && (
               <button style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }} onClick={handleLogout}>
-                {isFreeMode ? 'Change Login' : 'Log Out'}
+                <LogOut size={14} /> {isFreeMode ? 'Change Login' : 'Log Out'}
               </button>
             )}
 
@@ -954,18 +891,8 @@ export default function App() {
             </div>
 
             <button style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm }} onClick={triggerManualSync} disabled={!syncStatus.isOnline}>
-              Sync Now
+              <RotateCw size={14} /> Sync Now
             </button>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: colors.textSecondary, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={syncStatus.isOnline}
-                onChange={(e) => toggleSimulateOnline(e.target.checked)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.primary }}
-              />
-              Simulate Network
-            </label>
           </div>
         </header>
 
@@ -1007,8 +934,8 @@ export default function App() {
                   </div>
 
                   {actError && (
-                    <div style={{ color: colors.danger, fontWeight: 600, fontSize: '13px', marginBottom: '16px', backgroundColor: colors.dangerLight, padding: '12px', borderRadius: '8px' }}>
-                      {actError}
+                    <div style={{ color: colors.danger, fontWeight: 600, fontSize: '13px', marginBottom: '16px', backgroundColor: colors.dangerLight, padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AlertCircle size={16} /> {actError}
                     </div>
                   )}
 
@@ -1039,41 +966,10 @@ export default function App() {
                     onClick={triggerBuyPasscodeOnline}
                     style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700, padding: '8px 16px' }}
                   >
-                    🛒 Buy Passcode &amp; Select Subjects Online
+                    <ShoppingCart size={16} /> Buy Passcode &amp; Select Subjects Online
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* ================= NEWS DETAIL SCREEN ================= */}
-          {screen === 'NEWS_DETAIL' && selectedNews && (
-            <div style={{ maxWidth: '720px', margin: '40px auto', padding: '0 20px' }}>
-              <button
-                style={{ ...styles.btn, ...styles.btnSecondary, marginBottom: '32px' }}
-                onClick={() => {
-                  setSelectedNews(null);
-                  setScreen('DASHBOARD');
-                }}
-              >
-                ← Back to Dashboard
-              </button>
-
-              <article style={{ backgroundColor: colors.surface, borderRadius: '16px', padding: '40px', border: `1px solid ${colors.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                <header style={{ marginBottom: '32px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', marginBottom: '12px' }}>
-                    <span>Official Announcement</span>
-                  </div>
-
-                  <h1 style={{ fontSize: '36px', fontWeight: 800, color: colors.text, lineHeight: 1.2, marginBottom: '20px' }}>
-                    {selectedNews.title}
-                  </h1>
-                </header>
-
-                <section style={{ fontSize: '18px', lineHeight: 1.8, color: colors.text, whiteSpace: 'pre-line' }}>
-                  {selectedNews.content}
-                </section>
-              </article>
             </div>
           )}
 
@@ -1082,7 +978,6 @@ export default function App() {
             <div style={{ display: 'flex', gap: '24px', maxWidth: '1200px' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-                {/* Free Version Callout Banner */}
                 {isFreeMode && (
                   <div style={{
                     backgroundColor: colors.warningLight,
@@ -1094,22 +989,24 @@ export default function App() {
                     justifyContent: 'space-between',
                     color: '#92400e'
                   }}>
-                    <div>
-                      <strong style={{ fontSize: '15px' }}>⚡ Free Version Active</strong>
-                      <p style={{ fontSize: '13px', marginTop: '4px', margin: 0 }}>
-                        Restricted to Mathematics and English (Max 10 questions per exam session). Analytics and other subjects require a passcode.
-                      </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Zap size={24} color="#f59e0b" />
+                      <div>
+                        <strong style={{ fontSize: '15px' }}>Free Version Active</strong>
+                        <p style={{ fontSize: '13px', marginTop: '2px', margin: 0 }}>
+                          Restricted to Mathematics and English (Max 10 questions per exam session). Analytics and other subjects require a passcode.
+                        </p>
+                      </div>
                     </div>
                     <button
                       onClick={triggerBuyPasscodeOnline}
                       style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700, flexShrink: 0 }}
                     >
-                      Buy Passcode Now 🛒
+                      <ShoppingCart size={16} /> Buy Passcode Now
                     </button>
                   </div>
                 )}
 
-                {/* Welcome Card */}
                 <div style={{ ...styles.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '6px' }}>
@@ -1117,43 +1014,10 @@ export default function App() {
                     </h2>
                     <p style={{ color: colors.textSecondary, fontSize: '14px' }}>
                       Profile: <strong style={{ color: colors.primary }}>{activation ? activation.email : 'Unactivated Free Account'}</strong>
-                      {!isFreeMode && activation?.exam_category && (
-                        <span> • Category: <strong style={{ color: colors.primary }}>{activation.exam_category}</strong></span>
-                      )}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button
-                      onClick={handleOpenLeaderboard}
-                      style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700 }}
-                    >
-                       Weekly Leaderboard
-                    </button>
-                  </div>
                 </div>
 
-                {/* Supported Examination Bodies Showcase */}
-                <div style={{ ...styles.card, backgroundColor: isDarkMode ? 'rgba(29, 48, 144, 0.15)' : '#f0f4ff', borderColor: isDarkMode ? '#2d3e60' : '#c7d2fe', padding: '10px 14px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '8px' }}>
-                    Supported Official Examination Bodies
-                  </div>
-                  <div style={styles.grid3}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
-                      <img src="/jamb.webp" alt="JAMB Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-                      <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>JAMB UTME</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
-                      <img src="/waec.webp" alt="WAEC Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-                      <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>WAEC SSCE</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
-                      <img src="/NECO.jpg" alt="NECO Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-                      <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>NECO SSCE</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mode Tabs + Content */}
                 <div style={styles.card}>
                   <div style={styles.tabs}>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Practice Mode</button>
@@ -1169,35 +1033,24 @@ export default function App() {
                         setDashboardMode('ANALYTICS');
                       }}
                     >
-                      Performance {isFreeMode && '🔒'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        Performance {isFreeMode && <Lock size={12} />}
+                      </span>
                     </button>
                   </div>
 
                   <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
                     <span style={{ ...styles.label, margin: 0 }}>Exam Category</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <img
-                        src={examType === 'JAMB' ? '/jamb.webp' : examType === 'WAEC' ? '/waec.webp' : '/NECO.jpg'}
-                        alt={`${examType} Logo`}
-                        style={{ width: '28px', height: '28px', objectFit: 'contain' }}
-                      />
-                      <select style={{ ...styles.select, width: '140px' }} value={examType} onChange={(e) => setExamType(e.target.value as any)}>
-                        <option value="JAMB">JAMB CBT</option>
-                        <option value="WAEC">WAEC</option>
-                        <option value="NECO">NECO</option>
-                      </select>
-                    </div>
+                    <select style={{ ...styles.select, width: '140px' }} value={examType} onChange={(e) => setExamType(e.target.value as any)}>
+                      <option value="JAMB">JAMB CBT</option>
+                      <option value="WAEC">WAEC</option>
+                      <option value="NECO">NECO</option>
+                    </select>
                   </div>
 
                   {/* --- Mode: PRACTICE --- */}
                   {dashboardMode === 'PRACTICE' && (
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Practice Module Setup</h3>
-                        <span style={{ fontSize: '16px', fontWeight: 900, color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                           PRACTICE MODE
-                        </span>
-                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Subject to Study</label>
@@ -1221,42 +1074,12 @@ export default function App() {
                               const isLocked = (s as any).is_locked;
                               return (
                                 <option key={s.id} value={s.id}>
-                                  {isLocked ? `🔒 ${s.name} (Subscription Required)` : s.name}
+                                  {isLocked ? `Locked: ${s.name} (Subscription Required)` : s.name}
                                 </option>
                               );
                             })}
                           </select>
                         </div>
-
-                        <div style={styles.formGroup}>
-                          <label style={styles.label}>Topic Filter (Optional)</label>
-                          <select style={styles.select} value={practiceTopic} onChange={(e) => setPracticeTopic(Number(e.target.value))} disabled={!practiceSubject}>
-                            <option value="">All Topics</option>
-                            {topicsList.map(t => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div style={styles.formGroup}>
-                          <label style={styles.label}>Past Year Paper (Optional)</label>
-                          <select style={styles.select} value={practiceYear} onChange={(e) => setPracticeYear(Number(e.target.value))} disabled={!practiceSubject}>
-                            <option value="">Randomized Years</option>
-                            {yearsList.map(y => (
-                              <option key={y} value={y}>{y}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
-                          <input
-                            type="checkbox"
-                            checked={practiceTimed}
-                            onChange={(e) => setPracticeTimed(e.target.checked)}
-                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: colors.primary }}
-                          />
-                          Enable Countdown Timer
-                        </label>
 
                         <button style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnLg, marginTop: '8px', width: 'fit-content' }} onClick={startPracticeSession} disabled={!practiceSubject}>
                           Launch Practice Session
@@ -1268,11 +1091,6 @@ export default function App() {
                   {/* --- Mode: MOCK --- */}
                   {dashboardMode === 'MOCK' && (
                     <div>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Mock Examination Room</h3>
-                      <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '24px', lineHeight: 1.5 }}>
-                        {isFreeMode ? 'Free Version is restricted to 10 questions per subject in English & Mathematics.' : 'Select up to 4 subjects assigned to your passcode subscription.'}
-                      </p>
-
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Select Subjects (up to 4)</label>
@@ -1299,38 +1117,15 @@ export default function App() {
                                     }}
                                     style={{ width: '16px', height: '16px', accentColor: colors.primary }}
                                   />
-                                  {isLocked ? `🔒 ${s.name}` : s.name}
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                    {isLocked && <Lock size={14} color={colors.warning} />}
+                                    {s.name}
+                                  </span>
                                 </label>
                               );
                             })}
                           </div>
                         </div>
-
-                        <div style={styles.formGroup}>
-                          <label style={styles.label}>Selection Mode</label>
-                          <div style={{ display: 'flex', gap: '20px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' }}>
-                              <input type="radio" name="mock-mode" checked={mockSelectionMode === 'RANDOM'} onChange={() => setMockSelectionMode('RANDOM')} style={{ accentColor: colors.primary }} />
-                              Stratified Random
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' }}>
-                              <input type="radio" name="mock-mode" checked={mockSelectionMode === 'YEAR'} onChange={() => setMockSelectionMode('YEAR')} style={{ accentColor: colors.primary }} />
-                              By Past Year
-                            </label>
-                          </div>
-                        </div>
-
-                        {mockSelectionMode === 'YEAR' && (
-                          <div style={styles.formGroup}>
-                            <label style={styles.label}>Target Past Year</label>
-                            <select style={styles.select} value={mockSelectedYear} onChange={(e) => setMockSelectedYear(Number(e.target.value))}>
-                              <option value="">-- Choose Year --</option>
-                              <option value="2023">2023</option>
-                              <option value="2022">2022</option>
-                              <option value="2021">2021</option>
-                            </select>
-                          </div>
-                        )}
 
                         <button style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnLg, width: 'fit-content' }} onClick={startMockSession} disabled={mockSelectedSubjects.length === 0}>
                           Begin Official Mock Exam
@@ -1338,89 +1133,6 @@ export default function App() {
                       </div>
                     </div>
                   )}
-
-                  {/* --- Mode: ANALYTICS --- */}
-                  {dashboardMode === 'ANALYTICS' && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Performance Analytics &amp; Mastery Breakdown</h3>
-                      </div>
-
-                      <div style={{ ...styles.grid3, marginBottom: '24px' }}>
-                        <div style={styles.statCard}>
-                          <div style={styles.statLabel}>Total Exams</div>
-                          <div style={styles.statValue}>{historyResults.length}</div>
-                        </div>
-                        <div style={styles.statCard}>
-                          <div style={styles.statLabel}>Cumulative Average</div>
-                          <div style={{ ...styles.statValue, color: colors.success }}>
-                            {historyResults.length > 0 ? (historyResults.reduce((acc, r) => acc + r.percentage, 0) / historyResults.length).toFixed(1) : '0'}%
-                          </div>
-                        </div>
-                        <div style={styles.statCard}>
-                          <div style={styles.statLabel}>Top Score</div>
-                          <div style={{ ...styles.statValue, color: colors.primary }}>
-                            {historyResults.length > 0 ? Math.max(...historyResults.map(r => r.percentage)).toFixed(0) : '0'}%
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Panel: News & Sync */}
-              <div style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={styles.card}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, marginBottom: '16px', letterSpacing: '0.5px' }}>Latest Admin News</h3>
-                  <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {newsList.length === 0 ? (
-                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No announcements published.</p>
-                    ) : (
-                      newsList.map(item => (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedNews(item);
-                            setScreen('NEWS_DETAIL');
-                          }}
-                          style={{
-                            display: 'flex',
-                            gap: '12px',
-                            cursor: 'pointer',
-                            padding: '8px',
-                            borderRadius: '8px',
-                            borderBottom: `1px solid ${colors.border}`
-                          }}
-                        >
-                          <div style={{ fontSize: '20px', flexShrink: 0, marginTop: '2px' }}>📰</div>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: '13px', color: colors.text, marginBottom: '2px' }}>{item.title}</div>
-                            <div style={{ fontSize: '11px', color: colors.textSecondary }}>{item.content}</div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div style={styles.card}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, marginBottom: '16px', letterSpacing: '0.5px' }}>Sync Log</h3>
-                  <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                    {syncStatus.logs.length === 0 ? (
-                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No synchronization entries.</p>
-                    ) : (
-                      syncStatus.logs.map((log) => (
-                        <div style={styles.logItem} key={log.id}>
-                          <div style={styles.logMeta}>
-                            <span style={styles.logEvent}>{log.event_type}</span>
-                            <span style={{ ...styles.logStatus, backgroundColor: log.status === 'SUCCESS' ? colors.successLight : colors.dangerLight }}>{log.status}</span>
-                          </div>
-                          <div style={styles.logText}>{log.message}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -1438,12 +1150,8 @@ export default function App() {
                   ))}
                 </div>
 
-                <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', color: 'white', fontWeight: 600, fontSize: '12px' }}>
-                  📟 Calculator
-                </div>
-
-                <div style={{ backgroundColor: 'white', padding: '6px 14px', borderRadius: '20px', color: '#1e40af', fontWeight: 700, fontSize: '16px' }}>
-                  ⏱️ {(timeLeft / 60).toFixed(2)} min
+                <div style={{ backgroundColor: 'white', padding: '6px 14px', borderRadius: '20px', color: '#1e40af', fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Timer size={18} /> {(timeLeft / 60).toFixed(2)} min
                 </div>
               </div>
 
@@ -1452,8 +1160,8 @@ export default function App() {
                   <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#1e3a8a', marginBottom: '24px' }}>Examination Instructions</h1>
                   <p style={{ fontSize: '15px', color: '#334155', lineHeight: '1.8' }}>
                     1. Read each question carefully before selecting an answer.<br/>
-                    2. Use key A, B, C, D to pick options, N for Next, P for Previous, S to Submit.<br/>
-                    3. Ensure you complete all questions before the timer expires.
+                    2. In Practice Mode, click "View Answer & Solution" on any question to view full solution breakdown.<br/>
+                    3. After completing the test, click "View Answers & Solutions" to review all questions and detailed explanations.
                   </p>
 
                   <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
@@ -1489,15 +1197,18 @@ export default function App() {
                 </div>
 
                 <div style={styles.timerPanel}>
-                  {formatTimer(timeLeft)}
+                  <Timer size={20} /> {formatTimer(timeLeft)}
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '24px' }}>
                 <div style={styles.questionCard}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
                     <span style={{ padding: '6px 14px', backgroundColor: colors.primaryLight, color: colors.primary, borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
                       Question {currentIdx + 1} of {examQuestions.length}
+                    </span>
+                    <span style={{ padding: '4px 12px', backgroundColor: colors.bg, color: colors.textSecondary, borderRadius: '12px', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.border}` }}>
+                      Difficulty: {examQuestions[currentIdx].difficulty || 'medium'}
                     </span>
                   </div>
 
@@ -1525,6 +1236,44 @@ export default function App() {
                       );
                     })}
                   </div>
+
+                  {/* Practice Mode Instant "View Answer & Solution" Button */}
+                  {isPracticeMode && (
+                    <div style={{ marginTop: '24px', borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
+                      <button
+                        style={{ ...styles.btn, backgroundColor: colors.primary, color: '#fff', fontWeight: 700 }}
+                        onClick={() => setRevealExplanation(!revealExplanation)}
+                      >
+                        <Lightbulb size={16} /> {revealExplanation ? 'Hide Solution' : 'View Answer & Solution'}
+                      </button>
+
+                      {revealExplanation && (
+                        <div style={styles.explanationBox}>
+                          <div style={{ fontWeight: 800, color: colors.success, fontSize: '15px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <CheckCircle size={18} /> Correct Answer: Option {examQuestions[currentIdx].correct_answer}
+                          </div>
+                          <div style={{ fontWeight: 700, color: colors.primary, marginBottom: '6px' }}>
+                            Topic Overview ({examQuestions[currentIdx].topic_explanation || 'General Syllabus'}):
+                          </div>
+                          <p style={{ marginBottom: '10px' }}>{examQuestions[currentIdx].topic_explanation}</p>
+
+                          <div style={{ fontWeight: 700, color: colors.success, marginBottom: '6px' }}>
+                            Detailed Solution:
+                          </div>
+                          <p style={{ marginBottom: '10px' }}>{examQuestions[currentIdx].correct_explanation}</p>
+
+                          {examQuestions[currentIdx].wrong_explanations && (
+                            <>
+                              <div style={{ fontWeight: 700, color: colors.danger, marginBottom: '6px' }}>
+                                Wrong Alternatives Breakdown:
+                              </div>
+                              <p>{examQuestions[currentIdx].wrong_explanations}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px' }}>
                     <button style={{ ...styles.btn, ...styles.btnSecondary }} disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev - 1)}>
@@ -1565,71 +1314,141 @@ export default function App() {
 
           {/* ================= RESULT SCREEN ================= */}
           {screen === 'RESULT' && activeResult && (
-            <div style={{ maxWidth: '560px', margin: '40px auto' }}>
+            <div style={{ maxWidth: '600px', margin: '40px auto' }}>
               <div style={styles.card}>
-                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: colors.success }}>Exam Completed</h1>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: colors.primary }}>Exam Submitted</h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '4px' }}>
+                    Mode: {activeResult.exam_type} • Questions: {activeResult.total_questions}
+                  </p>
                 </div>
 
-                <div style={{ ...styles.resultCircle, borderColor: colors.success }}>
+                <div style={{ ...styles.resultCircle, borderColor: activeResult.percentage >= 50 ? colors.success : colors.warning }}>
                   <span style={{ fontSize: '36px', fontWeight: 800 }}>{activeResult.percentage.toFixed(0)}%</span>
-                  <span style={{ fontSize: '12px', color: colors.textMuted }}>Score</span>
+                  <span style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Score</span>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '32px' }}>
-                  <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '28px' }}>
+                  <button
+                    style={{ ...styles.btn, backgroundColor: colors.success, color: '#fff', padding: '12px 24px', fontWeight: 800 }}
+                    onClick={() => setScreen('REVIEW')}
+                  >
+                    <Eye size={18} /> View Answers &amp; Solutions
+                  </button>
+                  <button
+                    style={{ ...styles.btn, ...styles.btnPrimary, padding: '12px 24px' }}
+                    onClick={() => setScreen('DASHBOARD')}
+                  >
                     Back to Dashboard
                   </button>
                 </div>
               </div>
             </div>
           )}
+
+          {/* ================= REVIEW SCREEN ================= */}
+          {screen === 'REVIEW' && activeResult && (
+            <div style={{ maxWidth: '840px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+                <div>
+                  <h1 style={{ fontSize: '22px', fontWeight: 800 }}>Detailed Question &amp; Answer Review</h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '4px' }}>
+                    Review correct vs incorrect answers, difficulty levels, and solution breakdowns.
+                  </p>
+                </div>
+                <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>Return to Dashboard</button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {JSON.parse(activeResult.details || '[]').map((item: any, idx: number) => {
+                  return (
+                    <div key={idx} style={{ ...styles.reviewCard, borderLeftColor: item.is_correct ? colors.success : colors.danger }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <strong style={{ fontSize: '15px', color: colors.primary }}>Question {idx + 1}</strong>
+                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
+                            Difficulty: {item.difficulty || 'medium'}
+                          </span>
+                        </div>
+                        <span style={{ ...styles.badge, backgroundColor: item.is_correct ? colors.successLight : colors.dangerLight, color: item.is_correct ? colors.success : colors.danger }}>
+                          {item.is_correct ? 'Correct' : 'Incorrect'}
+                        </span>
+                      </div>
+
+                      <p style={{ fontSize: '15px', marginBottom: '16px', lineHeight: 1.6, fontWeight: 500 }}>{item.question_text}</p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                        {[
+                          { key: 'A', text: item.option_a },
+                          { key: 'B', text: item.option_b },
+                          { key: 'C', text: item.option_c },
+                          { key: 'D', text: item.option_d },
+                        ].map(opt => {
+                          let rowStyle: React.CSSProperties = {
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            border: `1px solid ${colors.border}`,
+                            fontSize: '14px'
+                          };
+
+                          if (opt.key === item.correct_answer) {
+                            rowStyle.backgroundColor = colors.successLight;
+                            rowStyle.borderColor = colors.success;
+                            rowStyle.fontWeight = 'bold';
+                          } else if (opt.key === item.user_answer) {
+                            rowStyle.backgroundColor = colors.dangerLight;
+                            rowStyle.borderColor = colors.danger;
+                          }
+
+                          return (
+                            <div key={opt.key} style={rowStyle}>
+                              <strong style={{ marginRight: '12px', width: '20px' }}>{opt.key}.</strong>
+                              <span>{opt.text}</span>
+                              {opt.key === item.correct_answer && <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.success, display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={14} /> Correct Answer</span>}
+                              {opt.key === item.user_answer && opt.key !== item.correct_answer && <span style={{ marginLeft: 'auto', fontSize: '12px', color: colors.danger, display: 'flex', alignItems: 'center', gap: '4px' }}><XCircle size={14} /> Your Choice</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{ backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', fontSize: '13px', lineHeight: 1.6 }}>
+                        <div style={{ fontWeight: 700, color: colors.primary, marginBottom: '6px' }}>Topic: {item.topic_explanation || 'General Syllabus'}</div>
+                        <div style={{ fontWeight: 700, color: colors.success, marginBottom: '6px' }}>Solution &amp; Explanation:</div>
+                        <p style={{ marginBottom: '10px' }}>{item.correct_explanation}</p>
+                        {item.wrong_explanations && (
+                          <>
+                            <div style={{ fontWeight: 700, color: colors.danger, marginBottom: '6px' }}>Incorrect Options Breakdown:</div>
+                            <p>{item.wrong_explanations}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
-      {/* ================= UPGRADE / SUBSCRIBE MODAL ================= */}
+      {/* ================= UPGRADE MODAL ================= */}
       {showUpgradeModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: colors.surface,
-            borderRadius: '16px',
-            maxWidth: '460px',
-            width: '100%',
-            padding: '32px',
-            textAlign: 'center',
-            border: `1px solid ${colors.border}`
-          }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔒</div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
-              Subscription Upgrade Required
-            </h2>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyCenter: 'center', zIndex: 100000, padding: '20px' }}>
+          <div style={{ backgroundColor: colors.surface, borderRadius: '16px', maxWidth: '460px', width: '100%', padding: '32px', textAlign: 'center', border: `1px solid ${colors.border}`, margin: 'auto' }}>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+              <Lock size={40} color={colors.warning} />
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>Subscription Upgrade Required</h2>
             <p style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '24px' }}>
               {upgradeModalMessage || "Selected subject or feature is restricted under your current activation. Please select and purchase your subject combination online."}
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button
-                onClick={() => {
-                  setShowUpgradeModal(false);
-                  triggerBuyPasscodeOnline();
-                }}
-                style={{ ...styles.btn, ...styles.btnPrimary }}
-              >
-                Buy Now / Upgrade 🛒
+              <button onClick={() => { setShowUpgradeModal(false); triggerBuyPasscodeOnline(); }} style={{ ...styles.btn, ...styles.btnPrimary }}>
+                <ShoppingCart size={16} /> Buy Now / Upgrade
               </button>
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                style={{ ...styles.btn, ...styles.btnSecondary }}
-              >
+              <button onClick={() => setShowUpgradeModal(false)} style={{ ...styles.btn, ...styles.btnSecondary }}>
                 Cancel
               </button>
             </div>
@@ -1639,15 +1458,7 @@ export default function App() {
 
       {/* ================= SUBMIT CONFIRM OVERLAY ================= */}
       {showSubmitConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000
-        }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000 }}>
           <div style={{ backgroundColor: colors.surface, padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px' }}>
             <h2>Submit Exam?</h2>
             <p style={{ margin: '16px 0', fontSize: '14px', color: colors.textSecondary }}>Press 'Y' or click Confirm to submit your exam.</p>
