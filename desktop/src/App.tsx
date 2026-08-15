@@ -864,28 +864,30 @@ export default function App() {
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
+                gap: '3px',
+                padding: '3px 4px',
                 borderRadius: '20px',
                 backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
                 border: '1px solid #f59e0b',
                 color: isDarkMode ? '#fbbf24' : '#b45309',
-                fontSize: '13px',
+                fontSize: '11px',
                 fontWeight: 700
               }}>
-                <span>⏳</span>
-                <span>
-                  {(() => {
-                    if (!activation.expiry_date) return 'Expires: Oct 12, 2026';
-                    try {
-                      const d = new Date(activation.expiry_date);
-                      if (isNaN(d.getTime())) return 'Expires: Oct 12, 2026';
-                      return `Expires: ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-                    } catch (e) {
-                      return 'Expires: Oct 12, 2026';
-                    }
-                  })()}
-                </span>
+                
+               <span>
+  {(() => {
+    if (!activation.expiry_date) return 'NULL';
+    try {
+      const d = new Date(activation.expiry_date);
+      if (isNaN(d.getTime())) return 'Expires: NULL';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `Expires: ${year}-${month}`;
+    } catch (e) {
+      return 'NULL';
+    }
+  })()}
+</span>
               </div>
             )}
 
@@ -1087,40 +1089,40 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Supported Examination Bodies Showcase */}
-                <div style={{ ...styles.card, backgroundColor: isDarkMode ? 'rgba(29, 48, 144, 0.15)' : '#f0f4ff', borderColor: isDarkMode ? '#2d3e60' : '#c7d2fe' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>
-                    Supported Official Examination Bodies
-                  </div>
-                  <div style={styles.grid3}>
-                    {/* JAMB */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
-                      <img src="/jamb.svg" alt="JAMB Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>JAMB UTME</div>
-                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>Joint Admissions Board</div>
-                      </div>
-                    </div>
+              {/* Supported Examination Bodies Showcase */}
+<div style={{ ...styles.card, backgroundColor: isDarkMode ? 'rgba(29, 48, 144, 0.15)' : '#f0f4ff', borderColor: isDarkMode ? '#2d3e60' : '#c7d2fe', padding: '10px 14px' }}>
+  <div style={{ fontSize: '10px', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '8px' }}>
+    Supported Official Examination Bodies
+  </div>
+  <div style={styles.grid3}>
+    {/* JAMB */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+      <img src="/jamb.webp" alt="JAMB Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+      <div>
+        <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>JAMB UTME</div>
+       
+      </div>
+    </div>
 
-                    {/* WAEC */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
-                      <img src="/waec.svg" alt="WAEC Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>WAEC SSCE</div>
-                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>West African Council</div>
-                      </div>
-                    </div>
+    {/* WAEC */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+      <img src="/waec.webp" alt="WAEC Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+      <div>
+        <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>WAEC SSCE</div>
+       
+      </div>
+    </div>
 
-                    {/* NECO */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
-                      <img src="/neco.svg" alt="NECO Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>NECO SSCE</div>
-                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>National Examinations</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+    {/* NECO */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+      <img src="/NECO.jpg" alt="NECO Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+      <div>
+        <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>NECO SSCE</div>
+       
+      </div>
+    </div>
+  </div>
+</div>
 
                 {/* Mode Tabs + Content */}
                 <div style={styles.card}>
@@ -1134,7 +1136,7 @@ export default function App() {
                     <span style={{ ...styles.label, margin: 0 }}>Exam Structure</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <img
-                        src={examType === 'JAMB' ? '/jamb.svg' : examType === 'WAEC' ? '/waec.svg' : '/neco.svg'}
+                        src={examType === 'JAMB' ? '/jamb.webp' : examType === 'WAEC' ? '/waec.webp' : '/NECO.jpg'}
                         alt={`${examType} Logo`}
                         style={{ width: '28px', height: '28px', objectFit: 'contain' }}
                       />
@@ -1152,7 +1154,7 @@ export default function App() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Practice Module Setup</h3>
                         <span style={{ fontSize: '16px', fontWeight: 900, color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                          🔴 PRACTICE MODE
+                           PRACTICE MODE
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
