@@ -38,33 +38,82 @@ if (empty($email)) {
 
 // Convert selected_subjects to array and list
 if (is_string($selected_subjects)) {
-    $selected_subjects_arr = array_filter(array_map('trim', explode(',', $selected_subjects)));
+    $selected_subjects_arr = array_values(array_filter(array_map('trim', explode(',', $selected_subjects))));
 } else if (is_array($selected_subjects)) {
-    $selected_subjects_arr = $selected_subjects;
+    $selected_subjects_arr = array_values($selected_subjects);
 } else {
     $selected_subjects_arr = [];
 }
 
-$num_subjects = count($selected_subjects_arr);
+// Support structured subject breakdown if sent from frontend
+$category_subjects = $data['category_subjects'] ?? null;
 
-// Validate subject selection rules per category
-if ($exam_category === 'JAMB') {
-    if ($num_subjects < 4 || $num_subjects > 5) {
-        echo json_encode(["success" => false, "message" => "JAMB requires a minimum of 4 subjects and a maximum of 5 subjects."]);
-        exit();
+if (is_array($category_subjects)) {
+    // Structured per exam card validation
+    if ($exam_category === 'JAMB' || $exam_category === 'ALL') {
+        $jamb_subjs = $category_subjects['JAMB'] ?? [];
+        $cnt = count($jamb_subjs);
+        if ($exam_category === 'JAMB' && ($cnt < 4 || $cnt > 5)) {
+            echo json_encode(["success" => false, "message" => "JAMB requires a minimum of 4 subjects and a maximum of 5 subjects."]);
+            exit();
+        }
     }
-} else if ($exam_category === 'WAEC' || $exam_category === 'NECO' || $exam_category === 'ALL') {
-    if ($num_subjects < 4 || $num_subjects > 9) {
-        echo json_encode(["success" => false, "message" => "$exam_category requires a minimum of 4 subjects and a maximum of 9 subjects."]);
-        exit();
+    if ($exam_category === 'WAEC' || $exam_category === 'ALL') {
+        $waec_subjs = $category_subjects['WAEC'] ?? [];
+        $cnt = count($waec_subjs);
+        if ($exam_category === 'WAEC' && ($cnt < 4 || $cnt > 9)) {
+            echo json_encode(["success" => false, "message" => "WAEC requires a minimum of 4 subjects and a maximum of 9 subjects."]);
+            exit();
+        }
+    }
+    if ($exam_category === 'NECO' || $exam_category === 'ALL') {
+        $neco_subjs = $category_subjects['NECO'] ?? [];
+        $cnt = count($neco_subjs);
+        if ($exam_category === 'NECO' && ($cnt < 4 || $cnt > 9)) {
+            echo json_encode(["success" => false, "message" => "NECO requires a minimum of 4 subjects and a maximum of 9 subjects."]);
+            exit();
+        }
+    }
+    if ($exam_category === 'ALL') {
+        $j_cnt = count($category_subjects['JAMB'] ?? []);
+        $w_cnt = count($category_subjects['WAEC'] ?? []);
+        $n_cnt = count($category_subjects['NECO'] ?? []);
+        if ($j_cnt < 4 || $j_cnt > 5) {
+            echo json_encode(["success" => false, "message" => "JAMB section requires 4 to 5 subjects."]);
+            exit();
+        }
+        if ($w_cnt < 4 || $w_cnt > 9) {
+            echo json_encode(["success" => false, "message" => "WAEC section requires 4 to 9 subjects."]);
+            exit();
+        }
+        if ($n_cnt < 4 || $n_cnt > 9) {
+            echo json_encode(["success" => false, "message" => "NECO section requires 4 to 9 subjects."]);
+            exit();
+        }
+    }
+} else {
+    $num_subjects = count($selected_subjects_arr);
+    // Standard rule
+    if ($exam_category === 'JAMB') {
+        if ($num_subjects < 4 || $num_subjects > 5) {
+            echo json_encode(["success" => false, "message" => "JAMB requires a minimum of 4 subjects and a maximum of 5 subjects."]);
+            exit();
+        }
+    } else if ($exam_category === 'WAEC' || $exam_category === 'NECO' || $exam_category === 'ALL') {
+        if ($num_subjects < 4 || $num_subjects > 9) {
+            echo json_encode(["success" => false, "message" => "$exam_category requires a minimum of 4 subjects and a maximum of 9 subjects."]);
+            exit();
+        }
     }
 }
+
+$total_num_subjects = count($selected_subjects_arr);
 
 // Pricing formula:
 // 500 per category, 300 per subject, 100 per month, 100 per device
 $num_categories = ($exam_category === 'ALL') ? 3 : 1;
 $category_cost = $num_categories * 500;
-$subject_cost = $num_subjects * 300;
+$subject_cost = $total_num_subjects * 300;
 $duration_cost = $duration_months * 100;
 $device_cost = $max_devices * 100;
 

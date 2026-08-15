@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus } from './global';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy } from 'lucide-react';
 
 type Screen = 'ACTIVATION' | 'DASHBOARD' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
@@ -631,6 +631,7 @@ export default function App() {
         correct_answer: q.correct_answer,
         user_answer: userAns,
         is_correct: isCorrect,
+        difficulty: q.difficulty,
         topic_explanation: q.topic_explanation,
         correct_explanation: q.correct_explanation,
         wrong_explanations: q.wrong_explanations
@@ -817,7 +818,7 @@ export default function App() {
               onClick={triggerBuyPasscodeOnline}
             >
               <span style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
-                🛒
+                <ShoppingCart size={16} color="#fff" />
               </span>
               Buy Passcode Online
             </button>
@@ -871,7 +872,7 @@ export default function App() {
                 style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnSm }}
                 onClick={() => setScreen('ACTIVATION')}
               >
-                🔑 Activate Passcode
+                <Key size={14} /> Activate Passcode
               </button>
             )}
 
@@ -1039,7 +1040,7 @@ export default function App() {
                     onClick={triggerBuyPasscodeOnline}
                     style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700, padding: '8px 16px' }}
                   >
-                    🛒 Buy Passcode &amp; Select Subjects Online
+                    <ShoppingCart size={16} /> Buy Passcode &amp; Select Subjects Online
                   </button>
                 </div>
               </div>
@@ -1095,7 +1096,9 @@ export default function App() {
                     color: '#92400e'
                   }}>
                     <div>
-                      <strong style={{ fontSize: '15px' }}>⚡ Free Version Active</strong>
+                      <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Zap size={18} color="#d97706" /> Free Version Active
+                      </strong>
                       <p style={{ fontSize: '13px', marginTop: '4px', margin: 0 }}>
                         Restricted to Mathematics and English (Max 10 questions per exam session). Analytics and other subjects require a passcode.
                       </p>
@@ -1104,7 +1107,7 @@ export default function App() {
                       onClick={triggerBuyPasscodeOnline}
                       style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700, flexShrink: 0 }}
                     >
-                      Buy Passcode Now 🛒
+                      Buy Passcode Now <ShoppingCart size={16} />
                     </button>
                   </div>
                 )}
@@ -1127,7 +1130,7 @@ export default function App() {
                       onClick={handleOpenLeaderboard}
                       style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700 }}
                     >
-                       Weekly Leaderboard
+                      <Trophy size={16} /> Weekly Leaderboard
                     </button>
                   </div>
                 </div>
@@ -1169,7 +1172,9 @@ export default function App() {
                         setDashboardMode('ANALYTICS');
                       }}
                     >
-                      Performance {isFreeMode && '🔒'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        Performance {isFreeMode && <Lock size={14} color={colors.warning} />}
+                      </span>
                     </button>
                   </div>
 
@@ -1221,7 +1226,7 @@ export default function App() {
                               const isLocked = (s as any).is_locked;
                               return (
                                 <option key={s.id} value={s.id}>
-                                  {isLocked ? `🔒 ${s.name} (Subscription Required)` : s.name}
+                                  {isLocked ? `[Locked] ${s.name} (Subscription Required)` : s.name}
                                 </option>
                               );
                             })}
@@ -1299,7 +1304,13 @@ export default function App() {
                                     }}
                                     style={{ width: '16px', height: '16px', accentColor: colors.primary }}
                                   />
-                                  {isLocked ? `🔒 ${s.name}` : s.name}
+                                  {isLocked ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <Lock size={14} color={colors.warning} /> {s.name}
+                                    </span>
+                                  ) : (
+                                    s.name
+                                  )}
                                 </label>
                               );
                             })}
@@ -1364,6 +1375,108 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Pie Chart & Performance Metrics */}
+                      {(() => {
+                        let totalCorrect = 0;
+                        let totalQuestions = 0;
+
+                        historyResults.forEach(r => {
+                          totalCorrect += (r.score || 0);
+                          totalQuestions += (r.total_questions || 0);
+                        });
+
+                        const totalIncorrect = Math.max(0, totalQuestions - totalCorrect);
+                        const correctPct = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 75; // Default demo split if empty
+
+                        // SVG Pie Chart calculations (Radius: 80, Center: 100, 100)
+                        const r = 80;
+                        const cx = 100;
+                        const cy = 100;
+                        const angle = (correctPct / 100) * 360;
+                        const radians = (angle - 90) * (Math.PI / 180);
+                        const x = cx + r * Math.cos(radians);
+                        const y = cy + r * Math.sin(radians);
+                        const largeArcFlag = angle > 180 ? 1 : 0;
+
+                        // Slice path for Correct
+                        const pathData = totalQuestions === 0 || correctPct === 100
+                          ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`
+                          : `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 ${largeArcFlag} 1 ${x} ${y} Z`;
+
+                        return (
+                          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px', backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="200" height="200" viewBox="0 0 200 200">
+                                {/* Base circle for incorrect/unanswered */}
+                                <circle cx={cx} cy={cy} r={r} fill={colors.danger} />
+                                {/* Overlay sector for correct */}
+                                <path d={pathData} fill={colors.success} />
+                                {/* Center donut circle */}
+                                <circle cx={cx} cy={cy} r="45" fill={colors.surface} />
+                                <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle" fill={colors.text} fontSize="18" fontWeight="800">
+                                  {totalQuestions > 0 ? `${correctPct.toFixed(0)}%` : 'Accuracy'}
+                                </text>
+                                <text x={cx} y={cy + 16} textAnchor="middle" dominantBaseline="middle" fill={colors.textMuted} fontSize="10" fontWeight="700">
+                                  Correct Rate
+                                </text>
+                              </svg>
+
+                              <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '12px', fontWeight: 700 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.success }}></span>
+                                  Correct ({totalQuestions > 0 ? totalCorrect : '75%'})
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.danger }}></span>
+                                  Incorrect ({totalQuestions > 0 ? totalIncorrect : '25%'})
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '12px', color: colors.text }}>
+                                Exam Attempt History &amp; Right / Wrong Breakdown
+                              </h4>
+                              <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {historyResults.length === 0 ? (
+                                  <p style={{ color: colors.textMuted, fontSize: '13px' }}>
+                                    No completed exam records found. Take an exam or practice test to view detailed question history!
+                                  </p>
+                                ) : (
+                                  historyResults.map((r, i) => (
+                                    <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                                      <div>
+                                        <div style={{ fontWeight: 700, fontSize: '14px', color: colors.text }}>
+                                          {r.exam_type || examType} Test ({r.score} / {r.total_questions} Correct)
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: colors.textMuted }}>
+                                          Submitted: {r.submitted_at ? new Date(r.submitted_at).toLocaleString() : 'Recently'}
+                                        </div>
+                                      </div>
+
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <span style={{ fontWeight: 800, fontSize: '16px', color: r.percentage >= 50 ? colors.success : colors.danger }}>
+                                          {r.percentage.toFixed(0)}%
+                                        </span>
+                                        <button
+                                          style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontSize: '12px', fontWeight: 700 }}
+                                          onClick={() => {
+                                            setActiveResult(r);
+                                            setScreen('REVIEW');
+                                          }}
+                                        >
+                                          Inspect Answers
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -1393,7 +1506,9 @@ export default function App() {
                             borderBottom: `1px solid ${colors.border}`
                           }}
                         >
-                          <div style={{ fontSize: '20px', flexShrink: 0, marginTop: '2px' }}>📰</div>
+                          <div style={{ flexShrink: 0, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                            <Newspaper size={20} color={colors.primary} />
+                          </div>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: '13px', color: colors.text, marginBottom: '2px' }}>{item.title}</div>
                             <div style={{ fontSize: '11px', color: colors.textSecondary }}>{item.content}</div>
@@ -1438,12 +1553,12 @@ export default function App() {
                   ))}
                 </div>
 
-                <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', color: 'white', fontWeight: 600, fontSize: '12px' }}>
-                  📟 Calculator
+                <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', color: 'white', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calculator size={16} /> Calculator
                 </div>
 
-                <div style={{ backgroundColor: 'white', padding: '6px 14px', borderRadius: '20px', color: '#1e40af', fontWeight: 700, fontSize: '16px' }}>
-                  ⏱️ {(timeLeft / 60).toFixed(2)} min
+                <div style={{ backgroundColor: 'white', padding: '6px 14px', borderRadius: '20px', color: '#1e40af', fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={18} /> {(timeLeft / 60).toFixed(2)} min
                 </div>
               </div>
 
@@ -1526,6 +1641,43 @@ export default function App() {
                     })}
                   </div>
 
+                  {/* Practice Mode: Toggle View Answer / Explanation */}
+                  {isPracticeMode && (
+                    <div style={{ marginTop: '20px', borderTop: `1px dashed ${colors.border}`, paddingTop: '16px' }}>
+                      <button
+                        style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontWeight: 700, backgroundColor: revealExplanation ? colors.warningLight : colors.primaryLight, color: revealExplanation ? colors.warning : colors.primary, border: 'none' }}
+                        onClick={() => setRevealExplanation(!revealExplanation)}
+                      >
+                        💡 {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
+                      </button>
+
+                      {revealExplanation && (
+                        <div style={styles.explanationBox}>
+                          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 800, color: colors.success }}>
+                              Correct Answer: Option {examQuestions[currentIdx].correct_answer}
+                            </span>
+                            <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', backgroundColor: colors.surface, border: `1px solid ${colors.border}`, textTransform: 'uppercase', fontWeight: 700, color: colors.textSecondary }}>
+                              Difficulty: {examQuestions[currentIdx].difficulty || 'medium'}
+                            </span>
+                          </div>
+
+                          {examQuestions[currentIdx].correct_explanation && (
+                            <div style={{ marginBottom: '8px' }}>
+                              <strong>Explanation:</strong> {examQuestions[currentIdx].correct_explanation}
+                            </div>
+                          )}
+
+                          {examQuestions[currentIdx].topic_explanation && (
+                            <div style={{ color: colors.textSecondary, fontSize: '13px' }}>
+                              <strong>Topic Insight:</strong> {examQuestions[currentIdx].topic_explanation}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px' }}>
                     <button style={{ ...styles.btn, ...styles.btnSecondary }} disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev - 1)}>
                       Previous
@@ -1577,11 +1729,136 @@ export default function App() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '32px' }}>
-                  <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>
+                  <button style={{ ...styles.btn, ...styles.btnSuccess }} onClick={() => setScreen('REVIEW')}>
+                    View Correct Answers &amp; Review
+                  </button>
+                  <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={() => setScreen('DASHBOARD')}>
                     Back to Dashboard
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ================= REVIEW SCREEN ================= */}
+          {screen === 'REVIEW' && activeResult && (
+            <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h1 style={{ fontSize: '24px', fontWeight: 800 }}>Detailed Question &amp; Answer Review</h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px' }}>
+                    Score: <strong style={{ color: colors.primary }}>{activeResult.percentage.toFixed(0)}%</strong> ({activeResult.score} / {activeResult.total_questions} Correct)
+                  </p>
+                </div>
+                <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>
+                  Return to Dashboard
+                </button>
+              </div>
+
+              {(() => {
+                let parsedDetails: any[] = [];
+                try {
+                  parsedDetails = typeof activeResult.details === 'string' ? JSON.parse(activeResult.details) : (activeResult.details || []);
+                } catch (e) {
+                  parsedDetails = [];
+                }
+
+                if (parsedDetails.length === 0) {
+                  return <div style={styles.card}>No detailed question records available for this exam.</div>;
+                }
+
+                return parsedDetails.map((q: any, idx: number) => {
+                  const isCorrect = q.is_correct;
+                  const userAns = q.user_answer;
+                  const correctAns = q.correct_answer;
+
+                  return (
+                    <div
+                      key={q.id || idx}
+                      style={{
+                        ...styles.reviewCard,
+                        borderLeftColor: isCorrect ? colors.success : colors.danger
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textMuted }}>
+                          Question {idx + 1}
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, textTransform: 'uppercase', fontWeight: 600 }}>
+                            Difficulty: {q.difficulty || 'Medium'}
+                          </span>
+                          <span style={{ ...styles.badge, ...(isCorrect ? styles.badgeSuccess : styles.badgeDanger) }}>
+                            {isCorrect ? 'Correct' : userAns ? 'Incorrect' : 'Unanswered'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: '20px' }}>
+                        {q.question_text}
+                      </p>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                        {[
+                          { key: 'A', text: q.option_a },
+                          { key: 'B', text: q.option_b },
+                          { key: 'C', text: q.option_c },
+                          { key: 'D', text: q.option_d },
+                        ].map(opt => {
+                          const isUserChoice = userAns === opt.key;
+                          const isRightChoice = correctAns === opt.key;
+
+                          let optionBg = colors.bg;
+                          let optionBorder = colors.border;
+                          let labelText = '';
+
+                          if (isRightChoice) {
+                            optionBg = colors.successLight;
+                            optionBorder = colors.success;
+                            labelText = ' ✓ Correct Answer';
+                          } else if (isUserChoice && !isCorrect) {
+                            optionBg = colors.dangerLight;
+                            optionBorder = colors.danger;
+                            labelText = ' ✗ Your Choice';
+                          }
+
+                          return (
+                            <div
+                              key={opt.key}
+                              style={{
+                                padding: '12px 16px',
+                                borderRadius: '10px',
+                                border: `1px solid ${optionBorder}`,
+                                backgroundColor: optionBg,
+                                fontSize: '14px',
+                                fontWeight: (isRightChoice || isUserChoice) ? 700 : 400
+                              }}
+                            >
+                              <strong>{opt.key}.</strong> {opt.text}
+                              {labelText && <span style={{ fontSize: '12px', marginLeft: '6px' }}>{labelText}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {(q.correct_explanation || q.topic_explanation) && (
+                        <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
+                          {q.correct_explanation && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <strong>Explanation:</strong> {q.correct_explanation}
+                            </div>
+                          )}
+                          {q.topic_explanation && (
+                            <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                              <strong>Topic Detail:</strong> {q.topic_explanation}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </main>
@@ -1609,7 +1886,9 @@ export default function App() {
             textAlign: 'center',
             border: `1px solid ${colors.border}`
           }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔒</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <Lock size={48} color={colors.primary} />
+            </div>
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
               Subscription Upgrade Required
             </h2>
@@ -1624,7 +1903,7 @@ export default function App() {
                 }}
                 style={{ ...styles.btn, ...styles.btnPrimary }}
               >
-                Buy Now / Upgrade 🛒
+                Buy Now / Upgrade <ShoppingCart size={16} />
               </button>
               <button
                 onClick={() => setShowUpgradeModal(false)}
