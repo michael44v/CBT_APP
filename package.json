@@ -12,5 +12,10 @@
   },
   "dependencies": {
     "node-fetch": "^3.3.2"
+  },
+  "allowScripts": {
+    "electron@28.3.3": true,
+    "electron-winstaller@5.4.0": true,
+    "better-sqlite3@13.0.3": true
   }
 }
