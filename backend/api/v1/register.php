@@ -20,14 +20,15 @@ if (!$data) {
 $name = trim($data['name'] ?? 'Candidate');
 $email = trim($data['email'] ?? '');
 $phone = trim($data['phone'] ?? '');
-$state = trim($data['state'] ?? '');
-$school = trim($data['school'] ?? '');
+$organization_name = trim($data['organization_name'] ?? '');
+$organization_type = trim($data['organization_type'] ?? 'Individual');
+$quantity = max(1, intval($data['quantity'] ?? 1));
 
-$exam_category = strtoupper(trim($data['exam_category'] ?? 'JAMB')); // JAMB, WAEC, NECO, ALL
+$exam_category = strtoupper(trim($data['exam_category'] ?? 'JAMB')); // e.g. JAMB or JAMB,WAEC
 $selected_subjects = $data['selected_subjects'] ?? []; // array or comma-separated string
 $max_devices = max(1, intval($data['max_devices'] ?? 1));
-$duration_months = max(1, intval($data['duration_months'] ?? 1));
-$duration_days = $duration_months * 30;
+$duration_months = max(1, intval($data['duration_months'] ?? 6));
+$duration_days = ($duration_months >= 12) ? 365 : 180;
 
 $promo_code_input = strtoupper(trim($data['promo_code'] ?? ''));
 
@@ -36,7 +37,14 @@ if (empty($email)) {
     exit();
 }
 
-// Convert selected_subjects to array and list
+// Extract selected categories
+$categories_arr = array_values(array_filter(array_map('trim', explode(',', $exam_category))));
+if (empty($categories_arr)) {
+    $categories_arr = ['JAMB'];
+}
+$category_count = count($categories_arr);
+
+// Convert selected_subjects to array
 if (is_string($selected_subjects)) {
     $selected_subjects_arr = array_values(array_filter(array_map('trim', explode(',', $selected_subjects))));
 } else if (is_array($selected_subjects)) {
@@ -45,81 +53,33 @@ if (is_string($selected_subjects)) {
     $selected_subjects_arr = [];
 }
 
-// Support structured subject breakdown if sent from frontend
-$category_subjects = $data['category_subjects'] ?? null;
+$db = getDbConnection();
 
-if (is_array($category_subjects)) {
-    // Structured per exam card validation
-    if ($exam_category === 'JAMB' || $exam_category === 'ALL') {
-        $jamb_subjs = $category_subjects['JAMB'] ?? [];
-        $cnt = count($jamb_subjs);
-        if ($exam_category === 'JAMB' && ($cnt < 4 || $cnt > 5)) {
-            echo json_encode(["success" => false, "message" => "JAMB requires a minimum of 4 subjects and a maximum of 5 subjects."]);
-            exit();
-        }
-    }
-    if ($exam_category === 'WAEC' || $exam_category === 'ALL') {
-        $waec_subjs = $category_subjects['WAEC'] ?? [];
-        $cnt = count($waec_subjs);
-        if ($exam_category === 'WAEC' && ($cnt < 4 || $cnt > 9)) {
-            echo json_encode(["success" => false, "message" => "WAEC requires a minimum of 4 subjects and a maximum of 9 subjects."]);
-            exit();
-        }
-    }
-    if ($exam_category === 'NECO' || $exam_category === 'ALL') {
-        $neco_subjs = $category_subjects['NECO'] ?? [];
-        $cnt = count($neco_subjs);
-        if ($exam_category === 'NECO' && ($cnt < 4 || $cnt > 9)) {
-            echo json_encode(["success" => false, "message" => "NECO requires a minimum of 4 subjects and a maximum of 9 subjects."]);
-            exit();
-        }
-    }
-    if ($exam_category === 'ALL') {
-        $j_cnt = count($category_subjects['JAMB'] ?? []);
-        $w_cnt = count($category_subjects['WAEC'] ?? []);
-        $n_cnt = count($category_subjects['NECO'] ?? []);
-        if ($j_cnt < 4 || $j_cnt > 5) {
-            echo json_encode(["success" => false, "message" => "JAMB section requires 4 to 5 subjects."]);
-            exit();
-        }
-        if ($w_cnt < 4 || $w_cnt > 9) {
-            echo json_encode(["success" => false, "message" => "WAEC section requires 4 to 9 subjects."]);
-            exit();
-        }
-        if ($n_cnt < 4 || $n_cnt > 9) {
-            echo json_encode(["success" => false, "message" => "NECO section requires 4 to 9 subjects."]);
-            exit();
-        }
-    }
-} else {
-    $num_subjects = count($selected_subjects_arr);
-    // Standard rule
-    if ($exam_category === 'JAMB') {
-        if ($num_subjects < 4 || $num_subjects > 5) {
-            echo json_encode(["success" => false, "message" => "JAMB requires a minimum of 4 subjects and a maximum of 5 subjects."]);
-            exit();
-        }
-    } else if ($exam_category === 'WAEC' || $exam_category === 'NECO' || $exam_category === 'ALL') {
-        if ($num_subjects < 4 || $num_subjects > 9) {
-            echo json_encode(["success" => false, "message" => "$exam_category requires a minimum of 4 subjects and a maximum of 9 subjects."]);
-            exit();
-        }
+// Fetch live pricing settings
+$res = $db->query("SELECT setting_key, setting_value FROM pricing_settings");
+$pricing = [
+    'single_passcode_price_6m' => 1400.00,
+    'small_bulk_price_6m' => 1100.00,
+    'large_bulk_price_6m' => 1000.00
+];
+if ($res) {
+    while ($row = $res->fetch_assoc()) {
+        $pricing[$row['setting_key']] = floatval($row['setting_value']);
     }
 }
 
-$total_num_subjects = count($selected_subjects_arr);
+// Unit base price for 6m
+if ($quantity >= 10) {
+    $unit_base = $pricing['large_bulk_price_6m'];
+} elseif ($quantity >= 2) {
+    $unit_base = $pricing['small_bulk_price_6m'];
+} else {
+    $unit_base = $pricing['single_passcode_price_6m'];
+}
 
-// Pricing formula:
-// 500 per category, 300 per subject, 100 per month, 100 per device
-$num_categories = ($exam_category === 'ALL') ? 3 : 1;
-$category_cost = $num_categories * 500;
-$subject_cost = $total_num_subjects * 300;
-$duration_cost = $duration_months * 100;
-$device_cost = $max_devices * 100;
-
-$total_amount = $category_cost + $subject_cost + $duration_cost + $device_cost;
-
-$db = getDbConnection();
+$duration_mult = ($duration_months >= 12) ? 2.0 : 1.0;
+$unit_price_per_passcode = $unit_base * $category_count * $duration_mult;
+$total_amount = $unit_price_per_passcode * $quantity;
 
 // Check promo code if any
 $discount = 0;
@@ -133,24 +93,22 @@ if (!empty($promo_code_input)) {
     $res = $stmt->get_result();
     $promo = $res->fetch_assoc();
 
-    if ($promo) {
-        if ($promo['max_uses'] > $promo['uses_count']) {
-            $promo_id = $promo['id'];
-            $promo_applied = true;
-            if ($promo['discount_type'] === 'free') {
-                $discount = $total_amount;
-            } elseif ($promo['discount_type'] === 'percentage') {
-                $discount = ($total_amount * $promo['discount_value']) / 100;
-            } elseif ($promo['discount_type'] === 'fixed') {
-                $discount = min($total_amount, $promo['discount_value']);
-            }
+    if ($promo && $promo['max_uses'] > $promo['uses_count']) {
+        $promo_id = $promo['id'];
+        $promo_applied = true;
+        if ($promo['discount_type'] === 'free') {
+            $discount = $total_amount;
+        } elseif ($promo['discount_type'] === 'percentage') {
+            $discount = ($total_amount * floatval($promo['discount_value'])) / 100;
+        } elseif ($promo['discount_type'] === 'fixed') {
+            $discount = min($total_amount, floatval($promo['discount_value']));
         }
     }
 }
 
 $final_amount = max(0, $total_amount - $discount);
 
-// Ensure user is created/updated
+// Update/Create User
 $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
 $stmt->bind_param("s", $email);
 $stmt->execute();
@@ -158,12 +116,12 @@ $res = $stmt->get_result();
 $user_row = $res->fetch_assoc();
 
 if (!$user_row) {
-    $stmt = $db->prepare("INSERT INTO users (name, email, phone, state, school) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $name, $email, $phone, $state, $school);
+    $stmt = $db->prepare("INSERT INTO users (name, email, phone, school) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $name, $email, $phone, $organization_name);
     $stmt->execute();
 } else {
-    $stmt = $db->prepare("UPDATE users SET name = ?, phone = ?, state = ?, school = ? WHERE email = ?");
-    $stmt->bind_param("sssss", $name, $phone, $state, $school, $email);
+    $stmt = $db->prepare("UPDATE users SET name = ?, phone = ?, school = ? WHERE email = ?");
+    $stmt->bind_param("ssss", $name, $phone, $organization_name, $email);
     $stmt->execute();
 }
 
@@ -179,7 +137,11 @@ if (file_exists($pending_file)) {
 $pending[$payment_reference] = [
     'name' => $name,
     'email' => $email,
-    'exam_category' => $exam_category,
+    'phone' => $phone,
+    'organization_name' => $organization_name,
+    'organization_type' => $organization_type,
+    'quantity' => $quantity,
+    'exam_category' => implode(',', $categories_arr),
     'allowed_subjects' => $allowed_subjects_str,
     'max_devices' => $max_devices,
     'duration_days' => $duration_days,
@@ -190,21 +152,10 @@ $pending[$payment_reference] = [
 
 file_put_contents($pending_file, json_encode($pending, JSON_PRETTY_PRINT));
 
-if ($final_amount == 0) {
-    echo json_encode([
-        "success" => true,
-        "message" => "Registration successful. Free promo applied!",
-        "amount" => 0,
-        "reference" => $payment_reference,
-        "auto_verify" => true
-    ]);
-    exit();
-}
-
 echo json_encode([
     "success" => true,
     "message" => "Subscription calculated successfully.",
     "amount" => $final_amount,
     "reference" => $payment_reference,
-    "auto_verify" => false
+    "auto_verify" => ($final_amount == 0)
 ]);

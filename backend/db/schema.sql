@@ -52,10 +52,32 @@ CREATE TABLE `organizations` (
   `id` int(11) NOT NULL,
   `name` varchar(150) NOT NULL,
   `type` varchar(50) DEFAULT 'school',
+  `contact_person` varchar(100) DEFAULT NULL,
   `contact_email` varchar(100) DEFAULT NULL,
   `contact_phone` varchar(50) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `pricing_settings`
+--
+
+CREATE TABLE IF NOT EXISTS `pricing_settings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `setting_key` varchar(50) NOT NULL UNIQUE,
+  `setting_value` decimal(10,2) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `pricing_settings` (`setting_key`, `setting_value`, `description`) VALUES
+('single_passcode_price_6m', 1400.00, 'Single passcode price for 6 months subscription'),
+('small_bulk_price_6m', 1100.00, 'Unit passcode price for small bulk purchases (2-9 passcodes) for 6 months'),
+('large_bulk_price_6m', 1000.00, 'Unit passcode price for large bulk purchases (10+ passcodes) for 6 months')
+ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
 
 --
 -- Dumping data for table `organizations`
