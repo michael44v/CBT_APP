@@ -5,7 +5,7 @@ const API_BASE = 'http://localhost:80/fillop/api/v1';
 const ALL_SUBJECT_OPTIONS = ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Economics", "Government", "Literature"];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'PROMOS' | 'QUESTIONS' | 'NEWS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'NEWS'>('DASHBOARD');
 
   // Stats
   const [stats, setStats] = useState({
@@ -20,6 +20,7 @@ export default function App() {
   // Data lists
   const [users, setUsers] = useState<any[]>([]);
   const [passcodes, setPasscodes] = useState<any[]>([]);
+  const [organizations, setOrganizations] = useState<any[]>([]);
   const [promos, setPromos] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
@@ -29,17 +30,37 @@ export default function App() {
   const [questionExamFilter, setQuestionExamFilter] = useState('');
   const [questionSubjectFilter, setQuestionSubjectFilter] = useState('');
 
-  // Forms / Actions state
+  // Notifications
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // New Passcode Form
+  // Pricing settings state
+  const [pricingForm, setPricingForm] = useState({
+    single_passcode_price_6m: 1400,
+    small_bulk_price_6m: 1100,
+    large_bulk_price_6m: 1000
+  });
+
+  // New Passcode / Bulk Form
   const [newPasscodeForm, setNewPasscodeForm] = useState({
     email: '',
+    quantity: 1,
     max_devices: 1,
     duration_days: 180,
     organization_name: '',
+    organization_type: 'Secondary School',
+    contact_person: '',
+    contact_phone: '',
     exam_category: 'JAMB',
     allowed_subjects: ['Mathematics', 'English', 'Physics', 'Chemistry'],
+  });
+
+  // Institutional Account Form
+  const [newOrgForm, setNewOrgForm] = useState({
+    name: '',
+    type: 'Secondary School',
+    contact_person: '',
+    contact_email: '',
+    contact_phone: ''
   });
 
   // New Promo Form
@@ -91,6 +112,23 @@ export default function App() {
     }
   };
 
+  // Load Pricing Settings
+  const fetchPricing = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/pricing.php`);
+      const data = await res.json();
+      if (data.success && data.pricing) {
+        setPricingForm({
+          single_passcode_price_6m: data.pricing.single_passcode_price_6m || 1400,
+          small_bulk_price_6m: data.pricing.small_bulk_price_6m || 1100,
+          large_bulk_price_6m: data.pricing.large_bulk_price_6m || 1000
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load pricing settings', e);
+    }
+  };
+
   // Load Users
   const fetchUsers = async () => {
     try {
@@ -104,13 +142,14 @@ export default function App() {
     }
   };
 
-  // Load Passcodes
+  // Load Passcodes & Organizations
   const fetchPasscodes = async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/passcodes.php`);
       const data = await res.json();
       if (data.success) {
-        setPasscodes(data.passcodes);
+        setPasscodes(data.passcodes || []);
+        setOrganizations(data.organizations || []);
       }
     } catch (e) {
       console.error('Failed to load passcodes', e);
@@ -160,11 +199,13 @@ export default function App() {
 
   useEffect(() => {
     fetchStats();
+    fetchPricing();
     if (activeTab === 'USERS') fetchUsers();
-    if (activeTab === 'PASSCODES') fetchPasscodes();
+    if (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS') fetchPasscodes();
     if (activeTab === 'PROMOS') fetchPromos();
     if (activeTab === 'QUESTIONS') fetchQuestions();
     if (activeTab === 'NEWS') fetchNews();
+    if (activeTab === 'PRICING') fetchPricing();
   }, [activeTab]);
 
   useEffect(() => {
@@ -188,6 +229,107 @@ export default function App() {
     }, 4000);
   };
 
+  const handleUpdatePricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/pricing.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pricingForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification("Pricing settings updated successfully!");
+        fetchPricing();
+      } else {
+        showNotification(data.message || "Failed to update pricing.", 'error');
+      }
+    } catch (e) {
+      showNotification("Update pricing failed.", 'error');
+    }
+  };
+
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_organization', ...newOrgForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification("Institutional account created successfully!");
+        fetchPasscodes();
+        setNewOrgForm({
+          name: '',
+          type: 'Secondary School',
+          contact_person: '',
+          contact_email: '',
+          contact_phone: ''
+        });
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification("Create organization failed.", 'error');
+    }
+  };
+
+  const handleGeneratePasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bulk_generate', ...newPasscodeForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(`Generated ${data.quantity} passcode(s) successfully!`);
+        fetchPasscodes();
+        fetchStats();
+        setNewPasscodeForm({
+          email: '',
+          quantity: 1,
+          max_devices: 1,
+          duration_days: 180,
+          organization_name: '',
+          organization_type: 'Secondary School',
+          contact_person: '',
+          contact_phone: '',
+          exam_category: 'JAMB',
+          allowed_subjects: ['Mathematics', 'English', 'Physics', 'Chemistry'],
+        });
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Failed to generate passcodes.', 'error');
+    }
+  };
+
+  const handleReplacePasscode = async (oldPasscode: string) => {
+    if (!window.confirm(`Revoke passcode ${oldPasscode} and generate a replacement passcode with the same duration/settings?`)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'replace', passcode: oldPasscode }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(`Replacement created: ${data.new_passcode}`);
+        fetchPasscodes();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Replace passcode failed.', 'error');
+    }
+  };
+
   const handleToggleUserStatus = async (email: string, currentStatus: string) => {
     try {
       const action = currentStatus === 'suspended' ? 'reactivate' : 'suspend';
@@ -209,39 +351,10 @@ export default function App() {
     }
   };
 
-  const handleGeneratePasscode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', ...newPasscodeForm }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification(`Passcode generated: ${data.passcode.passcode}`);
-        fetchPasscodes();
-        fetchStats();
-        setNewPasscodeForm({
-          email: '',
-          max_devices: 1,
-          duration_days: 180,
-          organization_name: '',
-          exam_category: 'JAMB',
-          allowed_subjects: ['Mathematics', 'English', 'Physics', 'Chemistry'],
-        });
-      } else {
-        showNotification(data.message, 'error');
-      }
-    } catch (e) {
-      showNotification('Failed to generate passcode.', 'error');
-    }
-  };
-
   const handleUpdatePasscodeSubjects = async (passcode: string, currentCategory: string, currentSubjs: string) => {
-    const newCategory = window.prompt("Enter Exam Category (JAMB, WAEC, NECO, ALL):", currentCategory || 'JAMB');
+    const newCategory = window.prompt("Enter Exam Category (JAMB, WAEC, NECO, ALL or comma-separated):", currentCategory || 'JAMB');
     if (!newCategory) return;
-    const newSubjsStr = window.prompt("Enter Comma-Separated Subjects (or subject IDs):", currentSubjs || 'Mathematics,English,Physics,Chemistry');
+    const newSubjsStr = window.prompt("Enter Comma-Separated Subjects:", currentSubjs || 'Mathematics,English,Physics,Chemistry');
     if (newSubjsStr === null) return;
 
     try {
@@ -309,6 +422,19 @@ export default function App() {
     } catch (e) {
       showNotification('Extend action failed.', 'error');
     }
+  };
+
+  const exportPasscodesCSV = () => {
+    let csv = "Passcode,Email,Organization,Category,Allowed Subjects,Devices,Status,Expires At\n";
+    passcodes.forEach(p => {
+      csv += `"${p.passcode}","${p.email}","${p.organization_name || ''}","${p.exam_category}","${p.allowed_subjects || ''}",${p.max_devices},"${p.status}","${p.expires_at || ''}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Fillop_Passcode_Report.csv';
+    a.click();
   };
 
   const handleAddPromo = async (e: React.FormEvent) => {
@@ -477,6 +603,8 @@ export default function App() {
           <button className={`menu-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>📊 Dashboard</button>
           <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>👥 Candidates</button>
           <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>🔑 Passcodes</button>
+          <button className={`menu-btn ${activeTab === 'INSTITUTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('INSTITUTIONS')}>🏫 Institutions &amp; Bulk</button>
+          <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>💰 Pricing Settings</button>
           <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>🎟️ Promo Codes</button>
           <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>📚 Question Bank</button>
           <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>📰 Admin News</button>
@@ -507,6 +635,8 @@ export default function App() {
               {activeTab === 'DASHBOARD' && 'Management Dashboard'}
               {activeTab === 'USERS' && 'Candidates / Subscriptions'}
               {activeTab === 'PASSCODES' && 'Passcode Subject Allocations & Licensing'}
+              {activeTab === 'INSTITUTIONS' && 'Institutional Licensing & Bulk Accounts'}
+              {activeTab === 'PRICING' && 'Dynamic Pricing Configuration'}
               {activeTab === 'PROMOS' && 'Promotions & Referral Codes'}
               {activeTab === 'QUESTIONS' && 'Question Bank Master Management'}
               {activeTab === 'NEWS' && 'Admin News Management'}
@@ -543,6 +673,160 @@ export default function App() {
                 Currently, <strong>{stats.total_questions} questions</strong> are active across Mathematics, English, Physics, Chemistry, Biology, Economics, Government, and Literature.
               </p>
               <button className="btn btn-secondary" onClick={fetchStats}>🔄 Refresh Core Analytics</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'PRICING' && (
+          <div className="admin-card">
+            <h2 className="card-title">Modify Dynamic Passcode Pricing Tiers</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              Update subscription pricing tiers without modifying source code. Prices take effect dynamically across all web subscription checkout flows and API calculations.
+            </p>
+            <form onSubmit={handleUpdatePricing} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
+              <div className="form-group">
+                <label className="form-label">Single Passcode Price (1 Code, 6 Months)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={pricingForm.single_passcode_price_6m}
+                  onChange={(e) => setPricingForm({ ...pricingForm, single_passcode_price_6m: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Small Bulk Price (2–9 Codes, 6 Months Unit)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={pricingForm.small_bulk_price_6m}
+                  onChange={(e) => setPricingForm({ ...pricingForm, small_bulk_price_6m: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Large Bulk Price (10+ Codes, 6 Months Unit)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={pricingForm.large_bulk_price_6m}
+                  onChange={(e) => setPricingForm({ ...pricingForm, large_bulk_price_6m: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn btn-success" style={{ height: '42px', gridColumn: '1 / -1' }}>Save Pricing Settings 💾</button>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'INSTITUTIONS' && (
+          <div>
+            <div className="admin-card">
+              <h2 className="card-title">Create Institutional Account</h2>
+              <form onSubmit={handleCreateOrg} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
+                <div className="form-group">
+                  <label className="form-label">Organization Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Bright Stars Secondary School"
+                    value={newOrgForm.name}
+                    onChange={(e) => setNewOrgForm({ ...newOrgForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Organization Type</label>
+                  <select
+                    className="form-input"
+                    value={newOrgForm.type}
+                    onChange={(e) => setNewOrgForm({ ...newOrgForm, type: e.target.value })}
+                  >
+                    <option value="Secondary School">Secondary School</option>
+                    <option value="Tutorial Centre">Tutorial Centre</option>
+                    <option value="University">University</option>
+                    <option value="Polytechnic">Polytechnic</option>
+                    <option value="College of Education">College of Education</option>
+                    <option value="Government Agency">Government Agency</option>
+                    <option value="NGO">NGO</option>
+                    <option value="Scholarship Program">Scholarship Program</option>
+                    <option value="Educational Foundation">Educational Foundation</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Contact Person</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Mr. Michael Nwankwo"
+                    value={newOrgForm.contact_person}
+                    onChange={(e) => setNewOrgForm({ ...newOrgForm, contact_person: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Contact Email</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="info@brightstars.edu.ng"
+                    value={newOrgForm.contact_email}
+                    onChange={(e) => setNewOrgForm({ ...newOrgForm, contact_email: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Contact Phone</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder="08115501712"
+                    value={newOrgForm.contact_phone}
+                    onChange={(e) => setNewOrgForm({ ...newOrgForm, contact_phone: e.target.value })}
+                  />
+                </div>
+
+                <button type="submit" className="btn" style={{ height: '42px', gridColumn: '1 / -1' }}>Create Institutional Account 🏫</button>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <h2 className="card-title">Registered Institutional Accounts</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Organization Name</th>
+                    <th>Type</th>
+                    <th>Contact Person</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Passcodes Count</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizations.length === 0 ? (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No institutional accounts registered.</td></tr>
+                  ) : (
+                    organizations.map((org) => (
+                      <tr key={org.id}>
+                        <td style={{ fontWeight: 'bold' }}>{org.name}</td>
+                        <td><span className="badge badge-info">{org.type}</span></td>
+                        <td>{org.contact_person || 'N/A'}</td>
+                        <td>{org.contact_email || 'N/A'}</td>
+                        <td>{org.contact_phone || 'N/A'}</td>
+                        <td><strong>{org.passcode_count || 0}</strong> codes</td>
+                        <td>{new Date(org.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -603,7 +887,7 @@ export default function App() {
         {activeTab === 'PASSCODES' && (
           <div>
             <div className="admin-card">
-              <h2 className="card-title">Generate Passcode with Subject Combination</h2>
+              <h2 className="card-title">Generate Passcodes / Bulk Licensing</h2>
               <form onSubmit={handleGeneratePasscode} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
                 <div className="form-group">
                   <label className="form-label">Associated Email</label>
@@ -617,6 +901,28 @@ export default function App() {
                   />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Quantity to Generate</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newPasscodeForm.quantity}
+                    onChange={(e) => setNewPasscodeForm({ ...newPasscodeForm, quantity: parseInt(e.target.value) || 1 })}
+                    min="1"
+                    max="500"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Organization Name (Optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Bright Stars School"
+                    value={newPasscodeForm.organization_name}
+                    onChange={(e) => setNewPasscodeForm({ ...newPasscodeForm, organization_name: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
                   <label className="form-label">Exam Category</label>
                   <select
                     className="form-input"
@@ -626,7 +932,8 @@ export default function App() {
                     <option value="JAMB">JAMB</option>
                     <option value="WAEC">WAEC</option>
                     <option value="NECO">NECO</option>
-                    <option value="ALL">ALL (JAMB/WAEC/NECO)</option>
+                    <option value="JAMB,WAEC">JAMB + WAEC</option>
+                    <option value="JAMB,WAEC,NECO">ALL (JAMB/WAEC/NECO)</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -683,17 +990,20 @@ export default function App() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn" style={{ height: '42px', gridColumn: '1 / -1' }}>Generate Passcode ⚡</button>
+                <button type="submit" className="btn" style={{ height: '42px', gridColumn: '1 / -1' }}>Generate Passcode(s) ⚡</button>
               </form>
             </div>
 
             <div className="admin-card">
-              <h2 className="card-title">Existing Passcodes & Subject Allocations</h2>
+              <div className="card-title">
+                <span>Existing Passcodes &amp; Subject Allocations</span>
+                <button className="btn btn-secondary btn-sm" onClick={exportPasscodesCSV}>📊 Export Passcodes Report (CSV)</button>
+              </div>
               <table>
                 <thead>
                   <tr>
                     <th>Passcode</th>
-                    <th>Linked Email</th>
+                    <th>Linked Email / Org</th>
                     <th>Exam Category</th>
                     <th>Allowed Subjects</th>
                     <th>Device Slots</th>
@@ -712,11 +1022,14 @@ export default function App() {
                       return (
                         <tr key={p.id}>
                           <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent)' }}>{p.passcode}</td>
-                          <td>{p.email}</td>
+                          <td>
+                            <div>{p.email}</div>
+                            {p.organization_name && <small style={{ color: 'var(--text-secondary)' }}>🏫 {p.organization_name}</small>}
+                          </td>
                           <td><span className="badge badge-info">{p.exam_category || 'ALL'}</span></td>
                           <td style={{ maxWidth: '220px', fontSize: '12px' }}>{p.allowed_subjects || 'All Subjects'}</td>
                           <td>
-                            <strong>{p.activated_devices}</strong> / {p.max_devices} slots Used
+                            <strong>{p.activated_devices}</strong> / {p.max_devices} slots
                           </td>
                           <td>
                             <span className={`badge ${statusClass}`}>
@@ -725,7 +1038,8 @@ export default function App() {
                           </td>
                           <td>{p.expires_at ? new Date(p.expires_at).toLocaleDateString() : 'Unactivated'}</td>
                           <td style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                            <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleUpdatePasscodeSubjects(p.passcode, p.exam_category, p.allowed_subjects)}>Edit Subjects ✏️</button>
+                            <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleUpdatePasscodeSubjects(p.passcode, p.exam_category, p.allowed_subjects)}>Edit ✏️</button>
+                            <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleReplacePasscode(p.passcode)}>Replace 🔄</button>
                             <button className="btn btn-secondary btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleExtendPasscode(p.passcode)}>Extend ⏳</button>
                             {p.status === 'active' && (
                               <button className="btn btn-danger btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleRevokePasscode(p.passcode)}>Suspend</button>
