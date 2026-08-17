@@ -24,10 +24,14 @@ if ($method === 'GET') {
     $org_res = $db->query("SELECT o.*, COUNT(p.id) as passcode_count FROM organizations o LEFT JOIN passcodes p ON o.id = p.organization_id GROUP BY o.id ORDER BY o.created_at DESC");
     $organizations = $org_res ? $org_res->fetch_all(MYSQLI_ASSOC) : [];
 
+    $upg_res = $db->query("SELECT * FROM passcode_upgrades ORDER BY created_at DESC");
+    $upgrades = $upg_res ? $upg_res->fetch_all(MYSQLI_ASSOC) : [];
+
     echo json_encode([
         "success" => true,
         "passcodes" => $passcodes,
-        "organizations" => $organizations
+        "organizations" => $organizations,
+        "upgrades" => $upgrades
     ]);
     exit();
 }
@@ -198,6 +202,44 @@ if ($method === 'POST') {
             "message" => "Institutional account created successfully.",
             "organization_id" => $db->insert_id
         ]);
+        exit();
+    }
+
+    if ($action === 'approve_upgrade') {
+        $upgrade_id = intval($data['upgrade_id'] ?? 0);
+        $stmt = $db->prepare("SELECT * FROM passcode_upgrades WHERE id = ?");
+        $stmt->bind_param("i", $upgrade_id);
+        $stmt->execute();
+        $upg = $stmt->get_result()->fetch_assoc();
+
+        if (!$upg) {
+            echo json_encode(["success" => false, "message" => "Upgrade request not found."]);
+            exit();
+        }
+
+        // Apply new categories and subjects to passcode
+        $u_stmt = $db->prepare("UPDATE passcodes SET exam_category = ?, allowed_subjects = ? WHERE id = ?");
+        $u_stmt->bind_param("ssi", $upg['new_categories'], $upg['new_subjects'], $upg['passcode_id']);
+        $u_stmt->execute();
+
+        // Mark upgrade status as approved
+        $status_stmt = $db->prepare("UPDATE passcode_upgrades SET status = 'approved' WHERE id = ?");
+        $status_stmt->bind_param("i", $upgrade_id);
+        $status_stmt->execute();
+
+        echo json_encode(["success" => true, "message" => "Upgrade request approved and passcode updated successfully!"]);
+        exit();
+    }
+
+    if ($action === 'reject_upgrade') {
+        $upgrade_id = intval($data['upgrade_id'] ?? 0);
+        $notes = trim($data['admin_notes'] ?? 'Rejected by administrator');
+
+        $status_stmt = $db->prepare("UPDATE passcode_upgrades SET status = 'rejected', admin_notes = ? WHERE id = ?");
+        $status_stmt->bind_param("si", $notes, $upgrade_id);
+        $status_stmt->execute();
+
+        echo json_encode(["success" => true, "message" => "Upgrade request rejected."]);
         exit();
     }
 
