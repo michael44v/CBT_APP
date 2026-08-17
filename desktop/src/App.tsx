@@ -100,7 +100,7 @@ export default function App() {
 
   // Mode Selection State
   const [examType, setExamType] = useState<'JAMB' | 'WAEC' | 'NECO'>('JAMB');
-  const [dashboardMode, setDashboardMode] = useState<'PRACTICE' | 'MOCK' | 'ANALYTICS'>('PRACTICE');
+  const [dashboardMode, setDashboardMode] = useState<'PRACTICE' | 'MOCK' | 'DAILY_QUIZ' | 'ANALYTICS'>('PRACTICE');
 
   // Metadata Lists
   const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
@@ -250,7 +250,7 @@ export default function App() {
       loadResultsHistory();
       loadNewsList();
     }
-  }, [screen, examType]);
+  }, [screen, examType, activation]);
 
   useEffect(() => {
     if (practiceSubject) {
@@ -321,7 +321,8 @@ export default function App() {
 
   const loadResultsHistory = async () => {
     if (window.api && window.api.getResults) {
-      const hist = await window.api.getResults();
+      const activeUser = activation?.email || 'Candidate (Free)';
+      const hist = await window.api.getResults(activeUser);
       setHistoryResults(hist || []);
     }
   };
@@ -541,6 +542,61 @@ export default function App() {
       setScreen('INSTRUCTIONS');
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const startDailyQuizSession = async () => {
+    if (isFreeMode) {
+      setUpgradeModalMessage("Daily Quiz mode is only available for activated accounts. Please activate or subscribe to access daily speed quizzes.");
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    try {
+      setFallbackNotice('');
+      setIsPracticeMode(false);
+      setRevealExplanation(false);
+      setAnswers({});
+      setFlagged({});
+
+      const examCategories: ('JAMB' | 'WAEC' | 'NECO')[] = ['JAMB', 'WAEC', 'NECO'];
+      const targetCategory = examCategories[Math.floor(Math.random() * examCategories.length)];
+      setExamType(targetCategory);
+
+      const subs = await window.api.getSubjects(targetCategory);
+      const unlockedSubs = Array.isArray(subs) ? subs.filter((s: any) => !s.is_locked) : [];
+
+      if (unlockedSubs.length === 0) {
+        alert('No available subjects found for Daily Quiz.');
+        return;
+      }
+
+      const randomSub = unlockedSubs[Math.floor(Math.random() * unlockedSubs.length)];
+      const count = Math.floor(Math.random() * 6) + 10; // 10 to 15 questions
+
+      const qList = await window.api.generatePracticeQuestions({
+        examType: targetCategory,
+        subjectId: randomSub.id,
+        limit: count,
+      });
+
+      if (!qList || qList.length === 0) {
+        alert('No questions found for the Daily Quiz subject.');
+        return;
+      }
+
+      setExamSubjects([randomSub]);
+      const sessId = `session-quiz-${Date.now()}`;
+      setExamSessionId(sessId);
+      setExamQuestions(qList);
+      setCurrentIdx(0);
+
+      // 6 minutes = 360 seconds
+      const totalSecs = 6 * 60;
+      setTimeLeft(totalSecs);
+      setScreen('INSTRUCTIONS');
+    } catch (e) {
+      console.error("Failed to start Daily Quiz:", e);
     }
   };
 
@@ -1161,6 +1217,9 @@ export default function App() {
                   <div style={styles.tabs}>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Practice Mode</button>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'MOCK' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('MOCK')}>Mock Exam</button>
+                    {!isFreeMode && (
+                      <button style={{ ...styles.tab, ...(dashboardMode === 'DAILY_QUIZ' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('DAILY_QUIZ')}>Daily Quiz</button>
+                    )}
                     <button
                       style={{ ...styles.tab, ...(dashboardMode === 'ANALYTICS' ? styles.tabActive : {}) }}
                       onClick={() => {
@@ -1350,6 +1409,48 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* --- Mode: DAILY_QUIZ --- */}
+                  {dashboardMode === 'DAILY_QUIZ' && !isFreeMode && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>
+                          ⚡ 6-Minute Daily Speed Quiz
+                        </h3>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: colors.primary, backgroundColor: colors.primaryLight, padding: '4px 12px', borderRadius: '20px' }}>
+                          ACTIVATED EXCLUSIVE
+                        </span>
+                      </div>
+
+                      <div style={{ backgroundColor: colors.bg, borderRadius: '16px', padding: '24px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
+                        <p style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>
+                          Challenge yourself with a daily quick-fire quiz! The system automatically selects <strong>10 to 15 random questions</strong> from an examination category and subject assigned to your account.
+                        </p>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                          <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Time Limit</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.primary, marginTop: '4px' }}>6 Minutes</div>
+                          </div>
+                          <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Question Count</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.success, marginTop: '4px' }}>10 – 15 Questions</div>
+                          </div>
+                          <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Submission</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginTop: '4px' }}>Auto-Submit on Time</div>
+                          </div>
+                        </div>
+
+                        <button
+                          style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnLg, width: '100%', justifyContent: 'center', fontWeight: 800, fontSize: '16px', padding: '16px' }}
+                          onClick={startDailyQuizSession}
+                        >
+                          🚀 Launch 6-Min Daily Quiz
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* --- Mode: ANALYTICS --- */}
                   {dashboardMode === 'ANALYTICS' && (
                     <div>
@@ -1357,7 +1458,7 @@ export default function App() {
                         <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Performance Analytics &amp; Mastery Breakdown</h3>
                       </div>
 
-                      <div style={{ ...styles.grid3, marginBottom: '24px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                         <div style={styles.statCard}>
                           <div style={styles.statLabel}>Total Exams</div>
                           <div style={styles.statValue}>{historyResults.length}</div>
@@ -1405,7 +1506,7 @@ export default function App() {
                           : `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 ${largeArcFlag} 1 ${x} ${y} Z`;
 
                         return (
-                          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px', backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, marginBottom: '24px', maxWidth: '100%', overflowX: 'hidden' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                               <svg width="200" height="200" viewBox="0 0 200 200">
                                 {/* Base circle for incorrect/unanswered */}
@@ -1422,7 +1523,7 @@ export default function App() {
                                 </text>
                               </svg>
 
-                              <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '12px', fontWeight: 700 }}>
+                              <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '12px', fontWeight: 700, flexWrap: 'wrap', justifyContent: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.success }}></span>
                                   Correct ({totalQuestions > 0 ? totalCorrect : '75%'})
@@ -1434,18 +1535,18 @@ export default function App() {
                               </div>
                             </div>
 
-                            <div>
+                            <div style={{ minWidth: 0 }}>
                               <h4 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '12px', color: colors.text }}>
                                 Exam Attempt History &amp; Right / Wrong Breakdown
                               </h4>
-                              <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ maxHeight: '260px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {historyResults.length === 0 ? (
                                   <p style={{ color: colors.textMuted, fontSize: '13px' }}>
                                     No completed exam records found. Take an exam or practice test to view detailed question history!
                                   </p>
                                 ) : (
                                   historyResults.map((r, i) => (
-                                    <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                                    <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', backgroundColor: colors.surface, padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
                                       <div>
                                         <div style={{ fontWeight: 700, fontSize: '14px', color: colors.text }}>
                                           {r.exam_type || examType} Test ({r.score} / {r.total_questions} Correct)
