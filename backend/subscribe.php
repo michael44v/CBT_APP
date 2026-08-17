@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fillop CBT Guru - Category Subscription & Bulk Licensing</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
     <style>
         :root {
             --primary: #1d3090;
@@ -25,6 +26,9 @@
         .logo { width: 70px; height: 70px; border-radius: 50%; border: 3px solid var(--primary); margin-bottom: 16px; }
         h1 { font-size: 26px; font-weight: 800; color: var(--primary); margin-bottom: 8px; }
         p.subtitle { color: var(--text-muted); font-size: 14px; }
+
+        .btn-upgrade-top { background: #10b981; color: white; border: none; padding: 10px 18px; border-radius: 20px; font-weight: 700; font-size: 13px; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-upgrade-top:hover { background: #059669; }
 
         .section-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary); margin: 28px 0 12px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
 
@@ -75,6 +79,10 @@
 <body>
 
 <div class="container">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+        <button type="button" class="btn-upgrade-top" onclick="openUpgradeModal()">⚡ Upgrade / Modify Existing Passcode</button>
+    </div>
+
     <div class="header">
         <img src="/fillop/icon.png" class="logo" alt="Fillop CBT Logo" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%231d3090\'><circle cx=\'12\' cy=\'12\' r=\'10\'/></svg>'">
         <h1>Fillop CBT Guru Subscription &amp; Licensing</h1>
@@ -241,6 +249,76 @@
     </div>
 </div>
 
+<!-- Modal for Passcode Upgrade & Subject Addition -->
+<div class="modal-overlay" id="upgradeModal">
+    <div class="modal" style="max-width: 680px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid var(--bg); padding-bottom: 10px;">
+            <h2 style="font-size: 20px; font-weight: 800; color: var(--primary);">Upgrade / Modify Passcode</h2>
+            <button type="button" onclick="closeUpgradeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Step 1: Input Passcode -->
+        <div id="upgStep1">
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                Enter your active passcode to load your current subjects and add new subjects or exam categories.
+            </p>
+            <div class="form-group">
+                <label>Your Passcode *</label>
+                <input type="text" id="upgPasscode" placeholder="e.g. GP-A1B2C3D4-E5F67890 or 1234" required>
+            </div>
+            <button type="button" class="btn" id="upgLoadBtn" onclick="verifyAndLoadPasscode()">Load Passcode &amp; Subjects 🔍</button>
+        </div>
+
+        <!-- Step 2: Passcode Details & Upgrade Selections -->
+        <div id="upgStep2" style="display: none;">
+            <div style="background: #e0e7ff; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; font-size: 13px; color: var(--primary-dark);">
+                <div>Passcode: <strong id="upgDispCode"></strong></div>
+                <div>Linked Email: <strong id="upgDispEmail"></strong></div>
+                <div>Current Categories: <strong id="upgDispCats"></strong></div>
+                <div>Current Subjects: <span id="upgDispSubjs" style="font-weight: 600;"></span></div>
+            </div>
+
+            <div class="section-title" style="margin-top: 16px;">Select Categories &amp; Subjects to Upgrade</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                • Adding subjects to an <strong>existing exam category</strong> is <strong>100% FREE</strong>.<br>
+                • Adding a <strong>new exam category</strong> requires a category upgrade payment.
+            </p>
+
+            <div class="category-select-grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+                <div class="category-checkbox-card" id="upgCardJAMB" onclick="toggleUpgCat('JAMB')">
+                    <input type="checkbox" id="chkUpgJAMB">
+                    <div class="cat-name" style="font-size: 14px;">JAMB UTME</div>
+                </div>
+                <div class="category-checkbox-card" id="upgCardWAEC" onclick="toggleUpgCat('WAEC')">
+                    <input type="checkbox" id="chkUpgWAEC">
+                    <div class="cat-name" style="font-size: 14px;">WAEC SSCE</div>
+                </div>
+                <div class="category-checkbox-card" id="upgCardNECO" onclick="toggleUpgCat('NECO')">
+                    <input type="checkbox" id="chkUpgNECO">
+                    <div class="cat-name" style="font-size: 14px;">NECO SSCE</div>
+                </div>
+            </div>
+
+            <div id="upgSubjectsContainer"></div>
+
+            <div class="summary-box" style="margin: 16px 0; padding: 14px;">
+                <div class="summary-row"><span>Upgrade Type:</span> <strong id="upgTypeLabel">Free Subject Addition</strong></div>
+                <div class="summary-row total" style="font-size: 18px;"><span>Calculated Upgrade Fee:</span> <strong id="upgFeeTotal">₦0</strong></div>
+            </div>
+
+            <div class="form-group" id="upgNoteGroup">
+                <label>Optional Note for Admin Request</label>
+                <input type="text" id="upgAdminNote" placeholder="e.g. Please approve extra subjects for my JAMB/WAEC passcode">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" class="btn" id="upgSubmitBtn" onclick="executeUpgradeAction()">Apply Upgrade ⚡</button>
+                <button type="button" class="btn btn-secondary" onclick="submitAdminRequestAction()">Request Admin Approval 📩</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const dbSubjectsMap = {
         JAMB: [
@@ -281,7 +359,25 @@
         large_bulk_price_6m: 1000.00
     };
 
+    let paystackPublicKey = "";
     let generatedPasscodesList = [];
+
+    // Loaded Passcode State for Upgrade Modal
+    let activeUpgradePasscode = null;
+    let upgradeCalculatedFee = 0;
+    let upgradeCalculatedIsFree = true;
+
+    async function loadPaystackConfig() {
+        try {
+            const res = await fetch("/fillop/api/v1/payments/config.php");
+            const data = await res.json();
+            if (data.success && data.public_key) {
+                paystackPublicKey = data.public_key;
+            }
+        } catch (e) {
+            console.error("Paystack config load error:", e);
+        }
+    }
 
     async function loadPricingSettings() {
         try {
@@ -437,7 +533,7 @@
 
         const btn = document.getElementById("payBtn");
         btn.disabled = true;
-        btn.innerText = "Processing Payment Gateway...";
+        btn.innerText = "Processing Subscription Initialization...";
 
         try {
             const res = await fetch("/fillop/api/v1/register.php", {
@@ -459,40 +555,401 @@
             const data = await res.json();
 
             if (data.success && data.reference) {
-                // Verify payment
-                const vRes = await fetch("/fillop/api/v1/payments/verify.php", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ reference: data.reference })
-                });
-                const vData = await vRes.json();
-
-                if (vData.success) {
-                    generatedPasscodesList = vData.passcodes || [vData.passcode];
-
-                    const container = document.getElementById("passcodeListContainer");
-                    container.innerHTML = "";
-                    generatedPasscodesList.forEach((code, idx) => {
-                        const div = document.createElement("div");
-                        div.className = "passcode-item";
-                        div.innerText = `${idx + 1}. ${code}`;
-                        container.appendChild(div);
+                // Check if Paystack Inline should be opened
+                if (data.amount > 0 && paystackPublicKey && typeof PaystackPop !== 'undefined') {
+                    btn.innerText = "Awaiting Paystack Payment...";
+                    const handler = PaystackPop.setup({
+                        key: paystackPublicKey,
+                        email: email,
+                        amount: Math.round(data.amount * 100),
+                        ref: data.reference,
+                        onClose: function() {
+                            alert("Payment popup closed.");
+                            btn.disabled = false;
+                            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
+                        },
+                        callback: function(response) {
+                            verifyAndFinishRegistration(data.reference);
+                        }
                     });
-
-                    document.getElementById("successModal").style.display = "flex";
+                    handler.openIframe();
                 } else {
-                    alert(vData.message || "Payment verification failed.");
+                    // Free or direct verification
+                    await verifyAndFinishRegistration(data.reference);
                 }
             } else {
                 alert(data.message || "Initialization failed.");
+                btn.disabled = false;
+                btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
             }
         } catch (err) {
             alert("Connection error: " + err.message);
-        } finally {
             btn.disabled = false;
-            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>';
+            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
         }
     });
+
+    async function verifyAndFinishRegistration(ref) {
+        const btn = document.getElementById("payBtn");
+        btn.innerText = "Verifying Payment & Generating Passcodes...";
+        try {
+            const vRes = await fetch("/fillop/api/v1/payments/verify.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reference: ref })
+            });
+            const vData = await vRes.json();
+
+            if (vData.success) {
+                generatedPasscodesList = vData.passcodes || [vData.passcode];
+
+                const container = document.getElementById("passcodeListContainer");
+                container.innerHTML = "";
+                generatedPasscodesList.forEach((code, idx) => {
+                    const div = document.createElement("div");
+                    div.className = "passcode-item";
+                    div.innerText = `${idx + 1}. ${code}`;
+                    container.appendChild(div);
+                });
+
+                document.getElementById("successModal").style.display = "flex";
+            } else {
+                alert(vData.message || "Payment verification failed.");
+            }
+        } catch (e) {
+            alert("Verification error: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
+        }
+    }
+
+    /* --- UPGRADE MODAL & LOGIC --- */
+    function openUpgradeModal() {
+        document.getElementById("upgradeModal").style.display = "flex";
+        document.getElementById("upgStep1").style.display = "block";
+        document.getElementById("upgStep2").style.display = "none";
+        document.getElementById("upgPasscode").value = "";
+    }
+
+    function closeUpgradeModal() {
+        document.getElementById("upgradeModal").style.display = "none";
+    }
+
+    async function verifyAndLoadPasscode() {
+        const codeInput = document.getElementById("upgPasscode").value.trim();
+        if (!codeInput) {
+            alert("Please enter a valid passcode.");
+            return;
+        }
+
+        const btn = document.getElementById("upgLoadBtn");
+        btn.disabled = true;
+        btn.innerText = "Verifying Passcode...";
+
+        try {
+            const res = await fetch("/fillop/api/v1/passcode_info.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ passcode: codeInput })
+            });
+            const data = await res.json();
+
+            if (data.success && data.passcode) {
+                activeUpgradePasscode = data.passcode;
+                renderUpgradeStep2();
+            } else {
+                alert(data.message || "Invalid or suspended passcode.");
+            }
+        } catch (e) {
+            alert("Error loading passcode: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Load Passcode & Subjects 🔍";
+        }
+    }
+
+    function renderUpgradeStep2() {
+        document.getElementById("upgStep1").style.display = "none";
+        document.getElementById("upgStep2").style.display = "block";
+
+        document.getElementById("upgDispCode").innerText = activeUpgradePasscode.passcode;
+        document.getElementById("upgDispEmail").innerText = activeUpgradePasscode.email;
+        document.getElementById("upgDispCats").innerText = activeUpgradePasscode.exam_category;
+        document.getElementById("upgDispSubjs").innerText = activeUpgradePasscode.allowed_subjects || "All Subjects";
+
+        const existingCats = (activeUpgradePasscode.exam_category || "JAMB").split(",").map(c => c.trim().toUpperCase());
+        const existingSubjs = (activeUpgradePasscode.allowed_subjects || "").split(",").map(s => s.trim().toUpperCase());
+
+        ["JAMB", "WAEC", "NECO"].forEach(cat => {
+            const chk = document.getElementById(`chkUpg${cat}`);
+            const card = document.getElementById(`upgCard${cat}`);
+            const isSel = existingCats.includes(cat);
+            chk.checked = isSel;
+            card.classList.toggle("selected", isSel);
+        });
+
+        renderUpgradeSubjectsUI(existingSubjs);
+        recalculateUpgradeCost();
+    }
+
+    function renderUpgradeSubjectsUI(existingSubjsArr) {
+        const container = document.getElementById("upgSubjectsContainer");
+        container.innerHTML = "";
+
+        ["JAMB", "WAEC", "NECO"].forEach(cat => {
+            const chk = document.getElementById(`chkUpg${cat}`);
+            if (!chk.checked) return;
+
+            const panel = document.createElement("div");
+            panel.className = "exam-subject-card active-card";
+            panel.style.marginBottom = "14px";
+            panel.innerHTML = `
+                <div class="card-header">
+                    <div class="card-title"><span>${cat} Subjects</span></div>
+                </div>
+                <div class="subjects-grid" id="upgGrid${cat}"></div>
+            `;
+            container.appendChild(panel);
+
+            const grid = panel.querySelector(`#upgGrid${cat}`);
+            dbSubjectsMap[cat].forEach(sub => {
+                const label = document.createElement("label");
+                label.className = "subject-item";
+                const isChecked = existingSubjsArr.length === 0 || existingSubjsArr.includes(sub.name.toUpperCase()) || existingSubjsArr.includes(sub.id.toString());
+                label.innerHTML = `<input type="checkbox" name="upg_subj_${cat}" value="${sub.name}" ${isChecked ? 'checked' : ''} onchange="recalculateUpgradeCost()"> ${sub.name}`;
+                grid.appendChild(label);
+            });
+        });
+    }
+
+    function toggleUpgCat(cat) {
+        const chk = document.getElementById(`chkUpg${cat}`);
+        const card = document.getElementById(`upgCard${cat}`);
+        chk.checked = !chk.checked;
+        card.classList.toggle("selected", chk.checked);
+
+        const existingSubjs = (activeUpgradePasscode.allowed_subjects || "").split(",").map(s => s.trim().toUpperCase());
+        renderUpgradeSubjectsUI(existingSubjs);
+        recalculateUpgradeCost();
+    }
+
+    async function recalculateUpgradeCost() {
+        const selectedCats = [];
+        const selectedSubjs = [];
+
+        ["JAMB", "WAEC", "NECO"].forEach(cat => {
+            const chk = document.getElementById(`chkUpg${cat}`);
+            if (chk.checked) {
+                selectedCats.push(cat);
+                const subBoxes = Array.from(document.querySelectorAll(`input[name="upg_subj_${cat}"]:checked`));
+                subBoxes.forEach(cb => selectedSubjs.push(cb.value));
+            }
+        });
+
+        try {
+            const res = await fetch("/fillop/api/v1/passcode_upgrade.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "calculate",
+                    passcode: activeUpgradePasscode.passcode,
+                    new_categories: selectedCats,
+                    new_subjects: selectedSubjs
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                upgradeCalculatedFee = data.amount;
+                upgradeCalculatedIsFree = data.is_free;
+
+                const submitBtn = document.getElementById("upgSubmitBtn");
+
+                if (data.is_free) {
+                    document.getElementById("upgTypeLabel").innerText = "Free Subject Addition";
+                    document.getElementById("upgFeeTotal").innerText = "₦0 (Free)";
+                    submitBtn.innerText = "Apply Free Upgrade ⚡";
+                    submitBtn.className = "btn";
+                } else {
+                    document.getElementById("upgTypeLabel").innerText = "Category Upgrade";
+                    document.getElementById("upgFeeTotal").innerText = `₦${data.amount.toLocaleString()}`;
+                    submitBtn.innerText = `Pay ₦${data.amount.toLocaleString()} & Upgrade via Paystack 💳`;
+                    submitBtn.className = "btn";
+                }
+            }
+        } catch (e) {
+            console.error("Calculate upgrade cost error:", e);
+        }
+    }
+
+    async function executeUpgradeAction() {
+        const selectedCats = [];
+        const selectedSubjs = [];
+
+        ["JAMB", "WAEC", "NECO"].forEach(cat => {
+            const chk = document.getElementById(`chkUpg${cat}`);
+            if (chk.checked) {
+                selectedCats.push(cat);
+                const subBoxes = Array.from(document.querySelectorAll(`input[name="upg_subj_${cat}"]:checked`));
+                subBoxes.forEach(cb => selectedSubjs.push(cb.value));
+            }
+        });
+
+        if (selectedCats.length === 0) {
+            alert("Please select at least one examination category.");
+            return;
+        }
+
+        const submitBtn = document.getElementById("upgSubmitBtn");
+        submitBtn.disabled = true;
+
+        if (upgradeCalculatedIsFree) {
+            // Apply Free Upgrade directly
+            submitBtn.innerText = "Applying Upgrade...";
+            try {
+                const res = await fetch("/fillop/api/v1/passcode_upgrade.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "apply_free",
+                        passcode: activeUpgradePasscode.passcode,
+                        new_categories: selectedCats,
+                        new_subjects: selectedSubjs
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    closeUpgradeModal();
+                } else {
+                    alert(data.message || "Failed to apply upgrade.");
+                }
+            } catch (e) {
+                alert("Upgrade error: " + e.message);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        } else {
+            // Paid Upgrade via Paystack
+            submitBtn.innerText = "Initializing Paystack Checkout...";
+            try {
+                const initRes = await fetch("/fillop/api/v1/passcode_upgrade.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "initialize_paystack",
+                        passcode: activeUpgradePasscode.passcode,
+                        new_categories: selectedCats,
+                        new_subjects: selectedSubjs
+                    })
+                });
+                const initData = await initRes.json();
+
+                if (initData.success && initData.reference) {
+                    if (paystackPublicKey && typeof PaystackPop !== 'undefined') {
+                        const handler = PaystackPop.setup({
+                            key: paystackPublicKey,
+                            email: initData.email,
+                            amount: Math.round(initData.amount * 100),
+                            ref: initData.reference,
+                            onClose: function() {
+                                alert("Payment popup closed.");
+                                submitBtn.disabled = false;
+                                recalculateUpgradeCost();
+                            },
+                            callback: function(response) {
+                                finalizePaidUpgrade(initData.reference, selectedCats, selectedSubjs);
+                            }
+                        });
+                        handler.openIframe();
+                    } else {
+                        // Fallback verification
+                        await finalizePaidUpgrade(initData.reference, selectedCats, selectedSubjs);
+                    }
+                } else {
+                    alert(initData.message || "Failed to initialize payment.");
+                    submitBtn.disabled = false;
+                }
+            } catch (e) {
+                alert("Paystack error: " + e.message);
+                submitBtn.disabled = false;
+            }
+        }
+    }
+
+    async function finalizePaidUpgrade(ref, selectedCats, selectedSubjs) {
+        const submitBtn = document.getElementById("upgSubmitBtn");
+        submitBtn.innerText = "Verifying Payment & Updating Passcode...";
+        try {
+            const vRes = await fetch("/fillop/api/v1/passcode_upgrade.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "verify_paystack",
+                    passcode: activeUpgradePasscode.passcode,
+                    reference: ref,
+                    new_categories: selectedCats,
+                    new_subjects: selectedSubjs
+                })
+            });
+            const vData = await vRes.json();
+            if (vData.success) {
+                alert(vData.message);
+                closeUpgradeModal();
+            } else {
+                alert(vData.message || "Payment verification failed.");
+            }
+        } catch (e) {
+            alert("Verification error: " + e.message);
+        } finally {
+            submitBtn.disabled = false;
+        }
+    }
+
+    async function submitAdminRequestAction() {
+        const selectedCats = [];
+        const selectedSubjs = [];
+
+        ["JAMB", "WAEC", "NECO"].forEach(cat => {
+            const chk = document.getElementById(`chkUpg${cat}`);
+            if (chk.checked) {
+                selectedCats.push(cat);
+                const subBoxes = Array.from(document.querySelectorAll(`input[name="upg_subj_${cat}"]:checked`));
+                subBoxes.forEach(cb => selectedSubjs.push(cb.value));
+            }
+        });
+
+        if (selectedCats.length === 0) {
+            alert("Please select at least one examination category.");
+            return;
+        }
+
+        const note = document.getElementById("upgAdminNote").value.trim();
+
+        try {
+            const res = await fetch("/fillop/api/v1/passcode_upgrade.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "request_admin",
+                    passcode: activeUpgradePasscode.passcode,
+                    new_categories: selectedCats,
+                    new_subjects: selectedSubjs,
+                    admin_notes: note
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                closeUpgradeModal();
+            } else {
+                alert(data.message || "Failed to submit admin request.");
+            }
+        } catch (e) {
+            alert("Request error: " + e.message);
+        }
+    }
 
     function exportPasscodesExcel() {
         if (!generatedPasscodesList.length) return;
@@ -535,6 +992,7 @@
     }
 
     renderSubjects();
+    loadPaystackConfig();
     loadPricingSettings();
 </script>
 </body>

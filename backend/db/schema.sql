@@ -116,6 +116,37 @@ INSERT INTO `passcodes` (`id`, `passcode`, `email`, `organization_id`, `max_devi
 
 -- --------------------------------------------------------
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `passcode_upgrades`
+--
+
+CREATE TABLE IF NOT EXISTS `passcode_upgrades` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `passcode_id` int(11) NOT NULL,
+  `passcode` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `old_categories` varchar(255) DEFAULT NULL,
+  `new_categories` varchar(255) DEFAULT NULL,
+  `old_subjects` text DEFAULT NULL,
+  `new_subjects` text DEFAULT NULL,
+  `added_categories` varchar(255) DEFAULT NULL,
+  `added_subjects` text DEFAULT NULL,
+  `amount_paid` decimal(10,2) DEFAULT 0.00,
+  `payment_reference` varchar(100) DEFAULT NULL,
+  `payment_status` varchar(50) DEFAULT 'free',
+  `status` varchar(50) DEFAULT 'completed',
+  `admin_notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `passcode_id` (`passcode_id`),
+  KEY `passcode` (`passcode`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
 --
 -- Table structure for table `promo_codes`
 --

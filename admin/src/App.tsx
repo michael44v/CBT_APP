@@ -5,7 +5,7 @@ const API_BASE = 'http://localhost:80/fillop/api/v1';
 const ALL_SUBJECT_OPTIONS = ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Economics", "Government", "Literature"];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'NEWS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'NEWS' | 'UPGRADES'>('DASHBOARD');
 
   // Stats
   const [stats, setStats] = useState({
@@ -24,6 +24,7 @@ export default function App() {
   const [promos, setPromos] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
+  const [upgrades, setUpgrades] = useState<any[]>([]);
 
   // Search/Filters
   const [userSearch, setUserSearch] = useState('');
@@ -142,7 +143,7 @@ export default function App() {
     }
   };
 
-  // Load Passcodes & Organizations
+  // Load Passcodes, Organizations & Upgrade Requests
   const fetchPasscodes = async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/passcodes.php`);
@@ -150,6 +151,7 @@ export default function App() {
       if (data.success) {
         setPasscodes(data.passcodes || []);
         setOrganizations(data.organizations || []);
+        setUpgrades(data.upgrades || []);
       }
     } catch (e) {
       console.error('Failed to load passcodes', e);
@@ -201,7 +203,7 @@ export default function App() {
     fetchStats();
     fetchPricing();
     if (activeTab === 'USERS') fetchUsers();
-    if (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS') fetchPasscodes();
+    if (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS' || activeTab === 'UPGRADES') fetchPasscodes();
     if (activeTab === 'PROMOS') fetchPromos();
     if (activeTab === 'QUESTIONS') fetchQuestions();
     if (activeTab === 'NEWS') fetchNews();
@@ -424,6 +426,47 @@ export default function App() {
     }
   };
 
+  const handleApproveUpgrade = async (upgradeId: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve_upgrade', upgrade_id: upgradeId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message);
+        fetchPasscodes();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Approve upgrade action failed.', 'error');
+    }
+  };
+
+  const handleRejectUpgrade = async (upgradeId: number) => {
+    const notes = window.prompt("Reason or notes for rejecting upgrade request:", "Rejected by administrator");
+    if (notes === null) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject_upgrade', upgrade_id: upgradeId, admin_notes: notes }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message);
+        fetchPasscodes();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Reject upgrade action failed.', 'error');
+    }
+  };
+
   const exportPasscodesCSV = () => {
     let csv = "Passcode,Email,Organization,Category,Allowed Subjects,Devices,Status,Expires At\n";
     passcodes.forEach(p => {
@@ -603,6 +646,7 @@ export default function App() {
           <button className={`menu-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>📊 Dashboard</button>
           <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>👥 Candidates</button>
           <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>🔑 Passcodes</button>
+          <button className={`menu-btn ${activeTab === 'UPGRADES' ? 'active' : ''}`} onClick={() => setActiveTab('UPGRADES')}>🔄 Upgrade Requests &amp; Logs</button>
           <button className={`menu-btn ${activeTab === 'INSTITUTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('INSTITUTIONS')}>🏫 Institutions &amp; Bulk</button>
           <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>💰 Pricing Settings</button>
           <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>🎟️ Promo Codes</button>
@@ -635,6 +679,7 @@ export default function App() {
               {activeTab === 'DASHBOARD' && 'Management Dashboard'}
               {activeTab === 'USERS' && 'Candidates / Subscriptions'}
               {activeTab === 'PASSCODES' && 'Passcode Subject Allocations & Licensing'}
+              {activeTab === 'UPGRADES' && 'Passcode Subject & Category Upgrade Requests'}
               {activeTab === 'INSTITUTIONS' && 'Institutional Licensing & Bulk Accounts'}
               {activeTab === 'PRICING' && 'Dynamic Pricing Configuration'}
               {activeTab === 'PROMOS' && 'Promotions & Referral Codes'}
@@ -674,6 +719,72 @@ export default function App() {
               </p>
               <button className="btn btn-secondary" onClick={fetchStats}>🔄 Refresh Core Analytics</button>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'UPGRADES' && (
+          <div className="admin-card">
+            <div className="card-title">
+              <span>Passcode Upgrade Activity &amp; Admin Approval Queue</span>
+              <button className="btn btn-secondary btn-sm" onClick={fetchPasscodes}>🔄 Refresh Queue</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Passcode</th>
+                  <th>Candidate Email</th>
+                  <th>Categories (Old → New)</th>
+                  <th>New Subjects Requested</th>
+                  <th>Amount Paid</th>
+                  <th>Payment Status</th>
+                  <th>Request Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upgrades.length === 0 ? (
+                  <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No upgrade requests or history recorded yet.</td></tr>
+                ) : (
+                  upgrades.map((upg) => {
+                    const statusClass = upg.status === 'completed' || upg.status === 'approved' ? 'badge-success' : upg.status === 'rejected' ? 'badge-danger' : 'badge-warning';
+                    return (
+                      <tr key={upg.id}>
+                        <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent)' }}>{upg.passcode}</td>
+                        <td>{upg.email}</td>
+                        <td>
+                          <div><small style={{ color: 'var(--text-secondary)' }}>From:</small> {upg.old_categories}</div>
+                          <div><strong>To:</strong> <span className="badge badge-info">{upg.new_categories}</span></div>
+                        </td>
+                        <td style={{ maxWidth: '200px', fontSize: '12px' }}>{upg.new_subjects}</td>
+                        <td><strong>₦{parseFloat(upg.amount_paid || 0).toLocaleString()}</strong></td>
+                        <td>
+                          <span className={`badge ${upg.payment_status === 'paid' ? 'badge-success' : upg.payment_status === 'free' ? 'badge-info' : 'badge-warning'}`}>
+                            {upg.payment_status}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${statusClass}`}>
+                            {upg.status}
+                          </span>
+                        </td>
+                        <td>{new Date(upg.created_at).toLocaleString()}</td>
+                        <td>
+                          {upg.status === 'pending_approval' ? (
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button className="btn btn-success btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleApproveUpgrade(upg.id)}>Approve ✅</button>
+                              <button className="btn btn-danger btn-sm" style={{ padding: '0.3rem 0.5rem' }} onClick={() => handleRejectUpgrade(upg.id)}>Reject ❌</button>
+                            </div>
+                          ) : (
+                            <small style={{ color: 'var(--text-secondary)' }}>{upg.admin_notes || 'Processed'}</small>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 
