@@ -84,7 +84,7 @@
     </div>
 
     <div class="header">
-        <img src="/fillop/icon.png" class="logo" alt="Fillop CBT Logo" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%231d3090\'><circle cx=\'12\' cy=\'12\' r=\'10\'/></svg>'">
+        <img src="icon.png" class="logo" alt="Fillop CBT Logo" onerror="this.src='/fillop/icon.png'">
         <h1>Fillop CBT Guru Subscription &amp; Licensing</h1>
         <p class="subtitle">Individual, Multi-Category, Subject Activation &amp; Bulk Passcode Portal</p>
     </div>

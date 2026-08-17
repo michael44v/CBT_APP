@@ -30,8 +30,8 @@ contextBridge.exposeInMainWorld("api", {
   submitExamResult: (params) =>
     ipcRenderer.invoke("db:submit-result", params),
 
-  getResults: () =>
-    ipcRenderer.invoke("db:get-results"),
+  getResults: (userName) =>
+    ipcRenderer.invoke("db:get-results", userName),
 
   getNews: () =>
     ipcRenderer.invoke("db:get-news"),

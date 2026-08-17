@@ -435,7 +435,10 @@ ipcMain.handle("db:submit-result", async (event, { examType, examSessionId, user
   return dbService.get("SELECT * FROM results WHERE id = ?", [resultId]);
 });
 
-ipcMain.handle("db:get-results", async () => {
+ipcMain.handle("db:get-results", async (event, userName) => {
+  if (userName) {
+    return dbService.all("SELECT * FROM results WHERE user_name = ? ORDER BY submitted_at DESC", [userName]);
+  }
   return dbService.all("SELECT * FROM results ORDER BY submitted_at DESC");
 });
 
