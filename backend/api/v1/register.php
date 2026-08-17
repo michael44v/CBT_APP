@@ -1,4 +1,8 @@
 <?php
+
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
@@ -8,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once '../../db/db.php';
+require_once 'db.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -150,7 +154,19 @@ $pending[$payment_reference] = [
     'created_at' => date('Y-m-d H:i:s')
 ];
 
-file_put_contents($pending_file, json_encode($pending, JSON_PRETTY_PRINT));
+$result = file_put_contents(
+    $pending_file,
+    json_encode($pending, JSON_PRETTY_PRINT),
+    LOCK_EX
+);
+
+if ($result === false) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Unable to save pending payment."
+    ]);
+    exit();
+}
 
 echo json_encode([
     "success" => true,

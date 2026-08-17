@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once '../../../db/db.php';
+require_once '../db.php';
 
 $db = getDbConnection();
 
