@@ -61,6 +61,45 @@ export default function App() {
     };
   }, [dragStart]);
 
+  const handleCalcInput = (val: string) => {
+    if (val === 'C') {
+      setCalcDisplay('');
+    } else if (val === 'DEL') {
+      setCalcDisplay(prev => prev.slice(0, -1));
+    } else if (val === '=') {
+      try {
+        if (!calcDisplay) return;
+        let expr = calcDisplay
+          .replace(/×/g, '*')
+          .replace(/÷/g, '/')
+          .replace(/π/g, 'Math.PI')
+          .replace(/e/g, 'Math.E')
+          .replace(/sin\(/g, 'Math.sin(')
+          .replace(/cos\(/g, 'Math.cos(')
+          .replace(/tan\(/g, 'Math.tan(')
+          .replace(/sqrt\(/g, 'Math.sqrt(')
+          .replace(/log\(/g, 'Math.log10(')
+          .replace(/ln\(/g, 'Math.log(')
+          .replace(/\^/g, '**');
+
+        const res = Function(`"use strict"; return (${expr})`)();
+        if (typeof res === 'number' && !isNaN(res)) {
+          setCalcDisplay(Number(res.toFixed(8)).toString());
+        } else {
+          setCalcDisplay('Error');
+        }
+      } catch (err) {
+        setCalcDisplay('Error');
+      }
+    } else {
+      if (calcDisplay === 'Error') {
+        setCalcDisplay(val);
+      } else {
+        setCalcDisplay(prev => prev + val);
+      }
+    }
+  };
+
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState<boolean>(false);
   const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<string>('This Week');
@@ -68,9 +107,9 @@ export default function App() {
   // Mini Ads State
   const [activeAdIdx, setActiveAdIdx] = useState<number>(0);
   const imageAdsList = [
-    { image: "/ad1.svg", alt: "Get Premium CBT Upgrades" },
-    { image: "/ad2.svg", alt: "Practice JAMB, WAEC & NECO Offline" },
-    { image: "/ad3.svg", alt: "Contact Fillop Tech Support" }
+    { image: "/exam_hall_1.jpg", alt: "CBT Examination Hall Center" },
+    { image: "/computer_center_1.jpg", alt: "Modern Computer Testing Center" },
+    { image: "/exam_hall_2.jpg", alt: "Standard Exam Testing Center" }
   ];
 
   useEffect(() => {
@@ -591,8 +630,8 @@ export default function App() {
       setExamQuestions(qList);
       setCurrentIdx(0);
 
-      // 6 minutes = 360 seconds
-      const totalSecs = 6 * 60;
+      // 40 seconds per question (e.g. 10 * 40 = 400s, 12 * 40 = 480s)
+      const totalSecs = qList.length * 40;
       setTimeLeft(totalSecs);
       setScreen('INSTRUCTIONS');
     } catch (e) {
@@ -1071,7 +1110,7 @@ export default function App() {
                       style={{ ...styles.btn, ...styles.btnSecondary, width: '100%', justifyContent: 'center', padding: '12px' }}
                       onClick={handleProceedFreeMode}
                     >
-                      Proceed with Free Version (Max 10 Qs / Math &amp; English)
+                      Proceed with Free Version (Max 30 Qs / Math &amp; English)
                     </button>
                   </div>
                 </form>
@@ -1323,7 +1362,7 @@ export default function App() {
                     <div>
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Mock Examination Room</h3>
                       <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '24px', lineHeight: 1.5 }}>
-                        {isFreeMode ? 'Free Version is restricted to 10 questions per subject in English & Mathematics.' : 'Select up to 4 subjects assigned to your passcode subscription.'}
+                        {isFreeMode ? 'Free Version is restricted to 30 questions per subject in English & Mathematics.' : 'Select up to 4 subjects assigned to your passcode subscription.'}
                       </p>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1403,7 +1442,7 @@ export default function App() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>
-                           6-Minute Daily Speed Quiz
+                           Daily Speed Quiz
                         </h3>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: colors.primary, backgroundColor: colors.primaryLight, padding: '4px 12px', borderRadius: '20px' }}>
                           ACTIVATED EXCLUSIVE
@@ -1412,13 +1451,13 @@ export default function App() {
 
                       <div style={{ backgroundColor: colors.bg, borderRadius: '16px', padding: '24px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
                         <p style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>
-                          Challenge yourself with a daily quick-fire quiz! The system automatically selects <strong>10 to 15 random questions</strong> from an examination category and subject assigned to your account.
+                          Challenge yourself with a daily quick-fire quiz! The system automatically selects <strong>10 to 15 random questions</strong> with 40 seconds allocated per question.
                         </p>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                           <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
-                            <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Time Limit</div>
-                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.primary, marginTop: '4px' }}>6 Minutes</div>
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Time Rate</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.primary, marginTop: '4px' }}>40 Sec / Question</div>
                           </div>
                           <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
                             <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Question Count</div>
@@ -1434,7 +1473,7 @@ export default function App() {
                           style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnLg, width: '100%', justifyContent: 'center', fontWeight: 800, fontSize: '16px', padding: '16px' }}
                           onClick={startDailyQuizSession}
                         >
-                          Launch 6-Min Daily Quiz
+                          Launch Daily Quiz
                         </button>
                       </div>
                     </div>
@@ -1724,31 +1763,50 @@ export default function App() {
   </div>
 
   {/* ---------- RIGHT SIDEBAR: candidate ID ---------- */}
- {/* ---------- RIGHT SIDEBAR: candidate ID ---------- */}
-<div style={{ width: '230px', flexShrink: 0, backgroundColor: '#4d84bd', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px' }}>
-  <div style={{ backgroundColor: 'white', padding: '8px', width: '160px', height: '160px' }}>
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=placeholder" alt="QR code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-  </div>
-  <div style={{ color: 'white', fontSize: '16px', marginTop: '10px', marginBottom: '16px' }}>Your Details...</div>
+  <div style={{ width: '250px', flexShrink: 0, backgroundColor: '#2f6fb0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)' }}>
+    <div style={{ backgroundColor: 'white', padding: '8px', width: '140px', height: '140px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+      <img
+        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(activation?.email || 'Candidate-Free')}`}
+        alt="QR code"
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+      />
+    </div>
 
-  <div style={{ backgroundColor: 'white', width: '140px', height: '150px', overflow: 'hidden' }}>
-    <img src="https://i.pravatar.cc/150?img=12" alt="Candidate" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-  </div>
+    <div style={{ color: 'white', fontSize: '15px', fontWeight: 700, marginTop: '12px', marginBottom: '14px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+      Candidate Profile
+    </div>
 
-  <div style={{ color: '#1a1a1a', fontSize: '24px', fontWeight: 700, marginTop: '14px', textAlign: 'center', lineHeight: '1.2' }}>
-    John
-    <div style={{ fontSize: '18px', fontWeight: 400 }}>Doe Adekunle</div>
-  </div>
+    <div style={{ backgroundColor: 'white', width: '130px', height: '140px', overflow: 'hidden', borderRadius: '12px', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+      <img
+        src={activation?.profile_picture || "https://i.pravatar.cc/150?img=12"}
+        alt="Candidate Profile"
+        onError={(e) => {
+          (e.target as HTMLElement).setAttribute('src', "https://i.pravatar.cc/150?img=12");
+        }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+    </div>
 
-  <div style={{ marginTop: '18px', textAlign: 'center' }}>
-    <div style={{ color: '#1e3a5f', fontSize: '14px', fontWeight: 700 }}>Passcode:</div>
-    <div style={{ color: '#1e3a5f', fontSize: '26px', fontWeight: 800, fontFamily: 'Arial, sans-serif' }}>012345</div>
-  </div>
+    <div style={{ color: '#ffffff', fontSize: '18px', fontWeight: 800, marginTop: '14px', textAlign: 'center', lineHeight: '1.3', wordBreak: 'break-word', padding: '0 8px' }}>
+      {activation ? (activation.user_name || activation.email.split('@')[0]) : 'Candidate (Free)'}
+      {activation?.email && (
+        <div style={{ fontSize: '12px', fontWeight: 500, color: '#e0f2fe', marginTop: '2px' }}>
+          {activation.email}
+        </div>
+      )}
+    </div>
 
-  <div style={{ flex: 1 }} />
-  <div style={{ color: 'white', fontWeight: 800, fontSize: '15px', fontFamily: 'Arial, sans-serif' }}>FILLOP TECH</div>
-  <div style={{ color: '#cfe0f0', fontSize: '10px', fontFamily: 'Arial, sans-serif' }}>...simplifying your tech world</div>
-</div>
+    <div style={{ marginTop: '16px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.15)', padding: '10px 16px', borderRadius: '10px', width: '85%' }}>
+      <div style={{ color: '#e0f2fe', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Passcode</div>
+      <div style={{ color: '#ffffff', fontSize: '20px', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '1px', marginTop: '2px' }}>
+        {activation ? activation.passcode : 'FREE-MODE'}
+      </div>
+    </div>
+
+    <div style={{ flex: 1, minHeight: '20px' }} />
+    <div style={{ color: 'white', fontWeight: 800, fontSize: '15px', fontFamily: 'Arial, sans-serif' }}>FILLOP TECH</div>
+    <div style={{ color: '#cfe0f0', fontSize: '10px', fontFamily: 'Arial, sans-serif' }}>...simplifying your tech world</div>
+  </div>
 </div>
 )}
 
@@ -1771,8 +1829,18 @@ export default function App() {
                   ))}
                 </div>
 
-                <div style={styles.timerPanel}>
-                  {formatTimer(timeLeft)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <button
+                    onClick={() => setIsCalcOpen(!isCalcOpen)}
+                    style={{ ...styles.btn, ...styles.btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                  >
+                    <Calculator size={18} color={colors.primary} />
+                    Calculator
+                  </button>
+
+                  <div style={styles.timerPanel}>
+                    {formatTimer(timeLeft)}
+                  </div>
                 </div>
               </div>
 
@@ -2104,6 +2172,120 @@ export default function App() {
             <button onClick={() => setShowSubmitConfirm(false)} style={{ ...styles.btn, ...styles.btnSecondary }}>
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= SCIENTIFIC CALCULATOR MODAL ================= */}
+      {isCalcOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${calcPos.x}px`,
+            top: `${calcPos.y}px`,
+            width: '320px',
+            backgroundColor: '#1e293b',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5)',
+            zIndex: 999999,
+            overflow: 'hidden',
+            border: '1px solid #334155',
+            userSelect: 'none'
+          }}
+        >
+          {/* Header / Drag Bar */}
+          <div
+            onMouseDown={(e) => setDragStart({ x: e.clientX - calcPos.x, y: e.clientY - calcPos.y })}
+            style={{
+              padding: '10px 14px',
+              backgroundColor: '#0f172a',
+              color: '#f8fafc',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              cursor: 'grab',
+              fontSize: '13px',
+              fontWeight: 700
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Calculator size={16} color="#38bdf8" />
+              <span>Scientific Calculator</span>
+            </div>
+            <button
+              onClick={() => setIsCalcOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 700
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Display */}
+          <div style={{ padding: '12px 14px', backgroundColor: '#0f172a', borderBottom: '1px solid #334155' }}>
+            <div style={{ color: '#94a3b8', fontSize: '11px', height: '14px', textAlign: 'right', overflow: 'hidden' }}>
+              {calcDisplay || '0'}
+            </div>
+            <input
+              type="text"
+              readOnly
+              value={calcDisplay || '0'}
+              style={{
+                width: '100%',
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: '#f8fafc',
+                fontSize: '22px',
+                fontWeight: 700,
+                textAlign: 'right',
+                outline: 'none',
+                fontFamily: 'monospace'
+              }}
+            />
+          </div>
+
+          {/* Keypad */}
+          <div style={{ padding: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+            {[
+              'sin(', 'cos(', 'tan(', 'C',
+              'sqrt(', 'log(', 'ln(', 'DEL',
+              'π', 'e', '^', '/',
+              '7', '8', '9', '×',
+              '4', '5', '6', '-',
+              '1', '2', '3', '+',
+              '(', '0', '.', '='
+            ].map((btn) => {
+              const isOp = ['/', '×', '-', '+', '='].includes(btn);
+              const isAction = ['C', 'DEL'].includes(btn);
+              const isFunc = ['sin(', 'cos(', 'tan(', 'sqrt(', 'log(', 'ln(', 'π', 'e', '^'].includes(btn);
+
+              return (
+                <button
+                  key={btn}
+                  onClick={() => handleCalcInput(btn)}
+                  style={{
+                    padding: '10px 4px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: isAction ? '#ef4444' : isOp ? '#0284c7' : isFunc ? '#334155' : '#475569',
+                    color: '#ffffff',
+                    fontSize: isFunc ? '11px' : '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'opacity 0.1s',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  {btn}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

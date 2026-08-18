@@ -293,10 +293,10 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
 
   sql += " ORDER BY RANDOM()";
 
-  // In Free Mode, max 10 questions per practice session
+  // In Free Mode, max 30 questions per practice session
   let maxLimit = limit || 30;
   if (isFree) {
-    maxLimit = Math.min(maxLimit, 10);
+    maxLimit = Math.min(maxLimit, 30);
   }
 
   sql += " LIMIT ?";
@@ -325,7 +325,7 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
     }
 
     if (isFree) {
-      needed = Math.min(needed, 10);
+      needed = Math.min(needed, 30);
     }
 
     let subjectQuestions = [];
