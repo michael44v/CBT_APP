@@ -1,148 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Loading Fillop CBT Guru...</title>
-  <style>
-    :root {
-      --bg-color: #0f172a;
-      --card-bg: #1e293b;
-      --accent: #3b82f6;
-      --accent-glow: rgba(59, 130, 246, 0.5);
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading Fillop CBT Guru...</title>
+<style>
+  :root {
+    --bg: #14181f;
+    --panel: #1a1f28;
+    --border: #2a3040;
+    --accent: #2f6fb0;
+    --text-main: #e8ebf0;
+    --text-muted: #6b7488;
+  }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-    }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
 
-    body {
-      background-color: var(--bg-color);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: var(--text-main);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      overflow: hidden;
-    }
+  body {
+    background-color: var(--bg);
+    font-family: -apple-system, "Segoe UI", Tahoma, sans-serif;
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+  }
 
-    .splash-container {
-      text-align: center;
-      padding: 2.5rem;
-      border-radius: 1rem;
-      background: linear-gradient(135deg, var(--card-bg), #111827);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
-      width: 100%;
-      max-width: 450px;
-      position: relative;
-      border: 1px solid rgba(255, 255, 255, 0.03);
-    }
+  .splash-container {
+    width: 100%;
+    max-width: 420px;
+    padding: 0 40px;
+    text-align: center;
+  }
 
-    .logo-container {
-      margin-bottom: 2rem;
-      position: relative;
-      display: inline-block;
-    }
+  .logo {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    margin: 0 auto 20px;
+    display: block;
+  }
 
-    .logo-icon {
-      font-size: 3.5rem;
-      background: linear-gradient(135deg, #60a5fa, #3b82f6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: pulse 2s infinite ease-in-out;
-    }
+  .app-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: 0.2px;
+    margin-bottom: 4px;
+  }
 
-    .app-title {
-      font-size: 1.8rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      margin-bottom: 0.25rem;
-      background: linear-gradient(to right, #ffffff, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
+  .app-subtitle {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 36px;
+  }
 
-    .app-subtitle {
-      font-size: 0.9rem;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 3px;
-      font-weight: 600;
-      margin-bottom: 2.5rem;
-    }
+  .progress-track {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
 
-    .spinner {
-      width: 45px;
-      height: 45px;
-      border: 4px solid rgba(59, 130, 246, 0.1);
-      border-top: 4px solid var(--accent);
-      border-radius: 50%;
-      margin: 0 auto 1.5rem;
-      animation: spin 1s linear infinite;
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
+  .progress-fill {
+    height: 100%;
+    width: 35%;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: indeterminate 1.3s ease-in-out infinite;
+  }
 
-    .status-text {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      min-height: 1.5rem;
-      letter-spacing: 0.5px;
-      transition: all 0.3s ease;
-    }
+  .status-text {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    min-height: 16px;
+  }
 
-    .footer-text {
-      position: absolute;
-      bottom: 1.25rem;
-      left: 0;
-      right: 0;
-      font-size: 0.75rem;
-      color: #475569;
-    }
+  .footer-text {
+    position: fixed;
+    bottom: 18px;
+    left: 0;
+    right: 0;
+    font-size: 10.5px;
+    color: #3a4152;
+    letter-spacing: 0.3px;
+  }
 
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.1)); }
-      50% { transform: scale(1.05); filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4)); }
-    }
-  </style>
+  @keyframes indeterminate {
+    0%   { transform: translateX(-120%); }
+    100% { transform: translateX(320%); }
+  }
+</style>
 </head>
 <body>
 
-  <div class="splash-container">
-    <div class="logo-container">
-      <div class="logo-icon">⚡</div>
-    </div>
-    <h1 class="app-title">Fillop CBT Guru</h1>
-    <p class="app-subtitle">Computer Based Test</p>
+<div class="splash-container">
+  <img class="logo" src="image.png" alt="Fillop">
+  <div class="app-title">Fillop CBT Guru</div>
+  <div class="app-subtitle">COMPUTER BASED TEST SIMULATOR</div>
 
-    <div class="spinner"></div>
-    <p class="status-text" id="status">Starting application services...</p>
-
-    <div class="footer-text">
-      Production MVP &bull; Offline-First Engine
-    </div>
+  <div class="progress-track">
+    <div class="progress-fill"></div>
   </div>
+  <p class="status-text" id="status">Starting application services...</p>
+</div>
 
-  <script>
-    // Listen for progress messages from the main process
-    try {
-      const { ipcRenderer } = require('electron');
-      ipcRenderer.on('splash-status', (event, text) => {
-        document.getElementById('status').innerText = text;
-      });
-    } catch (e) {
-      console.warn("Electron environment not detected in splash screen. Using fallback simulation.");
-    }
-  </script>
+<div class="footer-text">FillopTech &bull; v1.0</div>
+
+<script>
+  try {
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.on('splash-status', (event, text) => {
+      document.getElementById('status').innerText = text;
+    });
+  } catch (e) {
+    console.warn("Electron environment not detected in splash screen.");
+  }
+</script>
 </body>
 </html>

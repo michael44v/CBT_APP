@@ -47,6 +47,19 @@ function createMainWindow() {
       nodeIntegration: false
     }
   });
+  
+    // Block reload shortcuts (Ctrl+R / Cmd+R / F5 / Ctrl+Shift+R)
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    const key = input.key.toLowerCase();
+    const isReloadCombo =
+      (key === "r" && (input.control || input.meta)) ||
+      key === "f5";
+
+    if (isReloadCombo) {
+      event.preventDefault();
+    }
+  });
+
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");

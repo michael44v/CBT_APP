@@ -1670,29 +1670,28 @@ export default function App() {
             </div>
           )}
 
-          {/* ================= INSTRUCTIONS SCREEN ================= */}
-{/* ================= INSTRUCTIONS SCREEN ================= */}
+  {/* ================= INSTRUCTIONS SCREEN ================= */}
 {screen === 'INSTRUCTIONS' && (
-<div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7', margin: '-32px', overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
+<div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7', margin: '-27px', overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
 
   {/* ---------- MAIN COLUMN ---------- */}
   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
 
     {/* Top bar: subjects / calculator / timer */}
-    <div style={{ height: '64px', backgroundColor: '#c3e2ed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0 }}>
-      <div style={{ display: 'flex', gap: '2px' }}>
+    <div style={{ height: '64px', backgroundColor: '#c3e2ed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '4px' }}>
         {examSubjects.map((sub) => (
-          <div key={sub.id} style={{ backgroundColor: '#2f6fb0', color: 'white', fontWeight: 700, fontSize: '13px', padding: '10px 18px', fontFamily: 'Arial, sans-serif' }}>
+          <div key={sub.id} style={{ backgroundColor: '#2f6fb0', color: 'white', fontWeight: 700, fontSize: '13px', padding: '10px 18px', borderRadius: '4px', letterSpacing: '0.3px', fontFamily: 'Arial, sans-serif' }}>
             {sub.name.toUpperCase()}
           </div>
         ))}
       </div>
 
       <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', textAlign: 'center' }}>
-        <div style={{ backgroundColor: '#2f6fb0', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+        <div style={{ backgroundColor: '#2f6fb0', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
           <Calculator size={18} color="white" />
         </div>
-        <div style={{ color: '#1e3a5f', fontSize: '11px', fontFamily: 'Arial, sans-serif', marginTop: '2px' }}>Calculator</div>
+        <div style={{ color: '#1e3a5f', fontSize: '11px', fontFamily: 'Arial, sans-serif', marginTop: '4px' }}>Calculator</div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e3a5f', fontWeight: 700, fontSize: '17px', fontFamily: 'Arial, sans-serif' }}>
@@ -1702,43 +1701,47 @@ export default function App() {
     </div>
 
     {/* EXAM MODE badge */}
-    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 24px 0' }}>
-      <div style={{ backgroundColor: '#d8362b', color: 'white', fontWeight: 700, fontSize: '13px', padding: '6px 14px', fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 28px 0' }}>
+      <div style={{ backgroundColor: '#d8362b', color: 'white', fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: '4px', letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>
         EXAM MODE
       </div>
     </div>
 
     {/* Body: instructions + keyboard usage */}
-    <div style={{ display: 'flex', flex: 1, gap: '24px', padding: '20px 24px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flex: 1, gap: '28px', padding: '20px 28px 28px', overflow: 'hidden' }}>
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }}>
-        <h1 style={{ fontSize: '30px', color: '#1a1a1a', marginBottom: '18px', fontWeight: 400 }}>Instructions</h1>
-        <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.75', fontFamily: 'Georgia, serif' }}>
-          <p>The Buyer shall provide an LPO that will last for three weeks interval.</p>
-          <p>The LPO shall be raised with the name Masterpiece Energies Ltd (The Seller)</p>
-          <p>The Buyer shall provide a Bank Guarantee or a Post-Dated Cheque equivalent to the value of the Purchase Order.</p>
-          <p>Payment shall be made via e-payment to the Seller's designated account. The Seller reserves the right to suspend further deliveries if payments are outstanding beyond the due date.</p>
-          <p>Any disputes on invoices must be raised within 5 business days from the date of receipt.</p>
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px' }}>
+        <h1 style={{ fontSize: '26px', color: '#1a1a1a', marginBottom: '20px', marginTop: 0, fontWeight: 400, borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '12px' }}>
+          Instructions
+        </h1>
+        <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.85', fontFamily: 'Georgia, serif' }}>
+          <p style={{ margin: '0 0 14px' }}>The Buyer shall provide an LPO that will last for three weeks interval.</p>
+          <p style={{ margin: '0 0 14px' }}>The LPO shall be raised with the name Masterpiece Energies Ltd (The Seller)</p>
+          <p style={{ margin: '0 0 14px' }}>The Buyer shall provide a Bank Guarantee or a Post-Dated Cheque equivalent to the value of the Purchase Order.</p>
+          <p style={{ margin: '0 0 14px' }}>Payment shall be made via e-payment to the Seller's designated account. The Seller reserves the right to suspend further deliveries if payments are outstanding beyond the due date.</p>
+          <p style={{ margin: 0 }}>Any disputes on invoices must be raised within 5 business days from the date of receipt.</p>
           {/* replace the paragraphs above with your real instructions data */}
         </div>
       </div>
 
       <div style={{ width: '280px', flexShrink: 0 }}>
-        <div style={{ backgroundColor: '#f7d3d9', padding: '18px 20px' }}>
-          <div style={{ fontSize: '17px', color: '#1a1a1a', marginBottom: '14px' }}>Keyboard Usage</div>
+        <div style={{ backgroundColor: '#f7d3d9', padding: '20px', borderRadius: '10px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a', marginBottom: '16px', fontFamily: 'Arial, sans-serif' }}>
+            Keyboard Usage
+          </div>
           {[
             ['A', 'Select option A'], ['B', 'Select option B'], ['C', 'Select option C'], ['D', 'Select option D'],
             ['N', 'Next/Forward'], ['P', 'Previous/Back'], ['↑', 'Move up'], ['↓', 'Move down'],
             ['S', 'Submit/End Exam'], ['Y', 'Confirm/End Exam'],
-          ].map(([key, label]) => (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '9px', fontFamily: 'Arial, sans-serif' }}>
+          ].map(([key, label], i) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '7px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.06)', fontFamily: 'Arial, sans-serif' }}>
               <div style={{
-                width: '24px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: (key === 'S') ? '#e8623f' : '#1a1a1a', color: 'white', fontSize: '12px', fontWeight: 700, flexShrink: 0
+                width: '26px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: (key === 'S') ? '#e8623f' : '#1a1a1a', color: 'white', fontSize: '12px', fontWeight: 700, borderRadius: '4px', flexShrink: 0
               }}>
                 {key}
               </div>
-              <div style={{ fontSize: '13.5px', color: '#1a1a1a' }}>– {label}</div>
+              <div style={{ fontSize: '13px', color: '#1a1a1a' }}>{label}</div>
             </div>
           ))}
         </div>
@@ -1746,16 +1749,16 @@ export default function App() {
     </div>
 
     {/* Footer buttons */}
-    <div style={{ display: 'flex', gap: '20px', padding: '0 24px 24px', flexShrink: 0 }}>
+    <div style={{ display: 'flex', gap: '16px', padding: '0 28px 28px', flexShrink: 0 }}>
       <button
         onClick={() => { setScreen('EXAM'); startTimer(timeLeft); }}
-        style={{ backgroundColor: '#d8362b', color: 'white', padding: '16px 40px', fontSize: '17px', fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'Georgia, serif' }}
+        style={{ backgroundColor: '#d8362b', color: 'white', padding: '15px 42px', fontSize: '16px', fontWeight: 700, border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Georgia, serif', letterSpacing: '0.3px' }}
       >
         START EXAM
       </button>
       <button
         onClick={() => setScreen('DASHBOARD')}
-        style={{ backgroundColor: '#e8623f', color: 'white', padding: '16px 40px', fontSize: '17px', fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'Georgia, serif' }}
+        style={{ backgroundColor: 'transparent', color: '#e8623f', padding: '15px 42px', fontSize: '16px', fontWeight: 700, border: '2px solid #e8623f', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Georgia, serif', letterSpacing: '0.3px' }}
       >
         CANCEL
       </button>
@@ -1763,21 +1766,25 @@ export default function App() {
   </div>
 
   {/* ---------- RIGHT SIDEBAR: candidate ID ---------- */}
-  <div style={{ width: '250px', flexShrink: 0, backgroundColor: '#2f6fb0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)' }}>
+  <div style={{ width: '250px', flexShrink: 0, backgroundColor: '#2f6fb0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)' }}>
     <div style={{ backgroundColor: 'white', padding: '8px', width: '140px', height: '140px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
       <img
-        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(activation?.email || 'Candidate-Free')}`}
-        alt="QR code"
+         src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+    activation?.email
+      ? `${activation.email}|${activation.passcode}`
+      : 'Candidate-Free'
+  )}`} alt="QR code"
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
       />
     </div>
 
-    <div style={{ color: 'white', fontSize: '15px', fontWeight: 700, marginTop: '12px', marginBottom: '14px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+    <div style={{ color: 'white', fontSize: '14px', fontWeight: 700, marginTop: '18px', marginBottom: '16px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
       Candidate Profile
     </div>
-
+{/* ================= 
     <div style={{ backgroundColor: 'white', width: '130px', height: '140px', overflow: 'hidden', borderRadius: '12px', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-      <img
+    
+       <img
         src={activation?.profile_picture || "https://i.pravatar.cc/150?img=12"}
         alt="Candidate Profile"
         onError={(e) => {
@@ -1785,20 +1792,21 @@ export default function App() {
         }}
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
-    </div>
+      
+    </div>*/}
 
-    <div style={{ color: '#ffffff', fontSize: '18px', fontWeight: 800, marginTop: '14px', textAlign: 'center', lineHeight: '1.3', wordBreak: 'break-word', padding: '0 8px' }}>
+    <div style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, marginTop: '16px', textAlign: 'center', lineHeight: '1.3', wordBreak: 'break-word', padding: '0 8px' }}>
       {activation ? (activation.user_name || activation.email.split('@')[0]) : 'Candidate (Free)'}
       {activation?.email && (
-        <div style={{ fontSize: '12px', fontWeight: 500, color: '#e0f2fe', marginTop: '2px' }}>
+        <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#e0f2fe', marginTop: '3px' }}>
           {activation.email}
         </div>
       )}
     </div>
 
-    <div style={{ marginTop: '16px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.15)', padding: '10px 16px', borderRadius: '10px', width: '85%' }}>
-      <div style={{ color: '#e0f2fe', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Passcode</div>
-      <div style={{ color: '#ffffff', fontSize: '20px', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '1px', marginTop: '2px' }}>
+    <div style={{ marginTop: '18px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.15)', padding: '12px 16px', borderRadius: '10px', width: '85%' }}>
+      <div style={{ color: '#e0f2fe', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Passcode</div>
+      <div style={{ color: '#ffffff', fontSize: '19px', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '1px', marginTop: '4px' }}>
         {activation ? activation.passcode : 'FREE-MODE'}
       </div>
     </div>
@@ -2123,9 +2131,9 @@ export default function App() {
             border: `1px solid ${colors.border}`
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-              <Lock size={48} color={colors.primary} />
+              
             </div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 500, color: colors.text, marginBottom: '12px' }}>
               Subscription Upgrade Required
             </h2>
             <p style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '24px' }}>
@@ -2139,7 +2147,7 @@ export default function App() {
                 }}
                 style={{ ...styles.btn, ...styles.btnPrimary }}
               >
-                Buy Now / Upgrade <ShoppingCart size={16} />
+                Buy Now / Upgrade 
               </button>
               <button
                 onClick={() => setShowUpgradeModal(false)}
@@ -2209,7 +2217,7 @@ export default function App() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Calculator size={16} color="#38bdf8" />
+             
               <span>Scientific Calculator</span>
             </div>
             <button
