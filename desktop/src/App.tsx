@@ -737,45 +737,45 @@ export default function App() {
 
   const styles: Record<string, React.CSSProperties> = {
     app: { display: 'flex', height: '100vh', width: '100vw', backgroundColor: colors.bg, fontFamily: 'Inter, system-ui, -apple-system, sans-serif', color: colors.text, overflow: 'hidden' },
-    sidebar: { width: '240px', backgroundColor: colors.sidebar, display: 'flex', flexDirection: 'column', padding: '24px 0', flexShrink: 0 },
-    sidebarBrand: { padding: '0 24px 32px', display: 'flex', alignItems: 'center', gap: '12px' },
-    sidebarBrandText: { color: '#fff', fontWeight: 700, fontSize: '18px', letterSpacing: '-0.3px' },
-    sidebarNav: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 12px', flex: 1 },
-    sidebarItem: { padding: '12px 16px', borderRadius: '10px', color: '#c7d2fe', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s', border: 'none', background: 'none', width: '100%', textAlign: 'left' },
+    sidebar: { width: '230px', backgroundColor: colors.sidebar, display: 'flex', flexDirection: 'column', padding: '20px 0', flexShrink: 0 },
+    sidebarBrand: { padding: '0 20px 24px', display: 'flex', alignItems: 'center', gap: '10px' },
+    sidebarBrandText: { color: '#fff', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.2px' },
+    sidebarNav: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 10px', flex: 1 },
+    sidebarItem: { padding: '10px 14px', borderRadius: '8px', color: '#c7d2fe', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.15s ease', border: 'none', background: 'none', width: '100%', textAlign: 'left' },
     sidebarItemActive: { backgroundColor: colors.primary, color: '#fff' },
-    sidebarFooter: { padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontSize: '12px' },
+    sidebarFooter: { padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontSize: '12px' },
     main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-    header: { height: '68px', backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', flexShrink: 0 },
-    headerLeft: { display: 'flex', alignItems: 'center', gap: '16px' },
-    headerTitle: { fontSize: '20px', fontWeight: 700, color: colors.text },
-    headerRight: { display: 'flex', alignItems: 'center', gap: '16px' },
-    networkPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', backgroundColor: colors.primaryLight, fontSize: '13px', fontWeight: 600, color: colors.primary },
-    dot: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'currentColor' },
-    btn: { padding: '10px 20px', borderRadius: '10px', border: 'none', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', display: 'inline-flex', alignItems: 'center', gap: '8px' },
+    header: { height: '60px', backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 },
+    headerLeft: { display: 'flex', alignItems: 'center', gap: '12px' },
+    headerTitle: { fontSize: '18px', fontWeight: 700, color: colors.text, letterSpacing: '-0.2px' },
+    headerRight: { display: 'flex', alignItems: 'center', gap: '12px' },
+    networkPill: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: colors.textSecondary },
+    dot: { width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'currentColor' },
+    btn: { padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s ease', display: 'inline-flex', alignItems: 'center', gap: '6px' },
     btnPrimary: { backgroundColor: colors.primary, color: '#fff' },
-    btnSecondary: { backgroundColor: colors.surface, color: colors.textSecondary, border: `1px solid ${colors.border}` },
+    btnSecondary: { backgroundColor: colors.surface, color: colors.text, border: `1px solid ${colors.border}` },
     btnSuccess: { backgroundColor: colors.success, color: '#fff' },
     btnDanger: { backgroundColor: colors.danger, color: '#fff' },
-    btnSm: { padding: '6px 14px', fontSize: '13px' },
-    btnLg: { padding: '14px 28px', fontSize: '15px' },
-    content: { flex: 1, overflow: 'auto', padding: '32px' },
-    card: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)', border: `1px solid ${colors.border}` },
-    grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' },
-    grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' },
-    formGroup: { marginBottom: '20px' },
-    label: { display: 'block', fontSize: '13px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.4px' },
-    input: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}`, fontSize: '14px', backgroundColor: colors.surface, color: colors.text, outline: 'none', transition: 'border-color 0.2s' },
-    select: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: `1px solid ${colors.border}`, fontSize: '14px', backgroundColor: colors.surface, color: colors.text, outline: 'none', cursor: 'pointer' },
-    tabs: { display: 'flex', gap: '8px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px' },
-    tab: { padding: '10px 18px', borderRadius: '10px', border: 'none', background: 'none', fontSize: '14px', fontWeight: 600, color: colors.textSecondary, cursor: 'pointer' },
-    tabActive: { backgroundColor: colors.primaryLight, color: colors.primary },
-    statCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', textAlign: 'center', border: `1px solid ${colors.border}` },
-    statLabel: { fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' },
-    statValue: { fontSize: '32px', fontWeight: 800, color: colors.primary },
-    logItem: { padding: '12px 0', borderBottom: `1px solid ${colors.border}`, fontSize: '13px' },
+    btnSm: { padding: '6px 12px', fontSize: '12px' },
+    btnLg: { padding: '12px 24px', fontSize: '14px' },
+    content: { flex: 1, overflow: 'auto', padding: '24px 28px' },
+    card: { backgroundColor: colors.surface, borderRadius: '10px', padding: '20px 24px', border: `1px solid ${colors.border}` },
+    grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
+    grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' },
+    formGroup: { marginBottom: '16px' },
+    label: { display: 'block', fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.4px' },
+    input: { width: '100%', padding: '10px 14px', borderRadius: '8px', border: `1px solid ${colors.border}`, fontSize: '13px', backgroundColor: colors.surface, color: colors.text, outline: 'none', transition: 'border-color 0.2s' },
+    select: { width: '100%', padding: '10px 14px', borderRadius: '8px', border: `1px solid ${colors.border}`, fontSize: '13px', backgroundColor: colors.surface, color: colors.text, outline: 'none', cursor: 'pointer' },
+    tabs: { display: 'flex', gap: '20px', borderBottom: `1px solid ${colors.border}`, marginBottom: '20px' },
+    tab: { padding: '10px 0', border: 'none', background: 'none', fontSize: '14px', fontWeight: 600, color: colors.textSecondary, cursor: 'pointer', borderBottom: '2px solid transparent', marginBottom: '-1px' },
+    tabActive: { color: colors.primary, borderBottom: `2px solid ${colors.primary}`, fontWeight: 700 },
+    statCard: { backgroundColor: colors.bg, borderRadius: '8px', padding: '16px 20px', textAlign: 'center', border: `1px solid ${colors.border}` },
+    statLabel: { fontSize: '11px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' },
+    statValue: { fontSize: '26px', fontWeight: 800, color: colors.primary },
+    logItem: { padding: '10px 0', borderBottom: `1px solid ${colors.border}`, fontSize: '12px' },
     logMeta: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' },
     logEvent: { fontWeight: 600, color: colors.text },
-    logStatus: { fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' },
+    logStatus: { fontSize: '11px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' },
     logStatusSuccess: { backgroundColor: colors.successLight, color: colors.success },
     logStatusFailed: { backgroundColor: colors.dangerLight, color: colors.danger },
     logStatusPending: { backgroundColor: colors.warningLight, color: colors.warning },
@@ -916,8 +916,8 @@ export default function App() {
               {screen === 'REVIEW' && 'Question Review'}
             </span>
             {activation && (
-              <span style={{ fontSize: '13px', color: colors.textMuted, fontWeight: 500 }}>
-                {activation.email}
+              <span style={{ fontSize: '12px', color: colors.textSecondary, fontWeight: 500 }}>
+                • {activation.email}
               </span>
             )}
           </div>
@@ -928,75 +928,34 @@ export default function App() {
                 style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnSm }}
                 onClick={() => setScreen('ACTIVATION')}
               >
-                <Key size={14} /> Activate Passcode
+                 Activate
               </button>
             )}
 
             {activation && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                padding: '3px 8px',
-                borderRadius: '20px',
-                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
-                border: '1px solid #f59e0b',
-                color: isDarkMode ? '#fbbf24' : '#b45309',
+              <span style={{
                 fontSize: '11px',
-                fontWeight: 700
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                backgroundColor: colors.successLight,
+                color: colors.success
               }}>
-                <span>
-                  {(() => {
-                    if (!activation.expiry_date) return 'Activated';
-                    try {
-                      const d = new Date(activation.expiry_date);
-                      if (isNaN(d.getTime())) return 'Activated';
-                      return `Expires: ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    } catch (e) {
-                      return 'Activated';
-                    }
-                  })()}
-                </span>
-              </div>
+                ACTIVATED
+              </span>
             )}
 
+            <div style={styles.networkPill}>
+              <span style={{ ...styles.dot, backgroundColor: syncStatus.isOnline ? colors.success : colors.danger }}></span>
+              <span>{syncStatus.isOnline ? 'Online' : 'Offline'}</span>
+            </div>
+
             <button
-              type="button"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              aria-label="Toggle dark mode"
-              style={{
-                width: '60px',
-                height: '32px',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '3px',
-                cursor: 'pointer',
-                background: isDarkMode ? '#374151' : '#e5e7eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: isDarkMode ? 'flex-end' : 'flex-start',
-                transition: 'all 0.25s ease',
-              }}
+              style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }}
+              onClick={triggerManualSync}
+              disabled={!syncStatus.isOnline}
             >
-              <span
-                style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  background: isDarkMode ? '#111827' : '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                  transition: 'all 0.25s ease',
-                }}
-              >
-                {isDarkMode ? (
-                  <Moon size={15} strokeWidth={2.2} color="#fff" />
-                ) : (
-                  <Sun size={15} strokeWidth={2.2} color="#374151" />
-                )}
-              </span>
+              Sync
             </button>
 
             {screen === 'DASHBOARD' && (
@@ -1005,21 +964,50 @@ export default function App() {
               </button>
             )}
 
-            <div style={styles.networkPill}>
-              <span style={{ ...styles.dot, backgroundColor: syncStatus.isOnline ? colors.success : colors.danger }}></span>
-              {syncStatus.isOnline ? 'Online' : 'Offline'}
-            </div>
-
-            <button style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm }} onClick={triggerManualSync} disabled={!syncStatus.isOnline}>
-              Sync Now
+            <button
+              type="button"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              aria-label="Toggle dark mode"
+              style={{
+                width: '44px',
+                height: '24px',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '2px',
+                cursor: 'pointer',
+                background: isDarkMode ? '#374151' : '#e5e7eb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isDarkMode ? 'flex-end' : 'flex-start',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: isDarkMode ? '#111827' : '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                }}
+              >
+                {isDarkMode ? (
+                  <Moon size={12} strokeWidth={2.2} color="#fff" />
+                ) : (
+                  <Sun size={12} strokeWidth={2.2} color="#374151" />
+                )}
+              </span>
             </button>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: colors.textSecondary, cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.textMuted, cursor: 'pointer', opacity: 0.8 }}>
               <input
                 type="checkbox"
                 checked={syncStatus.isOnline}
                 onChange={(e) => toggleSimulateOnline(e.target.checked)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.primary }}
+                style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: colors.primary }}
               />
               Simulate Network
             </label>
@@ -1094,9 +1082,9 @@ export default function App() {
                   </p>
                   <button
                     onClick={triggerBuyPasscodeOnline}
-                    style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700, padding: '8px 16px' }}
+                    style={{ ...styles.btn, backgroundColor: '#5a5858ff', color: '#fff', border: 'none', fontWeight: 700, padding: '8px 16px' }}
                   >
-                    <ShoppingCart size={16} /> Buy Passcode &amp; Select Subjects Online
+                    Buy Passcode &amp; Select Subjects Online
                   </button>
                 </div>
               </div>
@@ -1142,39 +1130,39 @@ export default function App() {
                 {/* Free Version Callout Banner */}
                 {isFreeMode && (
                   <div style={{
-                    backgroundColor: colors.warningLight,
-                    border: `1px solid ${colors.warning}`,
-                    borderRadius: '16px',
+                    backgroundColor: 'rgba(72, 100, 223, 1)',
+                  
+                    borderRadius: '12px',
                     padding: '16px 24px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    color: '#92400e'
+                    color: '#fff'
                   }}>
                     <div>
-                      <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Zap size={18} color="#d97706" /> Free Version Active
+                      <strong style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                       
                       </strong>
                       <p style={{ fontSize: '13px', marginTop: '4px', margin: 0 }}>
-                        Restricted to Mathematics and English (Max 10 questions per exam session). Analytics and other subjects require a passcode.
+                        Restricted to Mathematics and English. Analytics and other subjects require a passcode.
                       </p>
                     </div>
                     <button
                       onClick={triggerBuyPasscodeOnline}
-                      style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700, flexShrink: 0 }}
+                      style={{ ...styles.btn, backgroundColor: "#fff", color: '#5a5858ff', border: 'none', fontWeight: 300, flexShrink: 0 }}
                     >
-                      Buy Passcode Now <ShoppingCart size={16} />
+                      Buy Passcode Now 
                     </button>
                   </div>
                 )}
 
-                {/* Welcome Card */}
+                {/* Welcome Banner */}
                 <div style={{ ...styles.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '6px' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '4px', color: colors.text }}>
                       {isFreeMode ? 'Welcome Candidate (Free Mode)' : 'Welcome, Candidate'}
                     </h2>
-                    <p style={{ color: colors.textSecondary, fontSize: '14px' }}>
+                    <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0 }}>
                       Profile: <strong style={{ color: colors.primary }}>{activation ? activation.email : 'Unactivated Free Account'}</strong>
                       {!isFreeMode && activation?.exam_category && (
                         <span> • Category: <strong style={{ color: colors.primary }}>{activation.exam_category}</strong></span>
@@ -1184,30 +1172,30 @@ export default function App() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button
                       onClick={handleOpenLeaderboard}
-                      style={{ ...styles.btn, backgroundColor: colors.warning, color: '#fff', border: 'none', fontWeight: 700 }}
+                      style={{ ...styles.btn, ...styles.btnSecondary, fontWeight: 700, fontSize: '12px' }}
                     >
-                      <Trophy size={16} /> Weekly Leaderboard
+                      <Trophy size={14} color={colors.warning} /> Weekly Leaderboard
                     </button>
                   </div>
                 </div>
 
-                {/* Supported Examination Bodies Showcase */}
-                <div style={{ ...styles.card, backgroundColor: isDarkMode ? 'rgba(29, 48, 144, 0.15)' : '#f0f4ff', borderColor: isDarkMode ? '#2d3e60' : '#c7d2fe', padding: '10px 14px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '8px' }}>
-                    Supported Official Examination Bodies
-                  </div>
-                  <div style={styles.grid3}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
-                      <img src="/jamb.webp" alt="JAMB Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-                      <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>JAMB UTME</div>
+                {/* Supported Examination Bodies Showcase - Modern Inline Bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '14px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Supported Bodies:
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src="/jamb.webp" alt="JAMB Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                      <span style={{ fontWeight: 700, fontSize: '13px', color: colors.text }}>JAMB UTME</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
-                      <img src="/waec.webp" alt="WAEC Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-                      <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>WAEC SSCE</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src="/waec.webp" alt="WAEC Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                      <span style={{ fontWeight: 700, fontSize: '13px', color: colors.text }}>WAEC SSCE</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.surface, padding: '8px 10px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
-                      <img src="/NECO.jpg" alt="NECO Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-                      <div style={{ fontWeight: 800, fontSize: '12px', color: colors.text }}>NECO SSCE</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src="/NECO.jpg" alt="NECO Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                      <span style={{ fontWeight: 700, fontSize: '13px', color: colors.text }}>NECO SSCE</span>
                     </div>
                   </div>
                 </div>
@@ -1259,7 +1247,8 @@ export default function App() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Practice Module Setup</h3>
                         <span style={{ fontSize: '16px', fontWeight: 900, color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                           PRACTICE MODE
+                          
+                             {/* --- Mode:  PRACTICE MODE --- */}
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1414,7 +1403,7 @@ export default function App() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>
-                          ⚡ 6-Minute Daily Speed Quiz
+                           6-Minute Daily Speed Quiz
                         </h3>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: colors.primary, backgroundColor: colors.primaryLight, padding: '4px 12px', borderRadius: '20px' }}>
                           ACTIVATED EXCLUSIVE
@@ -1445,7 +1434,7 @@ export default function App() {
                           style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnLg, width: '100%', justifyContent: 'center', fontWeight: 800, fontSize: '16px', padding: '16px' }}
                           onClick={startDailyQuizSession}
                         >
-                          🚀 Launch 6-Min Daily Quiz
+                          Launch 6-Min Daily Quiz
                         </button>
                       </div>
                     </div>
@@ -1643,47 +1632,125 @@ export default function App() {
           )}
 
           {/* ================= INSTRUCTIONS SCREEN ================= */}
-          {screen === 'INSTRUCTIONS' && (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#d0e5f9', margin: '-32px', padding: 0, overflow: 'hidden' }}>
-              <div style={{ height: '60px', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {examSubjects.map((sub) => (
-                    <div key={sub.id} style={{ backgroundColor: '#1d4ed8', color: 'white', fontWeight: 700, fontSize: '14px', padding: '8px 16px', borderRadius: '4px' }}>
-                      {sub.name}
-                    </div>
-                  ))}
-                </div>
+{/* ================= INSTRUCTIONS SCREEN ================= */}
+{screen === 'INSTRUCTIONS' && (
+<div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7', margin: '-32px', overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
 
-                <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', color: 'white', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Calculator size={16} /> Calculator
-                </div>
+  {/* ---------- MAIN COLUMN ---------- */}
+  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
 
-                <div style={{ backgroundColor: 'white', padding: '6px 14px', borderRadius: '20px', color: '#1e40af', fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={18} /> {(timeLeft / 60).toFixed(2)} min
-                </div>
+    {/* Top bar: subjects / calculator / timer */}
+    <div style={{ height: '64px', backgroundColor: '#c3e2ed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '2px' }}>
+        {examSubjects.map((sub) => (
+          <div key={sub.id} style={{ backgroundColor: '#2f6fb0', color: 'white', fontWeight: 700, fontSize: '13px', padding: '10px 18px', fontFamily: 'Arial, sans-serif' }}>
+            {sub.name.toUpperCase()}
+          </div>
+        ))}
+      </div>
+
+      <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', textAlign: 'center' }}>
+        <div style={{ backgroundColor: '#2f6fb0', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+          <Calculator size={18} color="white" />
+        </div>
+        <div style={{ color: '#1e3a5f', fontSize: '11px', fontFamily: 'Arial, sans-serif', marginTop: '2px' }}>Calculator</div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e3a5f', fontWeight: 700, fontSize: '17px', fontFamily: 'Arial, sans-serif' }}>
+        <Clock size={18} />
+        {(timeLeft / 60).toFixed(2)} min
+      </div>
+    </div>
+
+    {/* EXAM MODE badge */}
+    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 24px 0' }}>
+      <div style={{ backgroundColor: '#d8362b', color: 'white', fontWeight: 700, fontSize: '13px', padding: '6px 14px', fontFamily: 'Arial, sans-serif' }}>
+        EXAM MODE
+      </div>
+    </div>
+
+    {/* Body: instructions + keyboard usage */}
+    <div style={{ display: 'flex', flex: 1, gap: '24px', padding: '20px 24px', overflow: 'hidden' }}>
+
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }}>
+        <h1 style={{ fontSize: '30px', color: '#1a1a1a', marginBottom: '18px', fontWeight: 400 }}>Instructions</h1>
+        <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.75', fontFamily: 'Georgia, serif' }}>
+          <p>The Buyer shall provide an LPO that will last for three weeks interval.</p>
+          <p>The LPO shall be raised with the name Masterpiece Energies Ltd (The Seller)</p>
+          <p>The Buyer shall provide a Bank Guarantee or a Post-Dated Cheque equivalent to the value of the Purchase Order.</p>
+          <p>Payment shall be made via e-payment to the Seller's designated account. The Seller reserves the right to suspend further deliveries if payments are outstanding beyond the due date.</p>
+          <p>Any disputes on invoices must be raised within 5 business days from the date of receipt.</p>
+          {/* replace the paragraphs above with your real instructions data */}
+        </div>
+      </div>
+
+      <div style={{ width: '280px', flexShrink: 0 }}>
+        <div style={{ backgroundColor: '#f7d3d9', padding: '18px 20px' }}>
+          <div style={{ fontSize: '17px', color: '#1a1a1a', marginBottom: '14px' }}>Keyboard Usage</div>
+          {[
+            ['A', 'Select option A'], ['B', 'Select option B'], ['C', 'Select option C'], ['D', 'Select option D'],
+            ['N', 'Next/Forward'], ['P', 'Previous/Back'], ['↑', 'Move up'], ['↓', 'Move down'],
+            ['S', 'Submit/End Exam'], ['Y', 'Confirm/End Exam'],
+          ].map(([key, label]) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '9px', fontFamily: 'Arial, sans-serif' }}>
+              <div style={{
+                width: '24px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: (key === 'S') ? '#e8623f' : '#1a1a1a', color: 'white', fontSize: '12px', fontWeight: 700, flexShrink: 0
+              }}>
+                {key}
               </div>
-
-              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                <div style={{ flex: 1, padding: '40px', backgroundColor: 'white', overflowY: 'auto' }}>
-                  <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#1e3a8a', marginBottom: '24px' }}>Examination Instructions</h1>
-                  <p style={{ fontSize: '15px', color: '#334155', lineHeight: '1.8' }}>
-                    1. Read each question carefully before selecting an answer.<br/>
-                    2. Use key A, B, C, D to pick options, N for Next, P for Previous, S to Submit.<br/>
-                    3. Ensure you complete all questions before the timer expires.
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
-                    <button onClick={() => { setScreen('EXAM'); startTimer(timeLeft); }} style={{ backgroundColor: '#ef4444', color: 'white', padding: '16px 36px', fontSize: '18px', fontWeight: 800, borderRadius: '6px', border: 'none', cursor: 'pointer' }}>
-                      START EXAM
-                    </button>
-                    <button onClick={() => setScreen('DASHBOARD')} style={{ backgroundColor: '#f97316', color: 'white', padding: '16px 36px', fontSize: '18px', fontWeight: 800, borderRadius: '6px', border: 'none', cursor: 'pointer' }}>
-                      CANCEL
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <div style={{ fontSize: '13.5px', color: '#1a1a1a' }}>– {label}</div>
             </div>
-          )}
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* Footer buttons */}
+    <div style={{ display: 'flex', gap: '20px', padding: '0 24px 24px', flexShrink: 0 }}>
+      <button
+        onClick={() => { setScreen('EXAM'); startTimer(timeLeft); }}
+        style={{ backgroundColor: '#d8362b', color: 'white', padding: '16px 40px', fontSize: '17px', fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'Georgia, serif' }}
+      >
+        START EXAM
+      </button>
+      <button
+        onClick={() => setScreen('DASHBOARD')}
+        style={{ backgroundColor: '#e8623f', color: 'white', padding: '16px 40px', fontSize: '17px', fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'Georgia, serif' }}
+      >
+        CANCEL
+      </button>
+    </div>
+  </div>
+
+  {/* ---------- RIGHT SIDEBAR: candidate ID ---------- */}
+ {/* ---------- RIGHT SIDEBAR: candidate ID ---------- */}
+<div style={{ width: '230px', flexShrink: 0, backgroundColor: '#4d84bd', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px' }}>
+  <div style={{ backgroundColor: 'white', padding: '8px', width: '160px', height: '160px' }}>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=placeholder" alt="QR code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+  </div>
+  <div style={{ color: 'white', fontSize: '16px', marginTop: '10px', marginBottom: '16px' }}>Your Details...</div>
+
+  <div style={{ backgroundColor: 'white', width: '140px', height: '150px', overflow: 'hidden' }}>
+    <img src="https://i.pravatar.cc/150?img=12" alt="Candidate" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+  </div>
+
+  <div style={{ color: '#1a1a1a', fontSize: '24px', fontWeight: 700, marginTop: '14px', textAlign: 'center', lineHeight: '1.2' }}>
+    John
+    <div style={{ fontSize: '18px', fontWeight: 400 }}>Doe Adekunle</div>
+  </div>
+
+  <div style={{ marginTop: '18px', textAlign: 'center' }}>
+    <div style={{ color: '#1e3a5f', fontSize: '14px', fontWeight: 700 }}>Passcode:</div>
+    <div style={{ color: '#1e3a5f', fontSize: '26px', fontWeight: 800, fontFamily: 'Arial, sans-serif' }}>012345</div>
+  </div>
+
+  <div style={{ flex: 1 }} />
+  <div style={{ color: 'white', fontWeight: 800, fontSize: '15px', fontFamily: 'Arial, sans-serif' }}>FILLOP TECH</div>
+  <div style={{ color: '#cfe0f0', fontSize: '10px', fontFamily: 'Arial, sans-serif' }}>...simplifying your tech world</div>
+</div>
+</div>
+)}
 
           {/* ================= EXAM SCREEN ================= */}
           {screen === 'EXAM' && examQuestions.length > 0 && (
@@ -1749,7 +1816,7 @@ export default function App() {
                         style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontWeight: 700, backgroundColor: revealExplanation ? colors.warningLight : colors.primaryLight, color: revealExplanation ? colors.warning : colors.primary, border: 'none' }}
                         onClick={() => setRevealExplanation(!revealExplanation)}
                       >
-                        💡 {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
+                         {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
                       </button>
 
                       {revealExplanation && (
