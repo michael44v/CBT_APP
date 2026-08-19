@@ -403,7 +403,13 @@ export default function App() {
     if (window.api && window.api.getSubjects) {
       try {
         const subs = await window.api.getSubjects(examType);
-        setSubjectsList(Array.isArray(subs) ? subs : []);
+        const sortedSubs = Array.isArray(subs) ? [...subs].sort((a: any, b: any) => {
+          const lockedA = Boolean(a.is_locked);
+          const lockedB = Boolean(b.is_locked);
+          if (lockedA !== lockedB) return lockedA ? 1 : -1;
+          return a.name.localeCompare(b.name);
+        }) : [];
+        setSubjectsList(sortedSubs);
         setMockSelectedSubjects([]);
         setPracticeSubject('');
       } catch (error) {
@@ -1452,6 +1458,10 @@ export default function App() {
                               ];
 
                               const sortedSubjects = [...subjectsList].sort((a, b) => {
+                                const lockedA = Boolean((a as any).is_locked);
+                                const lockedB = Boolean((b as any).is_locked);
+                                if (lockedA !== lockedB) return lockedA ? 1 : -1;
+
                                 const nameA = a.name.toLowerCase();
                                 const nameB = b.name.toLowerCase();
 

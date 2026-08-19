@@ -1,3 +1,55 @@
+<?php
+require_once __DIR__ . '/db/db.php';
+
+$dbSubjectsMap = [
+    'JAMB' => [],
+    'WAEC' => [],
+    'NECO' => []
+];
+
+try {
+    $conn = getDbConnection();
+    $res = mysqli_query($conn, "SELECT id, name, exam_type FROM subjects ORDER BY exam_type, name ASC");
+    if ($res) {
+        while ($row = mysqli_fetch_assoc($res)) {
+            $cat = strtoupper(trim($row['exam_type']));
+            if (isset($dbSubjectsMap[$cat])) {
+                $dbSubjectsMap[$cat][] = [
+                    'id' => (int)$row['id'],
+                    'name' => $row['name']
+                ];
+            }
+        }
+    }
+} catch (Throwable $e) {
+    error_log("Failed to fetch subjects in subscribe.php: " . $e->getMessage());
+}
+
+if (empty($dbSubjectsMap['JAMB'])) {
+    $dbSubjectsMap['JAMB'] = [
+        ['id' => 1, 'name' => "Mathematics"], ['id' => 2, 'name' => "English Language"],
+        ['id' => 3, 'name' => "Chemistry"], ['id' => 4, 'name' => "Physics"],
+        ['id' => 5, 'name' => "Biology"], ['id' => 6, 'name' => "Literature in English"],
+        ['id' => 7, 'name' => "Economics"], ['id' => 8, 'name' => "Government"]
+    ];
+}
+if (empty($dbSubjectsMap['WAEC'])) {
+    $dbSubjectsMap['WAEC'] = [
+        ['id' => 36, 'name' => "Mathematics"], ['id' => 37, 'name' => "English Language"],
+        ['id' => 38, 'name' => "Chemistry"], ['id' => 39, 'name' => "Physics"],
+        ['id' => 40, 'name' => "Biology"], ['id' => 41, 'name' => "Literature in English"],
+        ['id' => 42, 'name' => "Economics"], ['id' => 43, 'name' => "Government"]
+    ];
+}
+if (empty($dbSubjectsMap['NECO'])) {
+    $dbSubjectsMap['NECO'] = [
+        ['id' => 71, 'name' => "Mathematics"], ['id' => 72, 'name' => "English Language"],
+        ['id' => 73, 'name' => "Chemistry"], ['id' => 74, 'name' => "Physics"],
+        ['id' => 75, 'name' => "Biology"], ['id' => 76, 'name' => "Literature in English"],
+        ['id' => 77, 'name' => "Economics"], ['id' => 78, 'name' => "Government"]
+    ];
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -235,13 +287,13 @@
 
         <div class="export-actions">
             <button class="export-btn" onclick="exportPasscodesExcel()">
-                <span> Export Excel (.csv)</span>
+                <span>📊 Export Excel (.csv)</span>
             </button>
             <button class="export-btn" onclick="exportPasscodesPDF()">
-                <span> Export PDF Report</span>
+                <span>📄 Export PDF Report</span>
             </button>
             <button class="export-btn" onclick="printPasscodes()">
-                <span> Print Passcodes</span>
+                <span>🖨️ Print Passcodes</span>
             </button>
         </div>
 
@@ -320,38 +372,7 @@
 </div>
 
 <script>
-    const dbSubjectsMap = {
-        JAMB: [
-            { id: 1, name: "Mathematics" },
-            { id: 2, name: "English" },
-            { id: 3, name: "Physics" },
-            { id: 4, name: "Chemistry" },
-            { id: 5, name: "Biology" },
-            { id: 6, name: "Economics" },
-            { id: 7, name: "Government" },
-            { id: 8, name: "Literature" }
-        ],
-        WAEC: [
-            { id: 9, name: "Mathematics" },
-            { id: 10, name: "English" },
-            { id: 11, name: "Physics" },
-            { id: 12, name: "Chemistry" },
-            { id: 13, name: "Biology" },
-            { id: 14, name: "Economics" },
-            { id: 15, name: "Government" },
-            { id: 16, name: "Literature" }
-        ],
-        NECO: [
-            { id: 17, name: "Mathematics" },
-            { id: 18, name: "English" },
-            { id: 19, name: "Physics" },
-            { id: 20, name: "Chemistry" },
-            { id: 21, name: "Biology" },
-            { id: 22, name: "Economics" },
-            { id: 23, name: "Government" },
-            { id: 24, name: "Literature" }
-        ]
-    };
+    const dbSubjectsMap = <?php echo json_encode($dbSubjectsMap, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     let pricingSettings = {
         single_passcode_price_6m: 1400.00,
@@ -368,33 +389,16 @@
     let upgradeCalculatedIsFree = true;
 
     async function loadPaystackConfig() {
-    try {
-        console.log("Loading Paystack configuration...");
-
-        const res = await fetch("http://localhost:80/fillop/api/v1/payments/config.php", {
-            cache: "no-store"
-        });
-
-        const data = await res.json();
-
-        console.log("Paystack config response:", data);
-
-        if (!data.success || !data.public_key) {
-            throw new Error("Paystack public key was not returned.");
+        try {
+            const res = await fetch("/fillop/api/v1/payments/config.php");
+            const data = await res.json();
+            if (data.success && data.public_key) {
+                paystackPublicKey = data.public_key;
+            }
+        } catch (e) {
+            console.error("Paystack config load error:", e);
         }
-
-        paystackPublicKey = data.public_key;
-
-        console.log("Paystack public key loaded:", paystackPublicKey);
-
-        return true;
-
-    } catch (e) {
-        console.error("Paystack config load error:", e);
-        paystackPublicKey = "";
-        return false;
     }
-}
 
     async function loadPricingSettings() {
         try {
@@ -428,10 +432,10 @@
         ["JAMB", "WAEC", "NECO"].forEach(cat => {
             const grid = document.getElementById(`grid${cat}`);
             grid.innerHTML = "";
-            dbSubjectsMap[cat].forEach(sub => {
+            (dbSubjectsMap[cat] || []).forEach(sub => {
                 const label = document.createElement("label");
                 label.className = "subject-item";
-                const isDefaultCore = (sub.name === "Mathematics" || sub.name === "English" || sub.name === "Physics" || sub.name === "Chemistry");
+                const isDefaultCore = (sub.name === "Mathematics" || sub.name === "English Language" || sub.name === "Physics" || sub.name === "Chemistry");
                 const checked = (cat === "JAMB" && isDefaultCore) ? "checked" : "";
 
                 label.innerHTML = `<input type="checkbox" name="subj_${cat}" value="${sub.id}" data-name="${sub.name}" ${checked} onchange="calculateTotal()"> ${sub.name}`;
@@ -553,7 +557,7 @@
         btn.innerText = "Processing Subscription Initialization...";
 
         try {
-            const res = await fetch("http://localhost:80/fillop/api/v1/register.php", {
+            const res = await fetch("/fillop/api/v1/register.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -573,52 +577,25 @@
 
             if (data.success && data.reference) {
                 // Check if Paystack Inline should be opened
-                console.log("PAYSTACK CHECK", {
-                    amount: data.amount,
-                    publicKey: paystackPublicKey,
-                    paystackPop: typeof PaystackPop
-                });
-
-                if (data.amount > 0) {
-
-                    if (!paystackPublicKey) {
-                        alert("Paystack public key is missing.");
-                        console.error("Paystack public key is empty.");
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    if (typeof PaystackPop === 'undefined') {
-                        alert("Paystack SDK has not loaded.");
-                        console.error("PaystackPop is undefined.");
-                        btn.disabled = false;
-                        return;
-                    }
-
+                if (data.amount > 0 && paystackPublicKey && typeof PaystackPop !== 'undefined') {
                     btn.innerText = "Awaiting Paystack Payment...";
-
                     const handler = PaystackPop.setup({
                         key: paystackPublicKey,
                         email: email,
                         amount: Math.round(data.amount * 100),
                         ref: data.reference,
-
                         onClose: function() {
                             alert("Payment popup closed.");
                             btn.disabled = false;
                             btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
                         },
-
                         callback: function(response) {
-                            console.log("Paystack callback:", response);
-                   
                             verifyAndFinishRegistration(data.reference);
                         }
                     });
-
                     handler.openIframe();
-
                 } else {
+                    // Free or direct verification
                     await verifyAndFinishRegistration(data.reference);
                 }
             } else {
@@ -637,7 +614,7 @@
         const btn = document.getElementById("payBtn");
         btn.innerText = "Verifying Payment & Generating Passcodes...";
         try {
-            const vRes = await fetch("http://localhost:80/fillop/api/v1/payments/verify.php", {
+            const vRes = await fetch("/fillop/api/v1/payments/verify.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ reference: ref })
@@ -757,7 +734,7 @@
             container.appendChild(panel);
 
             const grid = panel.querySelector(`#upgGrid${cat}`);
-            dbSubjectsMap[cat].forEach(sub => {
+            (dbSubjectsMap[cat] || []).forEach(sub => {
                 const label = document.createElement("label");
                 label.className = "subject-item";
                 const isChecked = existingSubjsArr.length === 0 || existingSubjsArr.includes(sub.name.toUpperCase()) || existingSubjsArr.includes(sub.id.toString());
@@ -1035,17 +1012,9 @@
         w.print();
     }
 
-(async function init() {
     renderSubjects();
-
-    const paystackReady = await loadPaystackConfig();
-
-    await loadPricingSettings();
-
-    console.log("Paystack SDK:", typeof PaystackPop);
-    console.log("Paystack key:", paystackPublicKey);
-    console.log("Paystack ready:", paystackReady);
-})();
+    loadPaystackConfig();
+    loadPricingSettings();
 </script>
 </body>
 </html>
