@@ -456,7 +456,23 @@ ipcMain.handle("db:get-results", async (event, userName) => {
 });
 
 ipcMain.handle("db:get-news", async () => {
-  return dbService.all("SELECT * FROM news ORDER BY created_at DESC");
+  return dbService.all("SELECT * FROM news ORDER BY published_at DESC, created_at DESC");
+});
+
+ipcMain.handle("db:mark-news-read", async (event, { newsId, userName }) => {
+  const user = userName || 'Candidate (Free)';
+  const readAt = new Date().toISOString();
+  dbService.run(
+    "INSERT OR REPLACE INTO news_read (user_name, news_id, read_at) VALUES (?, ?, ?)",
+    [user, newsId, readAt]
+  );
+  return { success: true };
+});
+
+ipcMain.handle("db:get-read-news-ids", async (event, userName) => {
+  const user = userName || 'Candidate (Free)';
+  const rows = dbService.all("SELECT news_id FROM news_read WHERE user_name = ?", [user]);
+  return rows.map(r => r.news_id);
 });
 
 // ================= IPC HANDLERS: SYNC SIMULATION =================

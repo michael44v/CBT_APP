@@ -107,7 +107,11 @@ export interface DesktopAPI {
     details: string; // JSON summary of results
   }) => Promise<Result>;
 
-  getResults: () => Promise<Result[]>;
+  getResults: (userName?: string) => Promise<Result[]>;
+
+  getNews: () => Promise<any[]>;
+  markNewsAsRead: (newsId: number, userName?: string) => Promise<{ success: boolean }>;
+  getReadNewsIds: (userName?: string) => Promise<number[]>;
 
   // Sync API
   getSyncStatus: () => Promise<SyncStatus>;

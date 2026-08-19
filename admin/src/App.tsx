@@ -93,12 +93,99 @@ export default function App() {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSuccessMsg, setImportSuccessMsg] = useState('');
 
+  // Subjects and Topics master list for Question Bank and Topic Management
+  const [dbSubjects, setDbSubjects] = useState<any[]>([]);
+  const [dbTopics, setDbTopics] = useState<any[]>([]);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [selectedSubjectForTopic, setSelectedSubjectForTopic] = useState<number | ''>('');
+
   // New News Form
   const [newNewsForm, setNewNewsForm] = useState({
     title: '',
     content: '',
-    icon_name: 'newspaper'
+    icon_name: 'newspaper',
+    thumbnail_url: '',
+    published_at: new Date().toISOString().slice(0, 16)
   });
+  const [uploadingNewsImage, setUploadingNewsImage] = useState(false);
+
+  const fetchSubjectsAndTopics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/questions.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_subjects_and_topics' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDbSubjects(data.subjects || []);
+        setDbTopics(data.topics || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch subjects and topics', e);
+    }
+  };
+
+  const uploadToCloudinary = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'futyApp');
+
+    const res = await fetch('https://api.cloudinary.com/v1_1/dguvkirdr/image/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.secure_url) {
+      return data.secure_url;
+    } else {
+      throw new Error(data.error?.message || 'Cloudinary upload failed');
+    }
+  };
+
+  const handleNewsImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingNewsImage(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      setNewNewsForm(prev => ({ ...prev, thumbnail_url: url }));
+      showNotification('Thumbnail uploaded to Cloudinary successfully!');
+    } catch (err: any) {
+      showNotification(`Image upload failed: ${err.message}`, 'error');
+    } finally {
+      setUploadingNewsImage(false);
+    }
+  };
+
+  const handleCreateTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSubjectForTopic || !newTopicName.trim()) {
+      showNotification('Please select a subject and enter a topic name.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/admin/questions.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_topic',
+          subject_id: Number(selectedSubjectForTopic),
+          topic_name: newTopicName.trim()
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'Topic created successfully!');
+        setNewTopicName('');
+        fetchSubjectsAndTopics();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Create topic failed.', 'error');
+    }
+  };
 
   // Load stats
   const fetchStats = async () => {
@@ -205,7 +292,10 @@ export default function App() {
     if (activeTab === 'USERS') fetchUsers();
     if (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS' || activeTab === 'UPGRADES') fetchPasscodes();
     if (activeTab === 'PROMOS') fetchPromos();
-    if (activeTab === 'QUESTIONS') fetchQuestions();
+    if (activeTab === 'QUESTIONS') {
+      fetchQuestions();
+      fetchSubjectsAndTopics();
+    }
     if (activeTab === 'NEWS') fetchNews();
     if (activeTab === 'PRICING') fetchPricing();
   }, [activeTab]);
@@ -577,6 +667,8 @@ export default function App() {
           title: '',
           content: '',
           icon_name: 'newspaper',
+          thumbnail_url: '',
+          published_at: new Date().toISOString().slice(0, 16)
         });
       } else {
         showNotification(data.message, 'error');
@@ -1292,6 +1384,38 @@ export default function App() {
                     </select>
                   </div>
                 </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Thumbnail Photo (Cloudinary Upload)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="form-input"
+                      onChange={handleNewsImageChange}
+                      disabled={uploadingNewsImage}
+                    />
+                    {uploadingNewsImage && <small style={{ color: 'var(--warning)' }}>Uploading thumbnail to Cloudinary...</small>}
+                    {newNewsForm.thumbnail_url && (
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img src={newNewsForm.thumbnail_url} alt="Thumbnail Preview" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px' }} />
+                        <small style={{ color: 'var(--success)' }}>Uploaded! Ready to publish.</small>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Publish Date &amp; Time</label>
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={newNewsForm.published_at}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, published_at: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">News Content (Medium Style)</label>
                   <textarea
@@ -1312,6 +1436,7 @@ export default function App() {
               <table>
                 <thead>
                   <tr>
+                    <th>Thumbnail</th>
                     <th>Icon</th>
                     <th>Title</th>
                     <th>Content Preview</th>
@@ -1321,10 +1446,17 @@ export default function App() {
                 </thead>
                 <tbody>
                   {news.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No news published yet.</td></tr>
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No news published yet.</td></tr>
                   ) : (
                     news.map((item) => (
                       <tr key={item.id}>
+                        <td>
+                          {item.thumbnail_url ? (
+                            <img src={item.thumbnail_url} alt="News Thumb" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px' }} />
+                          ) : (
+                            <div style={{ width: '48px', height: '48px', backgroundColor: '#e2e8f0', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>No Img</div>
+                          )}
+                        </td>
                         <td style={{ fontSize: '1.5rem' }}>
                           {item.icon_name === 'star' && '⭐'}
                           {item.icon_name === 'rocket' && '🚀'}
@@ -1332,8 +1464,8 @@ export default function App() {
                           {item.icon_name === 'newspaper' && '📰'}
                         </td>
                         <td style={{ fontWeight: 'bold' }}>{item.title}</td>
-                        <td style={{ maxWidth: '400px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{item.content}</td>
-                        <td>{new Date(item.created_at).toLocaleString()}</td>
+                        <td style={{ maxWidth: '300px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{item.content}</td>
+                        <td>{item.published_at ? new Date(item.published_at).toLocaleString() : new Date(item.created_at).toLocaleString()}</td>
                         <td>
                           <button className="btn btn-danger btn-sm" onClick={() => handleDeleteNews(item.id)}>Delete</button>
                         </td>
@@ -1349,16 +1481,50 @@ export default function App() {
         {activeTab === 'QUESTIONS' && (
           <div>
             <div className="admin-card">
+              <h2 className="card-title">Manage Topics per Subject</h2>
+              <form onSubmit={handleCreateTopic} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Select Subject</label>
+                  <select
+                    className="form-input"
+                    value={selectedSubjectForTopic}
+                    onChange={(e) => setSelectedSubjectForTopic(e.target.value ? Number(e.target.value) : '')}
+                    required
+                  >
+                    <option value="">-- Choose Subject --</option>
+                    {dbSubjects.map(sub => (
+                      <option key={sub.id} value={sub.id}>[{sub.exam_type}] {sub.name} (ID: {sub.id})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">New Topic Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Organic Chemistry / Matrices"
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ height: '42px' }}>Add Topic ➕</button>
+              </form>
+            </div>
+
+            <div className="admin-card">
               <h2 className="card-title">Bulk CSV Import Question Bank</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
-                Paste your CSV content below. The parser rigorously enforces the presence of first-class filterable columns: <strong>exam_type, subject_id, and year</strong>.
+                Paste your CSV content or upload a CSV file. The CSV accepts subject names (e.g. <code>Mathematics</code>) or subject IDs, and automatically maps or creates topics!
               </p>
               <form onSubmit={handleBulkImport}>
                 <div className="form-group">
-                  <label className="form-label">CSV Input (Headers: exam_type, subject_id, year, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer)</label>
+                  <label className="form-label">CSV Input (Headers: exam_type, subject, year, topic, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer)</label>
                   <textarea
                     className="textarea-csv"
-                    placeholder="exam_type,subject_id,year,topic_id,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer&#10;JAMB,1,2024,1,medium,Which is a prime?,2,4,6,8,A"
+                    placeholder="exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer&#10;JAMB,Mathematics,2024,Quadratic Equations,medium,Find roots of x^2 - 9 = 0,3,9,-3,0,A"
                     value={csvInput}
                     onChange={(e) => setCsvInput(e.target.value)}
                     required
@@ -1399,13 +1565,18 @@ export default function App() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Subject ID</label>
-                  <input
-                    type="number"
+                  <label className="form-label">Select Subject</label>
+                  <select
                     className="form-input"
                     value={newQuestionForm.subject_id}
                     onChange={(e) => setNewQuestionForm({ ...newQuestionForm, subject_id: parseInt(e.target.value) || 1 })}
-                  />
+                  >
+                    {dbSubjects
+                      .filter(s => s.exam_type === newQuestionForm.exam_type)
+                      .map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Year</label>
@@ -1417,13 +1588,19 @@ export default function App() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Topic ID</label>
-                  <input
-                    type="number"
+                  <label className="form-label">Select Topic</label>
+                  <select
                     className="form-input"
                     value={newQuestionForm.topic_id}
                     onChange={(e) => setNewQuestionForm({ ...newQuestionForm, topic_id: parseInt(e.target.value) || 1 })}
-                  />
+                  >
+                    {dbTopics
+                      .filter(t => t.subject_id === newQuestionForm.subject_id)
+                      .map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    <option value={0}>+ New Topic or General</option>
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Difficulty</label>

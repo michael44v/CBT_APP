@@ -28,14 +28,27 @@ if ($method === 'POST') {
         $title = trim($data['title'] ?? '');
         $content = trim($data['content'] ?? '');
         $icon_name = trim($data['icon_name'] ?? 'newspaper');
+        $thumbnail_url = trim($data['thumbnail_url'] ?? '');
+        $published_at = trim($data['published_at'] ?? '');
+
+        if (empty($published_at)) {
+            $published_at = date('Y-m-d H:i:s');
+        } else {
+            $ts = strtotime($published_at);
+            if ($ts !== false) {
+                $published_at = date('Y-m-d H:i:s', $ts);
+            } else {
+                $published_at = date('Y-m-d H:i:s');
+            }
+        }
 
         if (empty($title) || empty($content)) {
             echo json_encode(["success" => false, "message" => "Fields: title and content are required."]);
             exit();
         }
 
-        $stmt = $db->prepare("INSERT INTO news (title, content, icon_name) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $title, $content, $icon_name);
+        $stmt = $db->prepare("INSERT INTO news (title, content, icon_name, thumbnail_url, published_at) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $title, $content, $icon_name, $thumbnail_url, $published_at);
         $stmt->execute();
 
         echo json_encode(["success" => true, "message" => "News article posted successfully."]);
