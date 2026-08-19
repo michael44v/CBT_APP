@@ -36,6 +36,12 @@ contextBridge.exposeInMainWorld("api", {
   getNews: () =>
     ipcRenderer.invoke("db:get-news"),
 
+  markNewsAsRead: (newsId, userName) =>
+    ipcRenderer.invoke("db:mark-news-read", { newsId, userName }),
+
+  getReadNewsIds: (userName) =>
+    ipcRenderer.invoke("db:get-read-news-ids", userName),
+
   // Sync API
   getSyncStatus: () => ipcRenderer.invoke("sync:get-status"),
   startSync: () => ipcRenderer.invoke("sync:trigger"),

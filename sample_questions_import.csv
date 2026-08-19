@@ -1,0 +1,5 @@
+exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation
+JAMB,Mathematics,2024,Quadratic Equations,medium,Find the positive root of x^2 - 9 = 0,3,9,-3,0,A,Quadratic equations topic,x^2 = 9 so x = 3
+JAMB,English,2024,Synonyms,easy,Choose the synonym for 'Abundant',Plentiful,Scarce,Small,Narrow,A,Vocabulary lexis,Abundant means existing in large quantities
+WAEC,Physics,2024,Mechanics,easy,What is the SI unit of force?,Newton,Joule,Watt,Pascal,A,Units and vectors,Force is measured in Newtons (N)
+NECO,Chemistry,2024,Acids and Bases,medium,What is the pH of a neutral solution at 25°C?,7,1,14,0,A,pH scale,Pure water has pH of 7

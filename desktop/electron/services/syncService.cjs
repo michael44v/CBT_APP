@@ -132,9 +132,9 @@ async function downloadQuestions() {
       // Insert news.
       for (const item of news) {
         run(
-          `INSERT INTO news (id, title, content, icon_name, created_at)
-           VALUES (?, ?, ?, ?, ?)`,
-          [item.id, item.title, item.content, item.icon_name, item.created_at]
+          `INSERT INTO news (id, title, content, icon_name, thumbnail_url, published_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [item.id, item.title, item.content, item.icon_name, item.thumbnail_url || null, item.published_at || item.created_at, item.created_at]
         );
       }
 

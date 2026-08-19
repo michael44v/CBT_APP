@@ -24,9 +24,38 @@ export default function App() {
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [upgradeModalMessage, setUpgradeModalMessage] = useState<string>('');
 
-  // News State
+  // News State & Read Tracking
   const [newsList, setNewsList] = useState<any[]>([]);
+  const [readNewsIds, setReadNewsIds] = useState<number[]>([]);
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
+
+  const loadReadNewsIds = async () => {
+    if (window.api && window.api.getReadNewsIds) {
+      try {
+        const activeUser = activation?.email || 'Candidate (Free)';
+        const ids = await window.api.getReadNewsIds(activeUser);
+        setReadNewsIds(ids || []);
+      } catch (e) {
+        console.error('Failed to load read news IDs:', e);
+      }
+    }
+  };
+
+  const handleOpenNewsDetail = async (item: any) => {
+    setSelectedNews(item);
+    setScreen('NEWS_DETAIL');
+    const activeUser = activation?.email || 'Candidate (Free)';
+    if (window.api && window.api.markNewsAsRead) {
+      try {
+        await window.api.markNewsAsRead(item.id, activeUser);
+        if (!readNewsIds.includes(item.id)) {
+          setReadNewsIds(prev => [...prev, item.id]);
+        }
+      } catch (e) {
+        console.error('Failed to mark news as read:', e);
+      }
+    }
+  };
 
   // Leaderboard State
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
@@ -197,12 +226,14 @@ export default function App() {
     checkActivation();
     loadSyncLogs();
     loadNewsList();
+    loadReadNewsIds();
 
     if (window.api && window.api.onSyncStatusChanged) {
       window.api.onSyncStatusChanged(() => {
         loadSyncLogs();
         loadResultsHistory();
         loadNewsList();
+        loadReadNewsIds();
       });
     }
 
@@ -288,6 +319,7 @@ export default function App() {
       loadSyllabusData();
       loadResultsHistory();
       loadNewsList();
+      loadReadNewsIds();
     }
   }, [screen, examType, activation]);
 
@@ -1134,7 +1166,7 @@ export default function App() {
           {screen === 'NEWS_DETAIL' && selectedNews && (
             <div style={{ maxWidth: '720px', margin: '40px auto', padding: '0 20px' }}>
               <button
-                style={{ ...styles.btn, ...styles.btnSecondary, marginBottom: '32px' }}
+                style={{ ...styles.btn, ...styles.btnSecondary, marginBottom: '24px' }}
                 onClick={() => {
                   setSelectedNews(null);
                   setScreen('DASHBOARD');
@@ -1143,20 +1175,38 @@ export default function App() {
                 ← Back to Dashboard
               </button>
 
-              <article style={{ backgroundColor: colors.surface, borderRadius: '16px', padding: '40px', border: `1px solid ${colors.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                <header style={{ marginBottom: '32px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', marginBottom: '12px' }}>
-                    <span>Official Announcement</span>
+              <article style={{ backgroundColor: colors.surface, borderRadius: '16px', overflow: 'hidden', border: `1px solid ${colors.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                {/* News Cover Photo Header */}
+                {selectedNews.thumbnail_url && (
+                  <div style={{ width: '100%', height: '280px', overflow: 'hidden', position: 'relative' }}>
+                    <img
+                      src={selectedNews.thumbnail_url}
+                      alt={selectedNews.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                   </div>
+                )}
 
-                  <h1 style={{ fontSize: '36px', fontWeight: 800, color: colors.text, lineHeight: 1.2, marginBottom: '20px' }}>
-                    {selectedNews.title}
-                  </h1>
-                </header>
+                <div style={{ padding: '32px 40px' }}>
+                  <header style={{ marginBottom: '24px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <span style={{ color: colors.primary, fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Official Announcement
+                      </span>
+                      <span style={{ fontSize: '13px', color: colors.textMuted, fontWeight: 500 }}>
+                        {selectedNews.published_at ? new Date(selectedNews.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently Published'}
+                      </span>
+                    </div>
 
-                <section style={{ fontSize: '18px', lineHeight: 1.8, color: colors.text, whiteSpace: 'pre-line' }}>
-                  {selectedNews.content}
-                </section>
+                    <h1 style={{ fontSize: '30px', fontWeight: 800, color: colors.text, lineHeight: 1.3, margin: 0 }}>
+                      {selectedNews.title}
+                    </h1>
+                  </header>
+
+                  <section style={{ fontSize: '16px', lineHeight: 1.8, color: colors.text, whiteSpace: 'pre-line' }}>
+                    {selectedNews.content}
+                  </section>
+                </div>
               </article>
             </div>
           )}
@@ -1614,36 +1664,104 @@ export default function App() {
               {/* Right Panel: News & Sync */}
               <div style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={styles.card}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, marginBottom: '16px', letterSpacing: '0.5px' }}>Latest Admin News</h3>
-                  <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, margin: 0, letterSpacing: '0.5px' }}>Latest Admin News</h3>
+                    {newsList.filter(n => !readNewsIds.includes(n.id)).length > 0 && (
+                      <span style={{ fontSize: '11px', fontWeight: 800, backgroundColor: colors.primary, color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
+                        {newsList.filter(n => !readNewsIds.includes(n.id)).length} New
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {newsList.length === 0 ? (
                       <p style={{ color: colors.textMuted, fontSize: '13px' }}>No announcements published.</p>
                     ) : (
-                      newsList.map(item => (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedNews(item);
-                            setScreen('NEWS_DETAIL');
-                          }}
-                          style={{
-                            display: 'flex',
-                            gap: '12px',
-                            cursor: 'pointer',
-                            padding: '8px',
-                            borderRadius: '8px',
-                            borderBottom: `1px solid ${colors.border}`
-                          }}
-                        >
-                          <div style={{ flexShrink: 0, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
-                            <Newspaper size={20} color={colors.primary} />
+                      newsList.map(item => {
+                        const isRead = readNewsIds.includes(item.id);
+                        const publishedDateStr = item.published_at
+                          ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                          : new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleOpenNewsDetail(item)}
+                            style={{
+                              display: 'flex',
+                              gap: '12px',
+                              cursor: 'pointer',
+                              padding: '10px',
+                              borderRadius: '10px',
+                              backgroundColor: isRead ? colors.bg : (isDarkMode ? '#222938' : '#f0f4ff'),
+                              border: `1px solid ${isRead ? colors.border : colors.primaryLight}`,
+                              transition: 'all 0.15s ease',
+                              opacity: isRead ? 0.8 : 1
+                            }}
+                          >
+                            {/* Medium photo by the left */}
+                            <div style={{ width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, backgroundColor: colors.border, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {item.thumbnail_url ? (
+                                <img
+                                  src={item.thumbnail_url}
+                                  alt={item.title}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <Newspaper size={28} color={colors.primary} />
+                              )}
+                            </div>
+
+                            {/* Topic title (clamped to 3 lines) + publish date */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                              <div>
+                                <div
+                                  style={{
+                                    fontWeight: isRead ? 600 : 800,
+                                    fontSize: '13px',
+                                    color: colors.text,
+                                    lineHeight: '1.3',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 3,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}
+                                  title={item.title}
+                                >
+                                  {item.title}
+                                </div>
+                                {item.title.length < 50 && item.content && (
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      color: colors.textSecondary,
+                                      marginTop: '3px',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden'
+                                    }}
+                                  >
+                                    {item.content}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: colors.textMuted }}>
+                                  📅 {publishedDateStr}
+                                </span>
+                                {isRead ? (
+                                  <span style={{ fontSize: '10px', color: colors.textMuted, fontWeight: 600 }}>✓ Read</span>
+                                ) : (
+                                  <span style={{ fontSize: '10px', color: colors.primary, fontWeight: 800 }}>● Unread</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: '13px', color: colors.text, marginBottom: '2px' }}>{item.title}</div>
-                            <div style={{ fontSize: '11px', color: colors.textSecondary }}>{item.content}</div>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>

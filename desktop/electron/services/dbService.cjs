@@ -133,7 +133,16 @@ function createTables() {
         title TEXT NOT NULL,
         content TEXT NOT NULL,
         icon_name TEXT,
+        thumbnail_url TEXT,
+        published_at TEXT,
         created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS news_read (
+        user_name TEXT NOT NULL,
+        news_id INTEGER NOT NULL,
+        read_at TEXT NOT NULL,
+        PRIMARY KEY (user_name, news_id)
       );
 
       CREATE INDEX IF NOT EXISTS idx_questions_filter
@@ -150,6 +159,14 @@ function createTables() {
 
     try {
       exec(`ALTER TABLE activation ADD COLUMN allowed_subjects TEXT DEFAULT ''`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE news ADD COLUMN thumbnail_url TEXT`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE news ADD COLUMN published_at TEXT`);
     } catch (e) { /* Column already exists */ }
 
     console.log('[SQLite] Local database tables and indices verified.');

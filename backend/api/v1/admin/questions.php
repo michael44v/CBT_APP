@@ -61,11 +61,54 @@ if ($method === 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
     $action = trim($data['action'] ?? '');
 
+    if ($action === 'get_subjects_and_topics') {
+        $subs_res = $db->query("SELECT * FROM subjects ORDER BY exam_type, name");
+        $subjects = $subs_res ? $subs_res->fetch_all(MYSQLI_ASSOC) : [];
+
+        $tops_res = $db->query("SELECT * FROM topics ORDER BY name");
+        $topics = $tops_res ? $tops_res->fetch_all(MYSQLI_ASSOC) : [];
+
+        echo json_encode(["success" => true, "subjects" => $subjects, "topics" => $topics]);
+        exit();
+    }
+
+    if ($action === 'create_topic') {
+        $subject_id = intval($data['subject_id'] ?? 0);
+        $topic_name = trim($data['topic_name'] ?? '');
+
+        if ($subject_id <= 0 || empty($topic_name)) {
+            echo json_encode(["success" => false, "message" => "Subject ID and topic_name are required."]);
+            exit();
+        }
+
+        // Check if topic exists
+        $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?)");
+        $stmt->bind_param("is", $subject_id, $topic_name);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $row = $res->fetch_assoc();
+
+        if ($row) {
+            echo json_encode(["success" => true, "topic_id" => intval($row['id']), "message" => "Topic already exists."]);
+            exit();
+        }
+
+        $stmt = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
+        $stmt->bind_param("is", $subject_id, $topic_name);
+        $stmt->execute();
+        $new_topic_id = $db->insert_id;
+
+        echo json_encode(["success" => true, "topic_id" => $new_topic_id, "message" => "Topic created successfully."]);
+        exit();
+    }
+
     if ($action === 'create') {
         $exam_type = strtoupper(trim($data['exam_type'] ?? ''));
         $subject_id = intval($data['subject_id'] ?? 0);
+        $subject_name = trim($data['subject_name'] ?? '');
         $year = intval($data['year'] ?? 0);
         $topic_id = intval($data['topic_id'] ?? 0);
+        $topic_name = trim($data['topic_name'] ?? '');
         $difficulty = trim($data['difficulty'] ?? 'medium');
         $question_text = trim($data['question_text'] ?? '');
         $option_a = trim($data['option_a'] ?? '');
@@ -74,9 +117,53 @@ if ($method === 'POST') {
         $option_d = trim($data['option_d'] ?? '');
         $correct_answer = strtoupper(trim($data['correct_answer'] ?? ''));
 
-        if (empty($exam_type) || empty($subject_id) || empty($year) || empty($question_text)) {
-            echo json_encode(["success" => false, "message" => "Fields: exam_type, subject_id, year, and question_text are required."]);
+        // Map subject by name if subject_id not provided or <= 0
+        if ($subject_id <= 0 && !empty($subject_name)) {
+            $stmt = $db->prepare("SELECT id FROM subjects WHERE exam_type = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+            $stmt->bind_param("ss", $exam_type, $subject_name);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($row = $res->fetch_assoc()) {
+                $subject_id = intval($row['id']);
+            }
+        }
+
+        if (empty($exam_type) || $subject_id <= 0 || empty($year) || empty($question_text)) {
+            echo json_encode(["success" => false, "message" => "Valid exam_type, subject, year, and question_text are required."]);
             exit();
+        }
+
+        // Map or create topic by name
+        if ($topic_id <= 0) {
+            if (!empty($topic_name)) {
+                $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+                $stmt->bind_param("is", $subject_id, $topic_name);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                if ($row = $res->fetch_assoc()) {
+                    $topic_id = intval($row['id']);
+                } else {
+                    $stmtIns = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
+                    $stmtIns->bind_param("is", $subject_id, $topic_name);
+                    $stmtIns->execute();
+                    $topic_id = $db->insert_id;
+                }
+            } else {
+                // Default to first topic under subject or create a General topic
+                $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? LIMIT 1");
+                $stmt->bind_param("i", $subject_id);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                if ($row = $res->fetch_assoc()) {
+                    $topic_id = intval($row['id']);
+                } else {
+                    $defTopic = "General";
+                    $stmtIns = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
+                    $stmtIns->bind_param("is", $subject_id, $defTopic);
+                    $stmtIns->execute();
+                    $topic_id = $db->insert_id;
+                }
+            }
         }
 
         $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -132,17 +219,63 @@ if ($method === 'POST') {
 
             $exam_type = strtoupper(trim($row['exam_type'] ?? ''));
             $subject_id_val = trim($row['subject_id'] ?? '');
+            $subject_name_val = trim($row['subject_name'] ?? $row['subject'] ?? '');
             $year_val = trim($row['year'] ?? '');
 
-            // Validation: reject if missing any of first-class filterable columns
-            if (empty($exam_type) || empty($subject_id_val) || empty($year_val)) {
-                $errors[] = "Line {$line_number} rejected: Missing required fields 'exam_type', 'subject_id', or 'year'.";
+            // Resolve subject_id
+            $subject_id = intval($subject_id_val);
+            if ($subject_id <= 0 && !empty($subject_name_val)) {
+                $stmtSub = $db->prepare("SELECT id FROM subjects WHERE exam_type = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+                $stmtSub->bind_param("ss", $exam_type, $subject_name_val);
+                $stmtSub->execute();
+                $resSub = $stmtSub->get_result();
+                if ($rowSub = $resSub->fetch_assoc()) {
+                    $subject_id = intval($rowSub['id']);
+                }
+            }
+
+            // Validation: reject if missing any of required filterable columns
+            if (empty($exam_type) || $subject_id <= 0 || empty($year_val)) {
+                $errors[] = "Line {$line_number} rejected: Missing required fields 'exam_type', 'subject' (or 'subject_id'), or 'year'.";
                 continue;
             }
 
-            $subject_id = intval($subject_id_val);
             $year = intval($year_val);
-            $topic_id = intval($row['topic_id'] ?? 1);
+            $topic_id_val = trim($row['topic_id'] ?? '');
+            $topic_name_val = trim($row['topic_name'] ?? $row['topic'] ?? '');
+            $topic_id = intval($topic_id_val);
+
+            // Resolve or create topic_id
+            if ($topic_id <= 0) {
+                if (!empty($topic_name_val)) {
+                    $stmtTop = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+                    $stmtTop->bind_param("is", $subject_id, $topic_name_val);
+                    $stmtTop->execute();
+                    $resTop = $stmtTop->get_result();
+                    if ($rowTop = $resTop->fetch_assoc()) {
+                        $topic_id = intval($rowTop['id']);
+                    } else {
+                        $stmtInsTop = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
+                        $stmtInsTop->bind_param("is", $subject_id, $topic_name_val);
+                        $stmtInsTop->execute();
+                        $topic_id = $db->insert_id;
+                    }
+                } else {
+                    $stmtTopDef = $db->prepare("SELECT id FROM topics WHERE subject_id = ? LIMIT 1");
+                    $stmtTopDef->bind_param("i", $subject_id);
+                    $stmtTopDef->execute();
+                    $resTopDef = $stmtTopDef->get_result();
+                    if ($rowTopDef = $resTopDef->fetch_assoc()) {
+                        $topic_id = intval($rowTopDef['id']);
+                    } else {
+                        $defName = "General";
+                        $stmtInsDef = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
+                        $stmtInsDef->bind_param("is", $subject_id, $defName);
+                        $stmtInsDef->execute();
+                        $topic_id = $db->insert_id;
+                    }
+                }
+            }
             $difficulty = trim($row['difficulty'] ?? 'medium');
             $question_text = trim($row['question_text'] ?? '');
             $option_a = trim($row['option_a'] ?? '');
