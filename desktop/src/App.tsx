@@ -185,6 +185,7 @@ export default function App() {
   const [mockSelectedSubjects, setMockSelectedSubjects] = useState<number[]>([]);
   const [mockSelectionMode, setMockSelectionMode] = useState<'YEAR' | 'RANDOM'>('RANDOM');
   const [mockSelectedYear, setMockSelectedYear] = useState<number | ''>('');
+  const [showAllMockSubjects, setShowAllMockSubjects] = useState<boolean>(false);
 
   // Exam Screen execution state
   const [examSessionId, setExamSessionId] = useState<string>('');
@@ -1417,41 +1418,101 @@ export default function App() {
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div style={styles.formGroup}>
-                          <label style={styles.label}>Select Subjects (up to 4)</label>
-                          <div style={styles.checkboxGrid}>
-                            {subjectsList.map(s => {
-                              const isChecked = mockSelectedSubjects.includes(s.id);
-                              const isLocked = (s as any).is_locked;
-                              return (
-                                <label key={s.id} style={{ ...styles.checkboxLabel, opacity: isLocked ? 0.6 : 1 }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => {
-                                      if (isLocked) {
-                                        setUpgradeModalMessage(`Access to ${s.name} is restricted. Click Buy Now to select and pay for this subject.`);
-                                        setShowUpgradeModal(true);
-                                        return;
-                                      }
-                                      if (isChecked) {
-                                        setMockSelectedSubjects(prev => prev.filter(id => id !== s.id));
-                                      } else {
-                                        setMockSelectedSubjects(prev => [...prev, s.id]);
-                                      }
-                                    }}
-                                    style={{ width: '16px', height: '16px', accentColor: colors.primary }}
-                                  />
-                                  {isLocked ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                      <Lock size={14} color={colors.warning} /> {s.name}
-                                    </span>
-                                  ) : (
-                                    s.name
-                                  )}
-                                </label>
-                              );
-                            })}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label style={styles.label}>Select Subjects (up to 4)</label>
+                            {subjectsList.length > 12 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowAllMockSubjects(!showAllMockSubjects)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: colors.primary,
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  padding: 0
+                                }}
+                              >
+                                {showAllMockSubjects ? '▲ Show Fewer Subjects' : `▼ View More Subjects (${subjectsList.length - 12} More)`}
+                              </button>
+                            )}
                           </div>
+
+                          <div style={styles.checkboxGrid}>
+                            {(() => {
+                              const priorityOrder = [
+                                'english language', 'english',
+                                'mathematics',
+                                'physics',
+                                'chemistry',
+                                'accounting', 'financial accounting',
+                                'commerce',
+                                'literature', 'literature in english'
+                              ];
+
+                              const sortedSubjects = [...subjectsList].sort((a, b) => {
+                                const nameA = a.name.toLowerCase();
+                                const nameB = b.name.toLowerCase();
+
+                                const idxA = priorityOrder.findIndex(p => nameA === p || nameA.includes(p));
+                                const idxB = priorityOrder.findIndex(p => nameB === p || nameB.includes(p));
+
+                                const rankA = idxA !== -1 ? idxA : 999;
+                                const rankB = idxB !== -1 ? idxB : 999;
+
+                                if (rankA !== rankB) return rankA - rankB;
+                                return nameA.localeCompare(nameB);
+                              });
+
+                              const visibleSubjects = showAllMockSubjects ? sortedSubjects : sortedSubjects.slice(0, 12);
+
+                              return visibleSubjects.map(s => {
+                                const isChecked = mockSelectedSubjects.includes(s.id);
+                                const isLocked = (s as any).is_locked;
+                                return (
+                                  <label key={s.id} style={{ ...styles.checkboxLabel, opacity: isLocked ? 0.6 : 1 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isLocked) {
+                                          setUpgradeModalMessage(`Access to ${s.name} is restricted. Click Buy Now to select and pay for this subject.`);
+                                          setShowUpgradeModal(true);
+                                          return;
+                                        }
+                                        if (isChecked) {
+                                          setMockSelectedSubjects(prev => prev.filter(id => id !== s.id));
+                                        } else {
+                                          setMockSelectedSubjects(prev => [...prev, s.id]);
+                                        }
+                                      }}
+                                      style={{ width: '16px', height: '16px', accentColor: colors.primary }}
+                                    />
+                                    {isLocked ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <Lock size={14} color={colors.warning} /> {s.name}
+                                      </span>
+                                    ) : (
+                                      s.name
+                                    )}
+                                  </label>
+                                );
+                              });
+                            })()}
+                          </div>
+
+                          {!showAllMockSubjects && subjectsList.length > 12 && (
+                            <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => setShowAllMockSubjects(true)}
+                                style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontWeight: 700 }}
+                              >
+                                View More Subjects ({subjectsList.length - 12} More)
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div style={styles.formGroup}>
