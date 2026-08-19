@@ -150,6 +150,27 @@ function createTables() {
 
       CREATE INDEX IF NOT EXISTS idx_questions_topic
         ON questions (exam_type, subject_id, topic_id);
+
+      CREATE INDEX IF NOT EXISTS idx_results_user_name_exam
+        ON results (user_name, exam_type);
+
+      CREATE INDEX IF NOT EXISTS idx_results_submitted_at
+        ON results (submitted_at);
+
+      CREATE INDEX IF NOT EXISTS idx_results_synced
+        ON results (synced);
+
+      CREATE INDEX IF NOT EXISTS idx_subjects_exam_type
+        ON subjects (exam_type);
+
+      CREATE INDEX IF NOT EXISTS idx_topics_subject_id
+        ON topics (subject_id);
+
+      CREATE INDEX IF NOT EXISTS idx_news_published_at
+        ON news (published_at);
+
+      CREATE INDEX IF NOT EXISTS idx_activation_email
+        ON activation (email);
     `);
 
     // Ensure columns exist if table was created in an earlier version
