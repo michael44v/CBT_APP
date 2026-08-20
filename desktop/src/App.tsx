@@ -24,8 +24,6 @@ export default function App() {
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [upgradeModalMessage, setUpgradeModalMessage] = useState<string>('');
 
-  // First Activation Welcome Modal
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
 
   // News State & Read Tracking
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -483,12 +481,6 @@ export default function App() {
         setIsFreeMode(false);
         setScreen('DASHBOARD');
 
-        // Check if first activation welcome screen has been displayed
-        const welcomeKey = `welcome_shown_${actPasscode.trim()}`;
-        if (!localStorage.getItem(welcomeKey)) {
-          setShowWelcomeModal(true);
-          localStorage.setItem(welcomeKey, 'true');
-        }
       } else {
         setActError(res.error || 'Failed to authenticate subscription.');
       }
@@ -2362,41 +2354,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* First Activation Welcome Modal */}
-      {showWelcomeModal && (
-        <div style={styles.modalBackdrop}>
-          <div style={{ ...styles.modal, maxWidth: '520px', padding: '32px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: colors.primaryLight, color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <Trophy size={28} />
-              </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, margin: '0 0 8px' }}>
-                Welcome to Fillop CBT Guru!
-              </h2>
-              <p style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, margin: 0 }}>
-                Your subscription has been successfully activated. Prepare fully offline for your JAMB, WAEC, or NECO examinations.
-              </p>
-            </div>
-
-            <div style={{ backgroundColor: colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '24px', fontSize: '13px', color: colors.text, lineHeight: 1.6 }}>
-              <strong style={{ display: 'block', marginBottom: '8px', color: colors.primary }}>Quick Instructions:</strong>
-              <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <li>Select Practice Mode to study topic-by-topic with detailed explanations.</li>
-                <li>Take timed Mock Exams to simulate real exam hall conditions.</li>
-                <li>Check your Performance Analytics to track score progress over time.</li>
-                <li>All question banks and past papers function 100% offline.</li>
-              </ul>
-            </div>
-
-            <button
-              style={{ ...styles.btn, ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '12px', fontWeight: 700 }}
-              onClick={() => setShowWelcomeModal(false)}
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ================= UPGRADE / SUBSCRIBE MODAL ================= */}
       {showUpgradeModal && (
