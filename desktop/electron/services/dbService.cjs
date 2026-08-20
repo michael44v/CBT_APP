@@ -73,10 +73,20 @@ function createTables() {
         is_active INTEGER DEFAULT 1
       );
 
+      CREATE TABLE IF NOT EXISTS sync_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        last_version INTEGER DEFAULT 0,
+        updated_at TEXT
+      );
+
+      INSERT OR IGNORE INTO sync_state (id, last_version, updated_at)
+      VALUES (1, 0, CURRENT_TIMESTAMP);
+
       CREATE TABLE IF NOT EXISTS subjects (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         exam_type TEXT NOT NULL,
+        sync_version INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -84,6 +94,7 @@ function createTables() {
         id INTEGER PRIMARY KEY,
         subject_id INTEGER NOT NULL,
         name TEXT NOT NULL,
+        sync_version INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
       );
@@ -104,6 +115,7 @@ function createTables() {
         topic_explanation TEXT,
         correct_explanation TEXT,
         wrong_explanations TEXT,
+        sync_version INTEGER DEFAULT 1,
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
         FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
       );
@@ -151,6 +163,12 @@ function createTables() {
       CREATE INDEX IF NOT EXISTS idx_questions_topic
         ON questions (exam_type, subject_id, topic_id);
 
+      CREATE INDEX IF NOT EXISTS idx_questions_sync_version
+        ON questions (sync_version);
+
+      CREATE INDEX IF NOT EXISTS idx_questions_dup_check
+        ON questions (subject_id, question_text);
+
       CREATE INDEX IF NOT EXISTS idx_results_user_name_exam
         ON results (user_name, exam_type);
 
@@ -188,6 +206,18 @@ function createTables() {
 
     try {
       exec(`ALTER TABLE news ADD COLUMN published_at TEXT`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE questions ADD COLUMN sync_version INTEGER DEFAULT 1`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE subjects ADD COLUMN sync_version INTEGER DEFAULT 1`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE topics ADD COLUMN sync_version INTEGER DEFAULT 1`);
     } catch (e) { /* Column already exists */ }
 
     console.log('[SQLite] Local database tables and indices verified.');

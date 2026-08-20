@@ -44,21 +44,31 @@ function createMainWindow() {
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      devTools: isDev
     }
   });
 
-    // Block reload shortcuts (Ctrl+R / Cmd+R / F5 / Ctrl+Shift+R)
+  // Block DevTools & reload shortcuts in production (Ctrl+R / Cmd+R / F5 / Ctrl+Shift+I / F12)
   mainWindow.webContents.on("before-input-event", (event, input) => {
     const key = input.key.toLowerCase();
     const isReloadCombo =
       (key === "r" && (input.control || input.meta)) ||
       key === "f5";
+    const isDevToolsCombo =
+      key === "f12" ||
+      ((key === "i" || key === "j") && (input.control || input.meta) && input.shift);
 
-    if (isReloadCombo) {
+    if (!isDev && (isReloadCombo || isDevToolsCombo)) {
       event.preventDefault();
     }
   });
+
+  if (!isDev) {
+    mainWindow.webContents.on("devtools-opened", () => {
+      mainWindow.webContents.closeDevTools();
+    });
+  }
 
 
   if (isDev) {
@@ -110,8 +120,11 @@ async function initializeApp() {
 
     syncService.startBackgroundSync();
 
-    syncService.registerStatusCallback(() => {
+    syncService.registerStatusCallback((eventReason) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
+        if (eventReason === 'PASSCODE_REVOKED') {
+          mainWindow.webContents.send("auth:revoked");
+        }
         mainWindow.webContents.send("sync-status-changed");
       }
     });
@@ -287,6 +300,11 @@ ipcMain.handle("db:get-years", async (event, { examType, subjectId }) => {
 });
 
 // ================= IPC HANDLERS: SELECTION ENGINE =================
+
+ipcMain.handle("exam:set-active", async (event, isActive) => {
+  syncService.setExamActive(isActive);
+  return { success: true, examActive: isActive };
+});
 
 ipcMain.handle("db:generate-practice-questions", async (event, { examType, subjectId, topicId, year, limit }) => {
   const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");

@@ -1,4 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Shield,
+  LayoutDashboard,
+  Users,
+  Key,
+  RefreshCw,
+  Building2,
+  DollarSign,
+  Tag,
+  BookOpen,
+  Newspaper,
+  Upload,
+  FileText,
+  Download,
+  CheckCircle,
+  XCircle,
+  AlertTriangle
+} from 'lucide-react';
 
 const API_BASE = 'http://localhost:80/fillop/api/v1';
 
@@ -1515,13 +1533,37 @@ export default function App() {
             </div>
 
             <div className="admin-card">
-              <h2 className="card-title">Bulk CSV Import Question Bank</h2>
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Upload size={18} /> Bulk CSV Question Management &amp; Validation
+              </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
-                Paste your CSV content or upload a CSV file. The CSV accepts subject names (e.g. <code>Mathematics</code>) or subject IDs, and automatically maps or creates topics!
+                Upload or paste CSV questions. Accepts human-readable subject names (e.g., <code>JAMB - Mathematics</code>), validates rows, checks for duplicate questions, and imports within a safe transaction!
               </p>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Upload CSV File</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="form-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        if (evt.target?.result) {
+                          setCsvInput(evt.target.result as string);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+              </div>
+
               <form onSubmit={handleBulkImport}>
                 <div className="form-group">
-                  <label className="form-label">CSV Input (Headers: exam_type, subject, year, topic, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer)</label>
+                  <label className="form-label">Or Paste Raw CSV Data (Headers: exam_type, subject, year, topic, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer)</label>
                   <textarea
                     className="textarea-csv"
                     placeholder="exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer&#10;JAMB,Mathematics,2024,Quadratic Equations,medium,Find roots of x^2 - 9 = 0,3,9,-3,0,A"
@@ -1530,19 +1572,25 @@ export default function App() {
                     required
                   />
                 </div>
-                <button type="submit" className="btn btn-success">Start Bulk Upload 🚀</button>
+                <button type="submit" className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Upload size={16} /> Process &amp; Start Bulk Import
+                </button>
               </form>
 
               {importSuccessMsg && (
-                <div style={{ color: 'var(--success)', marginTop: '1rem', fontWeight: 600 }}>{importSuccessMsg}</div>
+                <div style={{ color: 'var(--success)', marginTop: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle size={16} /> {importSuccessMsg}
+                </div>
               )}
 
               {importErrors.length > 0 && (
-                <div className="errors-box">
-                  <div className="errors-title">Validation Errors Found ({importErrors.length}):</div>
-                  <ul className="errors-list">
+                <div className="errors-box" style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '8px', border: '1px solid #fca5a5' }}>
+                  <div className="errors-title" style={{ fontWeight: 700, color: '#991b1b', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={16} /> Validation Issues Found ({importErrors.length}):
+                  </div>
+                  <ul className="errors-list" style={{ margin: 0, paddingLeft: '1.2rem', color: '#7f1d1d', fontSize: '0.85rem' }}>
                     {importErrors.map((err, idx) => (
-                      <li key={idx}>⚠️ {err}</li>
+                      <li key={idx}>{err}</li>
                     ))}
                   </ul>
                 </div>
@@ -1565,7 +1613,7 @@ export default function App() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Select Subject</label>
+                  <label className="form-label">Select Subject (Human-Readable)</label>
                   <select
                     className="form-input"
                     value={newQuestionForm.subject_id}
@@ -1574,7 +1622,7 @@ export default function App() {
                     {dbSubjects
                       .filter(s => s.exam_type === newQuestionForm.exam_type)
                       .map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>{s.exam_type} - {s.name}</option>
                       ))}
                   </select>
                 </div>

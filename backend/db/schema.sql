@@ -180,14 +180,35 @@ CREATE TABLE `promo_codes` (
 -- Table structure for table `subjects`
 --
 
+CREATE TABLE `sync_sequence` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `current_version` bigint(20) NOT NULL DEFAULT 1,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `sync_sequence` (`id`, `current_version`) VALUES (1, 1) ON DUPLICATE KEY UPDATE `id`=`id`;
+
+CREATE TABLE `deleted_questions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `question_id` int(11) NOT NULL,
+  `sync_version` bigint(20) NOT NULL,
+  `deleted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_deleted_questions_sync` (`sync_version`),
+  KEY `idx_deleted_questions_qid` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE `subjects` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   `exam_type` varchar(10) NOT NULL,
+  `sync_version` bigint(20) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_subject_exam` (`name`, `exam_type`),
-  KEY `idx_subjects_exam_type` (`exam_type`)
+  KEY `idx_subjects_exam_type` (`exam_type`),
+  KEY `idx_subjects_sync_version` (`sync_version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
@@ -200,9 +221,11 @@ CREATE TABLE `topics` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `subject_id` int(11) NOT NULL,
   `name` varchar(150) NOT NULL,
+  `sync_version` bigint(20) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `subject_id` (`subject_id`),
+  KEY `idx_topics_sync_version` (`sync_version`),
   CONSTRAINT `topics_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -228,12 +251,15 @@ CREATE TABLE `questions` (
   `topic_explanation` text DEFAULT NULL,
   `correct_explanation` text DEFAULT NULL,
   `wrong_explanations` text DEFAULT NULL,
+  `sync_version` bigint(20) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `subject_id` (`subject_id`),
   KEY `topic_id` (`topic_id`),
   KEY `idx_questions_filter` (`exam_type`,`subject_id`,`year`),
   KEY `idx_questions_topic` (`exam_type`,`subject_id`,`topic_id`),
+  KEY `idx_questions_sync_version` (`sync_version`),
+  KEY `idx_questions_dup_check` (`subject_id`, `question_text`(255)),
   CONSTRAINT `questions_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE,
   CONSTRAINT `questions_ibfk_2` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

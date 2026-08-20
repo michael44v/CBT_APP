@@ -10,6 +10,21 @@ const {
 let simulateOnline = true;
 let syncTimer = null;
 let changeCallback = null;
+let isSyncing = false;
+let examActive = false;
+let syncIntervalMinutes = 30; // Configurable 30-minute default interval
+
+function setExamActive(active) {
+  examActive = !!active;
+  console.log(`[Sync Service] Exam active state set to: ${examActive}`);
+}
+
+function setSyncIntervalMinutes(minutes) {
+  if (typeof minutes === 'number' && minutes > 0) {
+    syncIntervalMinutes = minutes;
+    startBackgroundSync();
+  }
+}
 
 function logSyncEvent(eventType, status, message) {
   try {
@@ -42,9 +57,14 @@ async function downloadQuestions() {
     logSyncEvent(
       'PULL_QUESTIONS',
       'FAILED',
-      'Sync offline: Simulation set to offline.'
+      'Sync offline: Network unavailable.'
     );
     return false;
+  }
+
+  if (examActive) {
+    console.log('[Sync Service] Question sync skipped: Exam in progress.');
+    return true;
   }
 
   logSyncEvent(
@@ -57,11 +77,15 @@ async function downloadQuestions() {
     const fetch = (...args) =>
       import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
+    // Fetch local sync_state
+    const syncState = get('SELECT last_version FROM sync_state WHERE id = 1');
+    const lastVersion = syncState ? (syncState.last_version || 0) : 0;
+
     // Fetch active local activation info
     const actRow = get('SELECT * FROM activation WHERE is_active = 1 LIMIT 1');
-    let url = 'https://cbt.filloptech.com/api/v1/sync/pull.php';
+    let url = `https://cbt.filloptech.com/api/v1/sync/pull.php?since=${lastVersion}`;
     if (actRow && actRow.email && actRow.passcode) {
-      url += `?email=${encodeURIComponent(actRow.email)}&passcode=${encodeURIComponent(actRow.passcode)}`;
+      url += `&email=${encodeURIComponent(actRow.email)}&passcode=${encodeURIComponent(actRow.passcode)}`;
     }
 
     const response = await fetch(url);
@@ -83,65 +107,61 @@ async function downloadQuestions() {
       return false;
     }
 
+    const serverVersion = data.server_version || lastVersion;
+    const isFullSync = !!data.is_full_sync;
     const subjects = Array.isArray(data.subjects) ? data.subjects : [];
     const topics = Array.isArray(data.topics) ? data.topics : [];
     const questions = Array.isArray(data.questions) ? data.questions : [];
+    const deletedQuestionIds = Array.isArray(data.deleted_question_ids) ? data.deleted_question_ids : [];
     const news = Array.isArray(data.news) ? data.news : [];
     const passcodeInfo = data.passcode_info || null;
 
-    // Fetch existing question IDs from local database before wiping to count brand new ones
-    const localQuestions = all('SELECT id FROM questions');
-    const existingLocalIds = new Set(localQuestions.map(q => q.id));
-
-    let newQuestionsAddedCount = 0;
-    for (const q of questions) {
-      if (!existingLocalIds.has(q.id)) {
-        newQuestionsAddedCount++;
-      }
+    // Handle Passcode Revocation detection
+    if (passcodeInfo && passcodeInfo.status && passcodeInfo.status !== 'active') {
+      logSyncEvent('AUTH_REVOKED', 'FAILED', `Passcode status is ${passcodeInfo.status}. Revoking local activation session.`);
+      run('DELETE FROM activation');
+      if (changeCallback) changeCallback('PASSCODE_REVOKED');
+      return false;
     }
 
     /*
-     * Use better-sqlite3 transaction
+     * Use atomic better-sqlite3 transaction for incremental sync
      */
-    const performUpdate = transaction(() => {
-      // Clear old metadata.
-      // Delete questions first because they reference topics/subjects.
-      run('DELETE FROM questions');
-      run('DELETE FROM topics');
-      run('DELETE FROM subjects');
-      run('DELETE FROM news');
+    transaction(() => {
+      if (isFullSync) {
+        run('DELETE FROM questions');
+        run('DELETE FROM topics');
+        run('DELETE FROM subjects');
+        run('DELETE FROM news');
+      }
 
-      // Insert subjects.
+      // 1. Process Subjects
       for (const sub of subjects) {
         run(
-          `INSERT INTO subjects (id, name, exam_type)
-           VALUES (?, ?, ?)`,
-          [sub.id, sub.name, sub.exam_type]
+          `INSERT OR REPLACE INTO subjects (id, name, exam_type, sync_version, created_at)
+           VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM subjects WHERE id = ?), CURRENT_TIMESTAMP))`,
+          [sub.id, sub.name, sub.exam_type, sub.sync_version || serverVersion, sub.id]
         );
       }
 
-      // Insert topics.
+      // 2. Process Topics
       for (const top of topics) {
         run(
-          `INSERT INTO topics (id, subject_id, name)
-           VALUES (?, ?, ?)`,
-          [top.id, top.subject_id, top.name]
+          `INSERT OR REPLACE INTO topics (id, subject_id, name, sync_version, created_at)
+           VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM topics WHERE id = ?), CURRENT_TIMESTAMP))`,
+          [top.id, top.subject_id, top.name, top.sync_version || serverVersion, top.id]
         );
       }
 
-      // Insert news.
-      for (const item of news) {
-        run(
-          `INSERT INTO news (id, title, content, icon_name, thumbnail_url, published_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [item.id, item.title, item.content, item.icon_name, item.thumbnail_url || null, item.published_at || item.created_at, item.created_at]
-        );
+      // 3. Process Deleted Questions
+      for (const delId of deletedQuestionIds) {
+        run('DELETE FROM questions WHERE id = ?', [delId]);
       }
 
-      // Insert questions.
+      // 4. Process Questions
       for (const q of questions) {
         run(
-          `INSERT INTO questions (
+          `INSERT OR REPLACE INTO questions (
             id,
             exam_type,
             subject_id,
@@ -156,8 +176,9 @@ async function downloadQuestions() {
             correct_answer,
             topic_explanation,
             correct_explanation,
-            wrong_explanations
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            wrong_explanations,
+            sync_version
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             q.id,
             q.exam_type,
@@ -173,24 +194,41 @@ async function downloadQuestions() {
             q.correct_answer,
             q.topic_explanation,
             q.correct_explanation,
-            q.wrong_explanations
+            q.wrong_explanations,
+            q.sync_version || serverVersion
           ]
         );
       }
 
-      // Update passcode permissions locally if passcode_info returned
+      // 5. Process News
+      for (const item of news) {
+        run(
+          `INSERT OR REPLACE INTO news (id, title, content, icon_name, thumbnail_url, published_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [item.id, item.title, item.content, item.icon_name, item.thumbnail_url || null, item.published_at || item.created_at, item.created_at]
+        );
+      }
+
+      // 6. Update Passcode permissions
       if (passcodeInfo && actRow) {
         run(
           `UPDATE activation SET exam_category = ?, allowed_subjects = ?, expiry_date = ? WHERE passcode = ?`,
           [passcodeInfo.exam_category, passcodeInfo.allowed_subjects, passcodeInfo.expires_at, actRow.passcode]
         );
       }
+
+      // 7. Update sync_state
+      run(
+        `INSERT OR REPLACE INTO sync_state (id, last_version, updated_at)
+         VALUES (1, ?, CURRENT_TIMESTAMP)`,
+        [serverVersion]
+      );
     });
 
     logSyncEvent(
       'PULL_QUESTIONS',
       'SUCCESS',
-      `Synchronized ${questions.length} questions (${newQuestionsAddedCount} new questions added), ${subjects.length} subjects, and ${topics.length} topics.`
+      `Sync v${serverVersion} complete: ${questions.length} updated, ${deletedQuestionIds.length} deleted, ${subjects.length} subjects, ${topics.length} topics.`
     );
 
     return true;
@@ -319,12 +357,26 @@ async function uploadResults() {
 }
 
 async function triggerSync() {
-  console.log('[Sync Service] Running manual sync cycle...');
+  if (isSyncing) {
+    console.log('[Sync Service] Sync operation already in progress. Skipping duplicate request.');
+    return false;
+  }
 
-  const resultsSuccess = await uploadResults();
-  const questionsSuccess = await downloadQuestions();
+  if (examActive) {
+    console.log('[Sync Service] Sync requested while exam active. Skipping.');
+    return false;
+  }
 
-  return resultsSuccess && questionsSuccess;
+  isSyncing = true;
+  console.log('[Sync Service] Running sync cycle...');
+
+  try {
+    const resultsSuccess = await uploadResults();
+    const questionsSuccess = await downloadQuestions();
+    return resultsSuccess && questionsSuccess;
+  } finally {
+    isSyncing = false;
+  }
 }
 
 function registerStatusCallback(callback) {
@@ -362,17 +414,20 @@ function startBackgroundSync() {
     clearInterval(syncTimer);
   }
 
+  const intervalMs = syncIntervalMinutes * 60 * 1000;
+  console.log(`[Sync Service] Background sync scheduled every ${syncIntervalMinutes} minutes (${intervalMs}ms).`);
+
   syncTimer = setInterval(async () => {
     console.log('[Sync Service] Triggering periodic sync...');
 
-    if (checkInternet()) {
+    if (checkInternet() && !examActive) {
       try {
         await triggerSync();
       } catch (err) {
         console.error('[Sync Service] Periodic sync failed:', err);
       }
     }
-  }, 45000);
+  }, intervalMs);
 }
 
 function stopBackgroundSync() {
@@ -391,5 +446,7 @@ module.exports = {
   registerStatusCallback,
   startBackgroundSync,
   stopBackgroundSync,
+  setExamActive,
+  setSyncIntervalMinutes,
   logSyncEvent
 };

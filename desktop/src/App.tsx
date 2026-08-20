@@ -24,6 +24,9 @@ export default function App() {
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [upgradeModalMessage, setUpgradeModalMessage] = useState<string>('');
 
+  // First Activation Welcome Modal
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
+
   // News State & Read Tracking
   const [newsList, setNewsList] = useState<any[]>([]);
   const [readNewsIds, setReadNewsIds] = useState<number[]>([]);
@@ -238,6 +241,15 @@ export default function App() {
       });
     }
 
+    if (window.api && window.api.onPasscodeRevoked) {
+      window.api.onPasscodeRevoked(() => {
+        setActivation(null);
+        setIsFreeMode(true);
+        setScreen('ACTIVATION');
+        alert("Access Revoked: Your passcode has been suspended or revoked on the central server. Please re-activate with a valid passcode.");
+      });
+    }
+
     return () => {
       stopTimer();
     };
@@ -261,6 +273,9 @@ export default function App() {
           setScreen('EXAM');
           startTimer(timeLeft);
         } else if (key === 'P' || e.key === 'Escape') {
+          if (window.api && window.api.setExamActive) {
+            window.api.setExamActive(false);
+          }
           setScreen('DASHBOARD');
         }
         return;
@@ -335,7 +350,7 @@ export default function App() {
 
   const handleOpenLeaderboard = async () => {
     if (!syncStatus.isOnline) {
-      alert("⚠️ Leaderboard is an online feature. Please make sure 'Simulate Network' is checked and your device is online.");
+      alert("Leaderboard is an online feature. Please connect to the internet.");
       return;
     }
     setShowLeaderboard(true);
@@ -467,6 +482,13 @@ export default function App() {
         });
         setIsFreeMode(false);
         setScreen('DASHBOARD');
+
+        // Check if first activation welcome screen has been displayed
+        const welcomeKey = `welcome_shown_${actPasscode.trim()}`;
+        if (!localStorage.getItem(welcomeKey)) {
+          setShowWelcomeModal(true);
+          localStorage.setItem(welcomeKey, 'true');
+        }
       } else {
         setActError(res.error || 'Failed to authenticate subscription.');
       }
@@ -544,6 +566,9 @@ export default function App() {
       setExamSubjects(subObj ? [subObj] : []);
       const sessId = `session-${Date.now()}`;
       setExamSessionId(sessId);
+      if (window.api && window.api.setExamActive) {
+        await window.api.setExamActive(true);
+      }
       setExamQuestions(qList);
       setCurrentIdx(0);
 
@@ -612,6 +637,9 @@ export default function App() {
 
       const sessId = `session-${Date.now()}`;
       setExamSessionId(sessId);
+      if (window.api && window.api.setExamActive) {
+        await window.api.setExamActive(true);
+      }
       setExamQuestions(res.questions);
       setCurrentIdx(0);
 
@@ -667,6 +695,9 @@ export default function App() {
       const sessId = `session-quiz-${Date.now()}`;
       setExamSessionId(sessId);
       setExamQuestions(qList);
+      if (window.api && window.api.setExamActive) {
+        await window.api.setExamActive(true);
+      }
       setCurrentIdx(0);
 
       // 40 seconds per question (e.g. 10 * 40 = 400s, 12 * 40 = 480s)
@@ -785,6 +816,9 @@ export default function App() {
         details: JSON.stringify(detailsList)
       });
 
+      if (window.api && window.api.setExamActive) {
+        await window.api.setExamActive(false);
+      }
       setActiveResult(resultRow);
       setScreen('RESULT');
     } catch (e) {
@@ -1080,15 +1114,6 @@ export default function App() {
               </span>
             </button>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.textMuted, cursor: 'pointer', opacity: 0.8 }}>
-              <input
-                type="checkbox"
-                checked={syncStatus.isOnline}
-                onChange={(e) => toggleSimulateOnline(e.target.checked)}
-                style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: colors.primary }}
-              />
-              Simulate Network
-            </label>
           </div>
         </header>
 
@@ -1626,7 +1651,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Pie Chart & Performance Metrics */}
+                      {/* Charts: Donut, Line & Bar Charts */}
                       {(() => {
                         let totalCorrect = 0;
                         let totalQuestions = 0;
@@ -1637,61 +1662,96 @@ export default function App() {
                         });
 
                         const totalIncorrect = Math.max(0, totalQuestions - totalCorrect);
-                        const correctPct = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 75; // Default demo split if empty
+                        const correctPct = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 75;
 
-                        // SVG Pie Chart calculations (Radius: 80, Center: 100, 100)
-                        const r = 80;
+                        // Donut Chart calculations
+                        const rad = 80;
                         const cx = 100;
                         const cy = 100;
                         const angle = (correctPct / 100) * 360;
                         const radians = (angle - 90) * (Math.PI / 180);
-                        const x = cx + r * Math.cos(radians);
-                        const y = cy + r * Math.sin(radians);
+                        const x = cx + rad * Math.cos(radians);
+                        const y = cy + rad * Math.sin(radians);
                         const largeArcFlag = angle > 180 ? 1 : 0;
 
-                        // Slice path for Correct
                         const pathData = totalQuestions === 0 || correctPct === 100
-                          ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`
-                          : `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 ${largeArcFlag} 1 ${x} ${y} Z`;
+                          ? `M ${cx} ${cy - rad} A ${rad} ${rad} 0 1 1 ${cx - 0.01} ${cy - rad} Z`
+                          : `M ${cx} ${cy} L ${cx} ${cy - rad} A ${rad} ${rad} 0 ${largeArcFlag} 1 ${x} ${y} Z`;
+
+                        // Line Chart Data (Performance over time - up to last 10 attempts)
+                        const recentHistory = [...historyResults].reverse().slice(-10);
+                        const linePoints = recentHistory.map((h, idx) => {
+                          const px = 20 + (idx / Math.max(1, recentHistory.length - 1)) * 260;
+                          const py = 120 - (h.percentage / 100) * 100;
+                          return `${px},${py}`;
+                        }).join(' ');
 
                         return (
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, marginBottom: '24px', maxWidth: '100%', overflowX: 'hidden' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="200" height="200" viewBox="0 0 200 200">
-                                {/* Base circle for incorrect/unanswered */}
-                                <circle cx={cx} cy={cy} r={r} fill={colors.danger} />
-                                {/* Overlay sector for correct */}
-                                <path d={pathData} fill={colors.success} />
-                                {/* Center donut circle */}
-                                <circle cx={cx} cy={cy} r="45" fill={colors.surface} />
-                                <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle" fill={colors.text} fontSize="18" fontWeight="800">
-                                  {totalQuestions > 0 ? `${correctPct.toFixed(0)}%` : 'Accuracy'}
-                                </text>
-                                <text x={cx} y={cy + 16} textAnchor="middle" dominantBaseline="middle" fill={colors.textMuted} fontSize="10" fontWeight="700">
-                                  Correct Rate
-                                </text>
-                              </svg>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                              {/* 1. Accuracy Donut Chart */}
+                              <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <h4 style={{ fontSize: '14px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>Pass/Fail &amp; Accuracy Split</h4>
+                                <svg width="200" height="200" viewBox="0 0 200 200">
+                                  <circle cx={cx} cy={cy} r={rad} fill={colors.danger} />
+                                  <path d={pathData} fill={colors.success} />
+                                  <circle cx={cx} cy={cy} r="45" fill={colors.surface} />
+                                  <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle" fill={colors.text} fontSize="18" fontWeight="800">
+                                    {totalQuestions > 0 ? `${correctPct.toFixed(0)}%` : '75%'}
+                                  </text>
+                                  <text x={cx} y={cy + 16} textAnchor="middle" dominantBaseline="middle" fill={colors.textMuted} fontSize="10" fontWeight="700">
+                                    Accuracy
+                                  </text>
+                                </svg>
+                                <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '12px', fontWeight: 700 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.success }}></span>
+                                    Correct ({totalQuestions > 0 ? totalCorrect : '75%'})
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.danger }}></span>
+                                    Incorrect ({totalQuestions > 0 ? totalIncorrect : '25%'})
+                                  </div>
+                                </div>
+                              </div>
 
-                              <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '12px', fontWeight: 700, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.success }}></span>
-                                  Correct ({totalQuestions > 0 ? totalCorrect : '75%'})
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors.danger }}></span>
-                                  Incorrect ({totalQuestions > 0 ? totalIncorrect : '25%'})
-                                </div>
+                              {/* 2. Performance Over Time Line Chart */}
+                              <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                <h4 style={{ fontSize: '14px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>Performance Over Time</h4>
+                                {recentHistory.length === 0 ? (
+                                  <p style={{ color: colors.textMuted, fontSize: '12px', margin: 'auto' }}>Take exams to plot performance trajectory.</p>
+                                ) : (
+                                  <svg width="100%" height="160" viewBox="0 0 300 140" style={{ overflow: 'visible' }}>
+                                    <line x1="20" y1="20" x2="280" y2="20" stroke={colors.border} strokeDasharray="3 3" />
+                                    <line x1="20" y1="70" x2="280" y2="70" stroke={colors.border} strokeDasharray="3 3" />
+                                    <line x1="20" y1="120" x2="280" y2="120" stroke={colors.border} />
+                                    {recentHistory.length > 1 && (
+                                      <polyline fill="none" stroke={colors.primary} strokeWidth="3" points={linePoints} />
+                                    )}
+                                    {recentHistory.map((h, idx) => {
+                                      const px = 20 + (idx / Math.max(1, recentHistory.length - 1)) * 260;
+                                      const py = 120 - (h.percentage / 100) * 100;
+                                      return (
+                                        <g key={idx}>
+                                          <circle cx={px} cy={py} r="5" fill={h.percentage >= 50 ? colors.success : colors.danger} />
+                                          <text x={px} y={py - 10} fontSize="10" fontWeight="700" fill={colors.text} textAnchor="middle">{h.percentage.toFixed(0)}%</text>
+                                        </g>
+                                      );
+                                    })}
+                                  </svg>
+                                )}
                               </div>
                             </div>
 
-                            <div style={{ minWidth: 0 }}>
+                            {/* Attempt History List */}
+                            <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}` }}>
                               <h4 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '12px', color: colors.text }}>
-                                Exam Attempt History &amp; Right / Wrong Breakdown
+                                Exam Attempt History &amp; Breakdown
                               </h4>
-                              <div style={{ maxHeight: '260px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {historyResults.length === 0 ? (
                                   <p style={{ color: colors.textMuted, fontSize: '13px' }}>
-                                    No completed exam records found. Take an exam or practice test to view detailed question history!
+                                    No completed exam records found. Take an exam or practice test to view detailed history!
                                   </p>
                                 ) : (
                                   historyResults.map((r, i) => (
@@ -1946,7 +2006,12 @@ export default function App() {
         START EXAM
       </button>
       <button
-        onClick={() => setScreen('DASHBOARD')}
+        onClick={() => {
+          if (window.api && window.api.setExamActive) {
+            window.api.setExamActive(false);
+          }
+          setScreen('DASHBOARD');
+        }}
         style={{ backgroundColor: 'transparent', color: '#e8623f', padding: '15px 42px', fontSize: '16px', fontWeight: 700, border: '2px solid #e8623f', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Georgia, serif', letterSpacing: '0.3px' }}
       >
         CANCEL
@@ -2296,6 +2361,42 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* First Activation Welcome Modal */}
+      {showWelcomeModal && (
+        <div style={styles.modalBackdrop}>
+          <div style={{ ...styles.modal, maxWidth: '520px', padding: '32px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: colors.primaryLight, color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <Trophy size={28} />
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, margin: '0 0 8px' }}>
+                Welcome to Fillop CBT Guru!
+              </h2>
+              <p style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, margin: 0 }}>
+                Your subscription has been successfully activated. Prepare fully offline for your JAMB, WAEC, or NECO examinations.
+              </p>
+            </div>
+
+            <div style={{ backgroundColor: colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '24px', fontSize: '13px', color: colors.text, lineHeight: 1.6 }}>
+              <strong style={{ display: 'block', marginBottom: '8px', color: colors.primary }}>Quick Instructions:</strong>
+              <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <li>Select Practice Mode to study topic-by-topic with detailed explanations.</li>
+                <li>Take timed Mock Exams to simulate real exam hall conditions.</li>
+                <li>Check your Performance Analytics to track score progress over time.</li>
+                <li>All question banks and past papers function 100% offline.</li>
+              </ul>
+            </div>
+
+            <button
+              style={{ ...styles.btn, ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '12px', fontWeight: 700 }}
+              onClick={() => setShowWelcomeModal(false)}
+            >
+              Get Started
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ================= UPGRADE / SUBSCRIBE MODAL ================= */}
       {showUpgradeModal && (

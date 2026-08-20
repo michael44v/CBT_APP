@@ -1,0 +1,78 @@
+================================================================================
+CBT APPLICATION AUDIT LOG & SCALABILITY ANALYSIS
+================================================================================
+Date: August 20, 2026
+Target Capacity: 500+ Active Concurrent Daily Users
+Scope: Database Architecture, Incremental Sync, Security, Analytics & Admin Panel
+
+--------------------------------------------------------------------------------
+1. SCALING & DATABASE ISSUES IDENTIFIED AND RESOLVED
+--------------------------------------------------------------------------------
+[Issue 1.1] Full Database Question Download on Sync (N+1 Table Dump)
+- Root Cause: `pull.php` executed full table dumps (`SELECT * FROM questions`, `SELECT * FROM subjects`, `SELECT * FROM topics`) regardless of previous client sync state.
+- Impact: With 3,000+ questions downloaded every cycle per user, 500 daily active users generated >1.5M database row fetches and tens of gigabytes of unnecessary bandwidth daily.
+- Fix:
+  1. Introduced global monotonically increasing `sync_sequence` and `sync_version` tracking across `questions`, `subjects`, and `topics`.
+  2. Implemented `deleted_questions` tombstone log to record deleted question IDs along with revision numbers.
+  3. Refactored `pull.php` to accept `since=<last_version>` parameter, returning ONLY modified/new records and deleted question IDs since that version.
+  4. Wrapped local SQLite application in single atomic transactions per delta batch.
+
+[Issue 1.2] Missing Compound & Revision Indexes
+- Root Cause: Unindexed queries filtering by `sync_version` and duplicate checks on `(subject_id, question_text)`.
+- Impact: Linear full table scans on MySQL during incremental sync pulls and bulk CSV imports.
+- Fix:
+  1. Added `idx_questions_sync_version` ON `questions (sync_version)`.
+  2. Added `idx_subjects_sync_version` ON `subjects (sync_version)`.
+  3. Added `idx_topics_sync_version` ON `topics (sync_version)`.
+  4. Added `idx_questions_dup_check` ON `questions (subject_id, question_text(255))`.
+  5. Added `idx_deleted_questions_sync` ON `deleted_questions (sync_version)`.
+
+[Issue 1.3] Uncontrolled Polling Timers & Background Sync During Exams
+- Root Cause: `syncService.cjs` maintained a continuous 45-second background interval loop that triggered background downloads even while candidates were actively sitting for an exam.
+- Impact: Unnecessary network activity, potential local SQLite write locks, and UI frame stutter during timed test sessions.
+- Fix:
+  1. Increased background polling interval to a configurable 30 minutes.
+  2. Added an active exam lock (`examStarted === true`) that suspends background sync and disables manual sync triggers until candidate submits or completes the test session.
+  3. Enforced single-flight concurrency lock (`isSyncing`) preventing overlapping sync requests.
+
+[Issue 1.4] Unbounded Admin N+1 Subject & Topic Lookups in CSV Import
+- Root Cause: Admin CSV bulk import executed individual prepared statements for subject name lookups and topic name lookups for every single CSV row inside a PHP loop.
+- Impact: 500 CSV rows generated 1,000–1,500 individual MySQL query roundtrips.
+- Fix:
+  1. Pre-fetched subject and topic lookups into memory arrays (`$subjectsMap`, `$topicsMap`) prior to processing CSV rows.
+  2. Batched database inserts within a single database transaction.
+
+--------------------------------------------------------------------------------
+2. SECURITY & AUTHENTICATION ISSUES IDENTIFIED AND RESOLVED
+--------------------------------------------------------------------------------
+[Issue 2.1] Production Developer Tools & Reload Shortcuts
+- Root Cause: Electron main process allowed developer shortcuts (F12, Ctrl+Shift+I) and webContents context menu access in production packaged builds.
+- Impact: Candidates could inspect local memory, view hidden answer options in DOM, or execute arbitrary JS code in renderer context.
+- Fix:
+  1. Hardened Electron main process (`main.cjs`) to strictly disable DevTools (`devTools: false`) in non-development modes.
+  2. Intercepted reload and DevTools keyboard shortcuts via `before-input-event` listener in `main.cjs`.
+  3. Enforced `contextIsolation: true` and `nodeIntegration: false`.
+
+[Issue 2.2] Passcode Revocation Delay / Lack of Server Authority
+- Root Cause: App relied heavily on local SQLite `activation` state without validating passcode status on periodic sync or server interactions.
+- Impact: Suspended or revoked passcodes continued to function offline or during app use indefinitely.
+- Fix:
+  1. Integrated server-authoritative passcode status verification in `pull.php` response payloads (`passcode_info.status`).
+  2. If `status !== 'active'` is returned, Electron immediately purges local `activation` records, emits an access revoked notification, and redirects candidate back to activation screen.
+
+[Issue 2.3] Unscoped Analytics Data Exposure
+- Root Cause: Front-end analytics queries did not strictly isolate candidate test results by authenticated identity.
+- Impact: Potential cross-user candidate result leakage.
+- Fix:
+  1. Server-side result insertions and local IPC result queries (`db:get-results`) explicitly filter by `user_name` derived from authenticated passcode session.
+  2. Authorization enforced strictly on backend/main process, ignoring untrusted client-supplied user IDs.
+
+--------------------------------------------------------------------------------
+3. UI & USER EXPERIENCE IMPROVEMENTS
+--------------------------------------------------------------------------------
+- Emojis Removed: Replaced all emojis across Desktop app and Admin panel with crisp `lucide-react` SVG icons.
+- Production UI Clean-up: Completely removed developer Network Simulation toggle from production top navigation.
+- Admin Redesign: Standardized light-mode styling, card borders, typography, and button styles between Web Admin and Desktop App.
+- Responsive Analytics: Built responsive SVG line chart (performance over time), bar chart (subject performance), and donut chart (pass/fail distribution).
+- One-Time Welcome Instruction: Implemented first-activation welcome screen that displays once upon initial passcode activation and persists across launches.
+================================================================================

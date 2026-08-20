@@ -118,6 +118,8 @@ export interface DesktopAPI {
   startSync: () => Promise<boolean>;
   setOnlineStatus: (isOnline: boolean) => Promise<{ isOnline: boolean }>;
   onSyncStatusChanged: (callback: () => void) => void;
+  onPasscodeRevoked?: (callback: () => void) => void;
+  setExamActive?: (isActive: boolean) => Promise<{ success: boolean; examActive: boolean }>;
 
   // Temporary/Backwards compatibility support
   getExams?: () => Promise<any[]>;
