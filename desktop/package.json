@@ -16,19 +16,19 @@
     "dist:win": "npm run build:react && electron-builder --win"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.7.2",
-    "@types/node": "^26.2.0",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.0.5",
-    "concurrently": "^9.2.4",
-    "cross-env": "^10.1.0",
-    "electron": "28.3.3",
-    "electron-builder": "^26.15.3",
-    "electronmon": "^2.0.4",
-    "typescript": "^7.0.2",
-    "vite": "^8.2.0",
-    "wait-on": "^9.1.0"
+     "@electron/rebuild": "^4.2.0",
+  "@types/node": "^26.2.0",
+  "@types/react": "^19.2.18",
+  "@types/react-dom": "^19.2.4",
+  "@vitejs/plugin-react": "^6.0.5",
+  "concurrently": "^9.2.4",
+  "cross-env": "^10.1.0",
+  "electron": "43.4.0",
+  "electron-builder": "^26.15.3",
+  "electronmon": "^2.0.4",
+  "typescript": "^7.0.2",
+  "vite": "^8.2.0",
+  "wait-on": "^9.1.0"
   },
   "build": {
     "appId": "com.cbt.app",
@@ -51,13 +51,13 @@
       "category": "public.app-category.education",
       "icon": "../build/icon.icns"
     },
-    "win": {
-      "target": "portable",
-      "icon": "../build/icon.ico"
-    }
+ "win": {
+  "target": "portable",
+  "icon": "/build/icon.ico"
+}
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^13.0.3",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
