@@ -50,5 +50,10 @@ contextBridge.exposeInMainWorld("api", {
   onSyncStatusChanged: (callback) => {
     ipcRenderer.removeAllListeners("sync-status-changed");
     ipcRenderer.on("sync-status-changed", () => callback());
-  }
+  },
+  onPasscodeRevoked: (callback) => {
+    ipcRenderer.removeAllListeners("auth:revoked");
+    ipcRenderer.on("auth:revoked", () => callback());
+  },
+  setExamActive: (isActive) => ipcRenderer.invoke("exam:set-active", isActive)
 });
