@@ -47,7 +47,7 @@ function createMainWindow() {
       nodeIntegration: false
     }
   });
-  
+
     // Block reload shortcuts (Ctrl+R / Cmd+R / F5 / Ctrl+Shift+R)
   mainWindow.webContents.on("before-input-event", (event, input) => {
     const key = input.key.toLowerCase();
@@ -180,7 +180,7 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
 
   try {
     const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-    const response = await fetch("http://localhost:80/fillop/api/v1/activate.php", {
+    const response = await fetch("https://cbt.filloptech.com/api/v1/activate.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, passcode, device_uuid, hardware_hash })
@@ -241,7 +241,7 @@ ipcMain.handle("db:get-subjects", async (event, examType) => {
       if (!actRow) {
         // Free version: Only Mathematics and English are accessible
         const sNameLower = s.name.toLowerCase();
-        if (sNameLower !== 'mathematics' && sNameLower !== 'english') {
+        if (sNameLower !== 'mathematics' && sNameLower !== 'english language') {
           is_locked = true;
         }
       } else {

@@ -431,7 +431,7 @@ export default function App() {
   };
 
   const triggerBuyPasscodeOnline = () => {
-    window.open("http://localhost:80/fillop/api/v1/sync/subscribe.php", "_blank");
+    window.open("https://cbt.filloptech.com/api/v1/sync/subscribe.php", "_blank");
   };
 
   const handleActivateSubmit = async (e: React.FormEvent) => {

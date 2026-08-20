@@ -59,7 +59,7 @@ async function downloadQuestions() {
 
     // Fetch active local activation info
     const actRow = get('SELECT * FROM activation WHERE is_active = 1 LIMIT 1');
-    let url = 'http://localhost:80/fillop/api/v1/sync/pull.php';
+    let url = 'https://cbt.filloptech.com/api/v1/sync/pull.php';
     if (actRow && actRow.email && actRow.passcode) {
       url += `?email=${encodeURIComponent(actRow.email)}&passcode=${encodeURIComponent(actRow.passcode)}`;
     }
@@ -258,7 +258,7 @@ async function uploadResults() {
       import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
     const response = await fetch(
-      'http://localhost:80/fillop/api/v1/sync/push.php',
+      'https://cbt.filloptech.com/api/v1/sync/push.php',
       {
         method: 'POST',
         headers: {
