@@ -139,9 +139,9 @@ export default function App() {
   // Mini Ads State
   const [activeAdIdx, setActiveAdIdx] = useState<number>(0);
   const imageAdsList = [
-    { image: "/exam_hall_1.jpg", alt: "CBT Examination Hall Center" },
-    { image: "/computer_center_1.jpg", alt: "Modern Computer Testing Center" },
-    { image: "/exam_hall_2.jpg", alt: "Standard Exam Testing Center" }
+    { image: "./exam_hall_1.jpg", alt: "CBT Examination Hall Center" },
+    { image: "./computer_center_1.jpg", alt: "Modern Computer Testing Center" },
+    { image: "./exam_hall_2.jpg", alt: "Standard Exam Testing Center" }
   ];
 
   useEffect(() => {
@@ -822,8 +822,22 @@ export default function App() {
       setActiveResult(resultRow);
       setScreen('RESULT');
     } catch (e) {
-      console.error('Submission failed', e);
-      alert('Saved locally. Submission completed.');
+      console.error('Submission error:', e);
+      if (window.api && window.api.setExamActive) {
+        await window.api.setExamActive(false).catch(() => {});
+      }
+      const fallbackResult = {
+        id: Date.now(),
+        exam_type: examType,
+        user_name: activation?.email || 'Candidate (Free)',
+        score: correctCount,
+        total_questions: examQuestions.length,
+        percentage,
+        details: JSON.stringify(detailsList),
+        submitted_at: new Date().toISOString()
+      };
+      setActiveResult(fallbackResult);
+      setScreen('RESULT');
     }
   };
 
@@ -955,7 +969,7 @@ export default function App() {
       {screen !== 'ACTIVATION' && (
         <aside style={styles.sidebar}>
           <div style={styles.sidebarBrand}>
-            <img src="/icon.png" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid white' }} alt="App Icon" />
+            <img src="./icon.png" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid white' }} alt="App Icon" />
             <span style={styles.sidebarBrandText}>Fillop CBT</span>
           </div>
 
@@ -1123,7 +1137,7 @@ export default function App() {
             <div style={{ maxWidth: '460px', margin: '60px auto' }}>
               <div style={styles.card}>
                 <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-                  <img src="/icon.png" style={{ width: '80px', height: '80px', borderRadius: '50%', margin: '0 auto 16px', display: 'block', border: `3px solid ${colors.primary}` }} alt="App Icon" />
+                  <img src="./icon.png" style={{ width: '80px', height: '80px', borderRadius: '50%', margin: '0 auto 16px', display: 'block', border: `3px solid ${colors.primary}` }} alt="App Icon" />
                   <h1 style={{ fontSize: '24px', fontWeight: 800, color: colors.text, marginBottom: '8px' }}>Candidate Sign In</h1>
                   <p style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: 1.5 }}>
                     Enter your email and passcode to activate full access, or proceed directly to the Free Version.
@@ -1307,15 +1321,15 @@ export default function App() {
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <img src="/jamb.webp" alt="JAMB Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                      <img src="./jamb.webp" alt="JAMB Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
                       <span style={{ fontWeight: 700, fontSize: '13px', color: colors.text }}>JAMB UTME</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <img src="/waec.webp" alt="WAEC Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                      <img src="./waec.webp" alt="WAEC Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
                       <span style={{ fontWeight: 700, fontSize: '13px', color: colors.text }}>WAEC SSCE</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <img src="/NECO.jpg" alt="NECO Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                      <img src="./NECO.jpg" alt="NECO Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
                       <span style={{ fontWeight: 700, fontSize: '13px', color: colors.text }}>NECO SSCE</span>
                     </div>
                   </div>
@@ -1350,7 +1364,7 @@ export default function App() {
                     <span style={{ ...styles.label, margin: 0 }}>Exam Category</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <img
-                        src={examType === 'JAMB' ? '/jamb.webp' : examType === 'WAEC' ? '/waec.webp' : '/NECO.jpg'}
+                        src={examType === 'JAMB' ? './jamb.webp' : examType === 'WAEC' ? './waec.webp' : './NECO.jpg'}
                         alt={`${examType} Logo`}
                         style={{ width: '28px', height: '28px', objectFit: 'contain' }}
                       />

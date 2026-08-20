@@ -74,9 +74,6 @@ async function downloadQuestions() {
   );
 
   try {
-    const fetch = (...args) =>
-      import('node-fetch').then(({ default: fetch }) => fetch(...args));
-
     // Fetch local sync_state
     const syncState = get('SELECT last_version FROM sync_state WHERE id = 1');
     const lastVersion = syncState ? (syncState.last_version || 0) : 0;
@@ -291,9 +288,6 @@ async function uploadResults() {
       details: r.details,
       submitted_at: r.submitted_at
     }));
-
-    const fetch = (...args) =>
-      import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
     const response = await fetch(
       'https://cbt.filloptech.com/api/v1/sync/push.php',
