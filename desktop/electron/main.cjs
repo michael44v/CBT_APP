@@ -192,7 +192,6 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
   }
 
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
     const response = await fetch("https://cbt.filloptech.com/api/v1/activate.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -456,7 +455,11 @@ ipcMain.handle("db:submit-result", async (event, { examType, examSessionId, user
     VALUES (?, ?, ?, ?, ?, ?, ?, 0)
   `, [examType, userName, score, totalQuestions, percentage, details, submittedAt]);
 
-  dbService.run("DELETE FROM answers_session WHERE session_id = ?", [examSessionId]);
+  try {
+    dbService.run("DELETE FROM answers_session WHERE session_id = ?", [examSessionId]);
+  } catch (err) {
+    console.warn("Could not delete answers_session:", err);
+  }
 
   if (syncService.checkInternet()) {
     syncService.uploadResults().catch(err => console.error("Immediate result sync failed:", err));

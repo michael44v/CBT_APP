@@ -120,6 +120,13 @@ function createTables() {
         FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS answers_session (
+        session_id TEXT NOT NULL,
+        question_id INTEGER NOT NULL,
+        selected_answer TEXT NOT NULL,
+        PRIMARY KEY (session_id, question_id)
+      );
+
       CREATE TABLE IF NOT EXISTS results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         exam_type TEXT NOT NULL,
