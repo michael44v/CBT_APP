@@ -30,32 +30,37 @@
   "vite": "^8.2.0",
   "wait-on": "^9.1.0"
   },
-  "build": {
-    "appId": "com.cbt.app",
-    "npmRebuild": true,
-    "productName": "CBT Practice App",
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "node_modules/**/*"
-    ],
-    "asarUnpack": [
-      "**/*.node"
-    ],
-    "directories": {
-      "buildResources": "build",
-      "output": "release"
-    },
-    "mac": {
-      "target": "dmg",
-      "category": "public.app-category.education",
-      "icon": "../build/icon.icns"
-    },
- "win": {
-  "target": "portable",
-  "icon": "/build/icon.ico"
-}
+ "build": {
+  "appId": "com.cbt.app",
+  "npmRebuild": true,
+  "productName": "CBT Practice App",
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "node_modules/**/*"
+  ],
+  "asarUnpack": [
+    "**/*.node"
+  ],
+  "directories": {
+    "buildResources": "build",
+    "output": "release"
   },
+  "mac": {
+    "target": "dmg",
+    "category": "public.app-category.education",
+    "icon": "build/icon.icns"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64", "ia32"]
+      }
+    ],
+    "icon": "build/icon.ico"
+  }
+},
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "lucide-react": "^1.31.0",
