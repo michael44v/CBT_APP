@@ -5,6 +5,9 @@ contextBridge.exposeInMainWorld("api", {
   getActivationStatus: () => ipcRenderer.invoke("auth:get-activation"),
   activateApp: (email, passcode) => ipcRenderer.invoke("auth:activate", { email, passcode }),
   logoutApp: () => ipcRenderer.invoke("auth:logout"),
+  getSavedLogins: () => ipcRenderer.invoke("auth:get-saved-logins"),
+  switchSavedLogin: (passcode) => ipcRenderer.invoke("auth:switch-login", passcode),
+  deleteSavedLogin: (passcode) => ipcRenderer.invoke("auth:delete-saved-login", passcode),
 
   // Subjects / Topics
   getSubjects: (examType) => ipcRenderer.invoke("db:get-subjects", examType),

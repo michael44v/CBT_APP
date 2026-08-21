@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Subject, Topic, Question, Result, SyncStatus } from './global';
-import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy } from 'lucide-react';
+import { Subject, Topic, Question, Result, SyncStatus, SavedLogin } from './global';
+import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2 } from 'lucide-react';
 
-type Screen = 'ACTIVATION' | 'DASHBOARD' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
+type Screen = 'ACTIVATION' | 'DASHBOARD' | 'PROFILE' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
 interface ActiveActivation {
   email: string;
@@ -19,6 +19,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('ACTIVATION');
   const [activation, setActivation] = useState<ActiveActivation | null>(null);
   const [isFreeMode, setIsFreeMode] = useState<boolean>(false);
+  const [savedLoginsList, setSavedLoginsList] = useState<SavedLogin[]>([]);
 
   // Upgrade / Buy Passcode Modal
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
@@ -193,6 +194,7 @@ export default function App() {
   // Exam Screen execution state
   const [examSessionId, setExamSessionId] = useState<string>('');
   const [isPracticeMode, setIsPracticeMode] = useState<boolean>(false);
+  const [isQuizMode, setIsQuizMode] = useState<boolean>(false);
   const [examQuestions, setExamQuestions] = useState<Question[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [answers, setAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
@@ -226,11 +228,23 @@ export default function App() {
     }
   };
 
+  const loadSavedLogins = async () => {
+    if (window.api && window.api.getSavedLogins) {
+      try {
+        const list = await window.api.getSavedLogins();
+        setSavedLoginsList(list || []);
+      } catch (e) {
+        console.error('Failed to load saved logins:', e);
+      }
+    }
+  };
+
   useEffect(() => {
     checkActivation();
     loadSyncLogs();
     loadNewsList();
     loadReadNewsIds();
+    loadSavedLogins();
 
     if (window.api && window.api.onSyncStatusChanged) {
       window.api.onSyncStatusChanged(() => {
@@ -331,13 +345,18 @@ export default function App() {
   }, [screen, examQuestions, currentIdx, answers, showSubmitConfirm, timeLeft]);
 
   useEffect(() => {
-    if (screen === 'DASHBOARD') {
+    if (screen === 'DASHBOARD' || screen === 'PROFILE') {
       loadSyllabusData();
       loadResultsHistory();
       loadNewsList();
       loadReadNewsIds();
+      loadSavedLogins();
     }
   }, [screen, examType, activation]);
+
+  useEffect(() => {
+    setRevealExplanation(false);
+  }, [currentIdx]);
 
   useEffect(() => {
     if (practiceSubject) {
@@ -546,6 +565,7 @@ export default function App() {
     try {
       setFallbackNotice('');
       setIsPracticeMode(true);
+      setIsQuizMode(false);
       setRevealExplanation(false);
       setAnswers({});
       setFlagged({});
@@ -563,7 +583,7 @@ export default function App() {
         return;
       }
 
-      setExamSubjects(subObj ? [subObj] : []);
+      setExamSubjects(subObj ? [{ ...subObj, name: subObj.name }] : []);
       const sessId = `session-${Date.now()}`;
       setExamSessionId(sessId);
       if (window.api && window.api.setExamActive) {
@@ -613,6 +633,7 @@ export default function App() {
     try {
       setFallbackNotice('');
       setIsPracticeMode(false);
+      setIsQuizMode(false);
       setRevealExplanation(false);
       setAnswers({});
       setFlagged({});
@@ -652,15 +673,10 @@ export default function App() {
   };
 
   const startDailyQuizSession = async () => {
-    if (isFreeMode) {
-      setUpgradeModalMessage("Daily Quiz mode is only available for activated accounts. Please activate or subscribe to access daily speed quizzes.");
-      setShowUpgradeModal(true);
-      return;
-    }
-
     try {
       setFallbackNotice('');
       setIsPracticeMode(false);
+      setIsQuizMode(true);
       setRevealExplanation(false);
       setAnswers({});
       setFlagged({});
@@ -672,12 +688,18 @@ export default function App() {
       const subs = await window.api.getSubjects(targetCategory);
       const unlockedSubs = Array.isArray(subs) ? subs.filter((s: any) => !s.is_locked) : [];
 
-      if (unlockedSubs.length === 0) {
+      let randomSub = null;
+      if (unlockedSubs.length > 0) {
+        randomSub = unlockedSubs[Math.floor(Math.random() * unlockedSubs.length)];
+      } else if (subs && subs.length > 0) {
+        randomSub = subs[Math.floor(Math.random() * subs.length)];
+      }
+
+      if (!randomSub) {
         alert('No available subjects found for Daily Quiz.');
         return;
       }
 
-      const randomSub = unlockedSubs[Math.floor(Math.random() * unlockedSubs.length)];
       const count = Math.floor(Math.random() * 6) + 10; // 10 to 15 questions
 
       const qList = await window.api.generatePracticeQuestions({
@@ -691,17 +713,22 @@ export default function App() {
         return;
       }
 
+      const questionsWithSubjectName = qList.map(q => ({
+        ...q,
+        subject_name: randomSub.name
+      }));
+
       setExamSubjects([randomSub]);
       const sessId = `session-quiz-${Date.now()}`;
       setExamSessionId(sessId);
-      setExamQuestions(qList);
+      setExamQuestions(questionsWithSubjectName);
       if (window.api && window.api.setExamActive) {
         await window.api.setExamActive(true);
       }
       setCurrentIdx(0);
 
-      // 40 seconds per question (e.g. 10 * 40 = 400s, 12 * 40 = 480s)
-      const totalSecs = qList.length * 40;
+      // 30 seconds per question (e.g. 10 * 30 = 300s, 12 * 30 = 360s)
+      const totalSecs = questionsWithSubjectName.length * 30;
       setTimeLeft(totalSecs);
       setScreen('INSTRUCTIONS');
     } catch (e) {
@@ -755,9 +782,19 @@ export default function App() {
     const q = examQuestions[currentIdx];
     if (!q) return;
 
+    if (isQuizMode && answers[q.id]) {
+      return; // Choice is locked in Quiz Mode
+    }
+
     setAnswers(prev => ({ ...prev, [q.id]: ans }));
     if (window.api && window.api.saveAnswer) {
       await window.api.saveAnswer(examType, examSessionId, q.id, ans);
+    }
+
+    if (isQuizMode && currentIdx < examQuestions.length - 1) {
+      setTimeout(() => {
+        setCurrentIdx(prev => prev + 1);
+      }, 250);
     }
   };
 
@@ -938,19 +975,24 @@ export default function App() {
 
   const sidebarNavItems = [
     { id: 'DASHBOARD', label: 'Dashboard', icon: 'D' },
+    { id: 'PROFILE', label: 'Profile', icon: 'P' },
     { id: 'ANALYTICS', label: 'Analytics', icon: 'A' },
   ];
 
   const isSidebarActive = (id: string) => {
     if (id === 'DASHBOARD' && screen === 'DASHBOARD') return true;
+    if (id === 'PROFILE' && screen === 'PROFILE') return true;
     if (id === 'ANALYTICS' && screen === 'DASHBOARD' && dashboardMode === 'ANALYTICS') return true;
     return false;
   };
 
   const handleSidebarClick = (id: string) => {
     if (id === 'DASHBOARD') {
-      setDashboardMode('PRACTICE');
+      setDashboardMode('DAILY_QUIZ');
       setScreen('DASHBOARD');
+    }
+    if (id === 'PROFILE') {
+      setScreen('PROFILE');
     }
     if (id === 'ANALYTICS') {
       if (isFreeMode) {
@@ -960,6 +1002,26 @@ export default function App() {
       }
       setDashboardMode('ANALYTICS');
       setScreen('DASHBOARD');
+    }
+  };
+
+  const handleSwitchSavedAccount = async (passcode: string) => {
+    if (window.api && window.api.switchSavedLogin) {
+      const res = await window.api.switchSavedLogin(passcode);
+      if (res.success) {
+        await checkActivation();
+        alert("Switched account profile successfully!");
+      } else {
+        alert(res.error || "Failed to switch profile.");
+      }
+    }
+  };
+
+  const handleDeleteSavedAccount = async (passcode: string) => {
+    if (!window.confirm("Remove this saved passcode profile from device?")) return;
+    if (window.api && window.api.deleteSavedLogin) {
+      await window.api.deleteSavedLogin(passcode);
+      loadSavedLogins();
     }
   };
 
@@ -1338,11 +1400,9 @@ export default function App() {
                 {/* Mode Tabs + Content */}
                 <div style={styles.card}>
                   <div style={styles.tabs}>
-                    <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Practice Mode</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'DAILY_QUIZ' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('DAILY_QUIZ')}>Daily Quiz</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Study Mode</button>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'MOCK' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('MOCK')}>Mock Exam</button>
-                    {!isFreeMode && (
-                      <button style={{ ...styles.tab, ...(dashboardMode === 'DAILY_QUIZ' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('DAILY_QUIZ')}>Daily Quiz</button>
-                    )}
                     <button
                       style={{ ...styles.tab, ...(dashboardMode === 'ANALYTICS' ? styles.tabActive : {}) }}
                       onClick={() => {
@@ -1376,14 +1436,13 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* --- Mode: PRACTICE --- */}
+                  {/* --- Mode: PRACTICE (STUDY MODE) --- */}
                   {dashboardMode === 'PRACTICE' && (
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Practice Module Setup</h3>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Study Module Setup</h3>
                         <span style={{ fontSize: '16px', fontWeight: 900, color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                          
-                             {/* --- Mode:  PRACTICE MODE --- */}
+                             STUDY MODE
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1447,7 +1506,7 @@ export default function App() {
                         </label>
 
                         <button style={{ ...styles.btn, ...styles.btnSuccess, ...styles.btnLg, marginTop: '8px', width: 'fit-content' }} onClick={startPracticeSession} disabled={!practiceSubject}>
-                          Launch Practice Session
+                          Launch Study Session
                         </button>
                       </div>
                     </div>
@@ -1598,26 +1657,26 @@ export default function App() {
                   )}
 
                   {/* --- Mode: DAILY_QUIZ --- */}
-                  {dashboardMode === 'DAILY_QUIZ' && !isFreeMode && (
+                  {dashboardMode === 'DAILY_QUIZ' && (
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>
                            Daily Speed Quiz
                         </h3>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: colors.primary, backgroundColor: colors.primaryLight, padding: '4px 12px', borderRadius: '20px' }}>
-                          ACTIVATED EXCLUSIVE
+                          {isFreeMode ? 'FREE MODE' : 'ACTIVATED'}
                         </span>
                       </div>
 
                       <div style={{ backgroundColor: colors.bg, borderRadius: '16px', padding: '24px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
                         <p style={{ color: colors.textSecondary, fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>
-                          Challenge yourself with a daily quick-fire quiz! The system automatically selects <strong>10 to 15 random questions</strong> with 40 seconds allocated per question.
+                          Challenge yourself with a daily quick-fire quiz! The system selects <strong>10 to 15 random questions</strong> with 30 seconds allocated per question.
                         </p>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                           <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
                             <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Time Rate</div>
-                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.primary, marginTop: '4px' }}>40 Sec / Question</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.primary, marginTop: '4px' }}>30 Sec / Question</div>
                           </div>
                           <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
                             <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Question Count</div>
@@ -1625,7 +1684,7 @@ export default function App() {
                           </div>
                           <div style={{ backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
                             <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>Submission</div>
-                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginTop: '4px' }}>Auto-Submit on Time</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginTop: '4px' }}>Auto-Advance on Choice</div>
                           </div>
                         </div>
 
@@ -1933,6 +1992,70 @@ export default function App() {
             </div>
           )}
 
+          {/* ================= PROFILE SCREEN ================= */}
+          {screen === 'PROFILE' && (
+            <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={styles.card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Candidate Profile &amp; Saved Logins</h2>
+                    <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '4px 0 0' }}>Manage your active session and saved passcode profiles on this terminal.</p>
+                  </div>
+                  <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={() => setScreen('DASHBOARD')}>
+                    ← Back to Dashboard
+                  </button>
+                </div>
+
+                <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: colors.primary, marginBottom: '12px' }}>Current Active Session</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                    <div><strong>Account Email:</strong> {activation ? activation.email : 'Free Mode (Unactivated)'}</div>
+                    <div><strong>Passcode:</strong> {activation ? activation.passcode : 'None'}</div>
+                    <div><strong>Exam Category:</strong> {activation?.exam_category || 'N/A'}</div>
+                    <div><strong>Activation Date:</strong> {activation?.activated_at ? new Date(activation.activated_at).toLocaleString() : 'N/A'}</div>
+                  </div>
+                </div>
+
+                <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Saved Passcode Accounts</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {savedLoginsList.length === 0 ? (
+                    <p style={{ color: colors.textMuted, fontSize: '13px' }}>No saved accounts stored on this device. Log in with a passcode to save it here.</p>
+                  ) : (
+                    savedLoginsList.map((item) => {
+                      const isActive = activation?.passcode === item.passcode;
+                      return (
+                        <div key={item.passcode} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isActive ? colors.primaryLight : colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${isActive ? colors.primary : colors.border}` }}>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '15px', color: colors.text }}>
+                              {item.email} {isActive && <span style={{ fontSize: '11px', color: colors.success, backgroundColor: colors.successLight, padding: '2px 8px', borderRadius: '10px', marginLeft: '8px' }}>ACTIVE</span>}
+                            </div>
+                            <div style={{ fontSize: '12px', fontFamily: 'monospace', color: colors.primary, marginTop: '4px' }}>
+                              Passcode: {item.passcode}
+                            </div>
+                            <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '2px' }}>
+                              Category: {item.exam_category || 'ALL'} • Last used: {new Date(item.last_used_at).toLocaleDateString()}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {!isActive && (
+                              <button style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm }} onClick={() => handleSwitchSavedAccount(item.passcode)}>
+                                Switch to Account
+                              </button>
+                            )}
+                            <button style={{ ...styles.btn, ...styles.btnDanger, ...styles.btnSm }} onClick={() => handleDeleteSavedAccount(item.passcode)}>
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
   {/* ================= INSTRUCTIONS SCREEN ================= */}
 {screen === 'INSTRUCTIONS' && (
 <div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7', margin: '-27px', overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
@@ -1942,9 +2065,9 @@ export default function App() {
 
     {/* Top bar: subjects / calculator / timer */}
     <div style={{ height: '64px', backgroundColor: '#c3e2ed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 }}>
-      <div style={{ display: 'flex', gap: '4px' }}>
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap', overflowX: 'auto' }}>
         {examSubjects.map((sub) => (
-          <div key={sub.id} style={{ backgroundColor: '#2f6fb0', color: 'white', fontWeight: 700, fontSize: '13px', padding: '10px 18px', borderRadius: '4px', letterSpacing: '0.3px', fontFamily: 'Arial, sans-serif' }}>
+          <div key={sub.id} style={{ backgroundColor: '#2f6fb0', color: 'white', fontWeight: 700, fontSize: '11px', padding: '6px 10px', borderRadius: '4px', letterSpacing: '0.3px', fontFamily: 'Arial, sans-serif', whiteSpace: 'nowrap' }}>
             {sub.name.toUpperCase()}
           </div>
         ))}
@@ -1963,10 +2086,10 @@ export default function App() {
       </div>
     </div>
 
-    {/* EXAM MODE badge */}
+    {/* MODE badge */}
     <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 28px 0' }}>
       <div style={{ backgroundColor: '#d8362b', color: 'white', fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: '4px', letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>
-        EXAM MODE
+        {isPracticeMode ? 'STUDY MODE' : isQuizMode ? 'DAILY QUIZ MODE' : 'EXAM MODE'}
       </div>
     </div>
 
@@ -2017,7 +2140,7 @@ export default function App() {
         onClick={() => { setScreen('EXAM'); startTimer(timeLeft); }}
         style={{ backgroundColor: '#d8362b', color: 'white', padding: '15px 42px', fontSize: '16px', fontWeight: 700, border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Georgia, serif', letterSpacing: '0.3px' }}
       >
-        START EXAM
+        {isPracticeMode ? 'START STUDY' : isQuizMode ? 'START QUIZ' : 'START EXAM'}
       </button>
       <button
         onClick={() => {
@@ -2089,8 +2212,8 @@ export default function App() {
           {/* ================= EXAM SCREEN ================= */}
           {screen === 'EXAM' && examQuestions.length > 0 && (
             <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-              <div style={{ backgroundColor: colors.surface, padding: '16px 24px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ backgroundColor: colors.surface, padding: '12px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
                   {examSubjects.map((sub) => (
                     <button
                       key={sub.id}
@@ -2098,7 +2221,7 @@ export default function App() {
                         const targetIdx = examQuestions.findIndex(q => q.subject_id === sub.id);
                         if (targetIdx !== -1) setCurrentIdx(targetIdx);
                       }}
-                      style={{ backgroundColor: sub.id === examQuestions[currentIdx]?.subject_id ? '#1d4ed8' : colors.bg, color: sub.id === examQuestions[currentIdx]?.subject_id ? 'white' : colors.text, fontWeight: 700, padding: '10px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                      style={{ backgroundColor: sub.id === examQuestions[currentIdx]?.subject_id ? '#1d4ed8' : colors.bg, color: sub.id === examQuestions[currentIdx]?.subject_id ? 'white' : colors.text, fontWeight: 700, padding: '6px 12px', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       {sub.name}
                     </button>
@@ -2123,9 +2246,19 @@ export default function App() {
               <div style={{ display: 'flex', gap: '24px' }}>
                 <div style={styles.questionCard}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                    <span style={{ padding: '6px 14px', backgroundColor: colors.primaryLight, color: colors.primary, borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
-                      Question {currentIdx + 1} of {examQuestions.length}
-                    </span>
+                    {(() => {
+                      const curQ = examQuestions[currentIdx];
+                      const curSubId = curQ?.subject_id;
+                      const curSubName = curQ?.subject_name || examSubjects.find(s => s.id === curSubId)?.name;
+                      const subQuestions = examQuestions.filter(q => q.subject_id === curSubId);
+                      const subCurrentIdx = examQuestions.slice(0, currentIdx + 1).filter(q => q.subject_id === curSubId).length;
+
+                      return (
+                        <span style={{ padding: '6px 14px', backgroundColor: colors.primaryLight, color: colors.primary, borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
+                          Question {subCurrentIdx || (currentIdx + 1)} of {subQuestions.length || examQuestions.length} {curSubName ? `(${curSubName})` : ''}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <p style={{ fontSize: '17px', lineHeight: 1.7, marginBottom: '28px', fontWeight: 500 }}>
@@ -2156,14 +2289,33 @@ export default function App() {
                   {/* Practice Mode: Toggle View Answer / Explanation */}
                   {isPracticeMode && (
                     <div style={{ marginTop: '20px', borderTop: `1px dashed ${colors.border}`, paddingTop: '16px' }}>
-                      <button
-                        style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontWeight: 700, backgroundColor: revealExplanation ? colors.warningLight : colors.primaryLight, color: revealExplanation ? colors.warning : colors.primary, border: 'none' }}
-                        onClick={() => setRevealExplanation(!revealExplanation)}
-                      >
-                         {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                          disabled={!answers[examQuestions[currentIdx]?.id]}
+                          style={{
+                            ...styles.btn,
+                            ...styles.btnSecondary,
+                            ...styles.btnSm,
+                            fontWeight: 700,
+                            backgroundColor: revealExplanation ? colors.warningLight : colors.primaryLight,
+                            color: revealExplanation ? colors.warning : colors.primary,
+                            border: 'none',
+                            opacity: answers[examQuestions[currentIdx]?.id] ? 1 : 0.5,
+                            cursor: answers[examQuestions[currentIdx]?.id] ? 'pointer' : 'not-allowed'
+                          }}
+                          onClick={() => setRevealExplanation(!revealExplanation)}
+                        >
+                           {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
+                        </button>
 
-                      {revealExplanation && (
+                        {!answers[examQuestions[currentIdx]?.id] && (
+                          <span style={{ fontSize: '12px', color: colors.textMuted }}>
+                            (Select an option first to view explanation)
+                          </span>
+                        )}
+                      </div>
+
+                      {revealExplanation && answers[examQuestions[currentIdx]?.id] && (
                         <div style={styles.explanationBox}>
                           <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', alignItems: 'center' }}>
                             <span style={{ fontWeight: 800, color: colors.success }}>
@@ -2200,7 +2352,7 @@ export default function App() {
                       </button>
                     ) : (
                       <button style={{ ...styles.btn, ...styles.btnSuccess }} onClick={manualSubmitExam}>
-                        Complete Exam
+                        {isPracticeMode ? 'Complete Study' : isQuizMode ? 'Complete Quiz' : 'Complete Exam'}
                       </button>
                     )}
                   </div>
@@ -2232,7 +2384,9 @@ export default function App() {
             <div style={{ maxWidth: '560px', margin: '40px auto' }}>
               <div style={styles.card}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: colors.success }}>Exam Completed</h1>
+                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: colors.success }}>
+                    {isPracticeMode ? 'Study Session Completed' : isQuizMode ? 'Daily Quiz Completed' : 'Exam Completed'}
+                  </h1>
                 </div>
 
                 <div style={{ ...styles.resultCircle, borderColor: colors.success }}>
@@ -2247,6 +2401,43 @@ export default function App() {
                   <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={() => setScreen('DASHBOARD')}>
                     Back to Dashboard
                   </button>
+                </div>
+
+                {/* Result Share Options */}
+                <div style={{ marginTop: '24px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textSecondary, marginBottom: '12px' }}>
+                    Share Competition / Test Result
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                    <button
+                      style={{ ...styles.btn, backgroundColor: '#25D366', color: 'white' }}
+                      onClick={() => {
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                    >
+                      <Share2 size={14} /> WhatsApp
+                    </button>
+                    <button
+                      style={{ ...styles.btn, ...styles.btnSecondary }}
+                      onClick={() => {
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        window.open(`mailto:?subject=Fillop CBT Result&body=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                    >
+                      Email
+                    </button>
+                    <button
+                      style={{ ...styles.btn, ...styles.btnSecondary }}
+                      onClick={() => {
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        navigator.clipboard.writeText(text);
+                        alert("Result summary copied to clipboard!");
+                      }}
+                    >
+                      Copy Text
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2353,7 +2544,7 @@ export default function App() {
                         })}
                       </div>
 
-                      {(q.correct_explanation || q.topic_explanation) && (
+                      {!isQuizMode && (q.correct_explanation || q.topic_explanation) && (
                         <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
                           {q.correct_explanation && (
                             <div style={{ marginBottom: '6px' }}>
@@ -2517,22 +2708,25 @@ export default function App() {
               alignItems: 'center',
               cursor: 'grab',
               fontSize: '13px',
-              fontWeight: 700
+              fontWeight: 700,
+              position: 'relative'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-             
               <span>Scientific Calculator</span>
             </div>
             <button
               onClick={() => setIsCalcOpen(false)}
               style={{
+                position: 'absolute',
+                top: '10px',
+                right: '12px',
                 background: 'none',
                 border: 'none',
                 color: '#94a3b8',
                 cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: 700
+                fontSize: '18px',
+                fontWeight: 'bold'
               }}
             >
               ✕

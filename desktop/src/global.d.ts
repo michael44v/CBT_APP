@@ -68,11 +68,26 @@ export interface LocalActivation {
   is_active: boolean;
 }
 
+export interface SavedLogin {
+  email: string;
+  passcode: string;
+  user_name?: string;
+  profile_picture?: string;
+  exam_category?: string;
+  allowed_subjects?: string;
+  activated_at: string;
+  expiry_date?: string;
+  last_used_at: string;
+}
+
 export interface DesktopAPI {
   // Activation / Auth
   getActivationStatus: () => Promise<LocalActivation | null>;
   activateApp: (email: string, passcode: string) => Promise<{ success: boolean; error?: string; expiry_date?: string }>;
   logoutApp: () => Promise<{ success: boolean }>;
+  getSavedLogins: () => Promise<SavedLogin[]>;
+  switchSavedLogin: (passcode: string) => Promise<{ success: boolean; account?: SavedLogin; error?: string }>;
+  deleteSavedLogin: (passcode: string) => Promise<{ success: boolean }>;
 
   // Subjects / Topics
   getSubjects: (examType: 'JAMB' | 'WAEC' | 'NECO') => Promise<Subject[]>;

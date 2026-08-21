@@ -216,6 +216,21 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
         result.expiry_date
       ]);
 
+      dbService.run(`
+        INSERT OR REPLACE INTO saved_logins (email, passcode, user_name, profile_picture, exam_category, allowed_subjects, activated_at, expiry_date, last_used_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        email,
+        passcode,
+        result.user_name || 'Student',
+        result.profile_picture || null,
+        result.exam_category || 'ALL',
+        result.allowed_subjects || '',
+        nowIso,
+        result.expiry_date,
+        nowIso
+      ]);
+
       await syncService.triggerSync();
 
       return {
@@ -237,6 +252,39 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
 
 ipcMain.handle("auth:logout", async () => {
   dbService.run("DELETE FROM activation");
+  return { success: true };
+});
+
+ipcMain.handle("auth:get-saved-logins", async () => {
+  return dbService.all("SELECT * FROM saved_logins ORDER BY last_used_at DESC");
+});
+
+ipcMain.handle("auth:switch-login", async (event, passcode) => {
+  const saved = dbService.get("SELECT * FROM saved_logins WHERE passcode = ?", [passcode]);
+  if (!saved) {
+    return { success: false, error: "Saved account record not found." };
+  }
+  const nowIso = new Date().toISOString();
+  dbService.run("DELETE FROM activation");
+  dbService.run(`
+    INSERT INTO activation (email, passcode, user_name, profile_picture, exam_category, allowed_subjects, activated_at, expiry_date, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+  `, [
+    saved.email,
+    saved.passcode,
+    saved.user_name,
+    saved.profile_picture,
+    saved.exam_category,
+    saved.allowed_subjects,
+    saved.activated_at || nowIso,
+    saved.expiry_date
+  ]);
+  dbService.run("UPDATE saved_logins SET last_used_at = ? WHERE passcode = ?", [nowIso, passcode]);
+  return { success: true, account: saved };
+});
+
+ipcMain.handle("auth:delete-saved-login", async (event, passcode) => {
+  dbService.run("DELETE FROM saved_logins WHERE passcode = ?", [passcode]);
   return { success: true };
 });
 
