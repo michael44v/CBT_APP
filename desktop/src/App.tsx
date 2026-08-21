@@ -1116,10 +1116,19 @@ export default function App() {
               const pubDate = item.published_at
                 ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
                 : new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+              const handleSidebarNewsClick = () => {
+                const targetUrl = item.url || 'https://news.filloptech.com';
+                if (window.api && window.api.openExternal) {
+                  window.api.openExternal(targetUrl);
+                } else {
+                  window.open(targetUrl, '_blank');
+                }
+              };
+
               return (
                 <div
                   key={item.id}
-                  onClick={() => handleOpenNewsDetail(item)}
+                  onClick={handleSidebarNewsClick}
                   style={{
                     cursor: 'pointer',
                     borderRadius: '10px',
@@ -1130,17 +1139,16 @@ export default function App() {
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  {item.thumbnail_url ? (
+                  <div style={{ width: '100%', height: '90px', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '6px', marginBottom: '6px', overflow: 'hidden', position: 'relative' }}>
                     <img
-                      src={item.thumbnail_url}
+                      src={item.thumbnail_url || item.image || "./icon.png"}
                       alt={item.title}
-                      style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '6px', marginBottom: '6px', display: 'block' }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "./icon.png";
+                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     />
-                  ) : (
-                    <div style={{ width: '100%', height: '90px', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '6px', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c7d2fe', fontSize: '12px' }}>
-                      News Preview
-                    </div>
-                  )}
+                  </div>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', lineHeight: 1.3, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                     {item.title}
                   </div>
@@ -2266,7 +2274,11 @@ export default function App() {
   const curQ = examQuestions[currentIdx];
   const curSubId = curQ?.subject_id;
   const curSubName = curQ?.subject_name || examSubjects.find(s => s.id === curSubId)?.name;
-  const attemptedCount = Object.keys(answers).length;
+
+  // Filter questions that belong ONLY to the active subject tab
+  const activeSubjectQuestions = examQuestions.filter(q => curSubId ? q.subject_id === curSubId : true);
+  const activeSubIndex = activeSubjectQuestions.findIndex(q => q.id === curQ?.id);
+  const activeSubAttemptedCount = activeSubjectQuestions.filter(q => !!answers[q.id]).length;
 
   return (
     <div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7',  overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
@@ -2333,7 +2345,7 @@ export default function App() {
               {curSubName ? curSubName.toUpperCase() : ''}
             </div>
             <div style={{ fontSize: '14px', color: '#374151', marginTop: '10px' }}>
-              Question {currentIdx + 1}
+              Question {activeSubIndex !== -1 ? activeSubIndex + 1 : currentIdx + 1}
             </div>
           </div>
           <div style={{ backgroundColor: '#e8623f', color: 'white', fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: '4px', letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>
@@ -2458,24 +2470,25 @@ export default function App() {
           )}
         </div>
 
-        {/* Question palette */}
+        {/* Question palette - Filtered to Active Subject ONLY */}
         <div style={{ padding: '18px 28px 8px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {examQuestions.map((q, idx) => {
-              const isCurrent = idx === currentIdx;
+            {activeSubjectQuestions.map((q, subIdx) => {
+              const globalIdx = examQuestions.findIndex(gq => gq.id === q.id);
+              const isCurrent = globalIdx === currentIdx;
               const isAnswered = !!answers[q.id];
-              const bg = isCurrent ? '#e8623f' : isAnswered ? '#1e6b3c' : '#d8362b';
+              const bg = isCurrent ? '#1e6b3c' : isAnswered ? '#e8623f' : '#d8362b';
               return (
                 <button
                   key={q.id}
-                  onClick={() => setCurrentIdx(idx)}
+                  onClick={() => setCurrentIdx(globalIdx)}
                   style={{
                     width: '30px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     backgroundColor: bg, color: 'white', fontSize: '12px', fontWeight: 700, borderRadius: '3px',
                     border: 'none', cursor: 'pointer', fontFamily: 'Arial, sans-serif',
                   }}
                 >
-                  {idx + 1}
+                  {subIdx + 1}
                 </button>
               );
             })}
@@ -2483,12 +2496,39 @@ export default function App() {
         </div>
 
         {/* Footer: info + active question details */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 28px', flexShrink: 0, marginTop: 'auto' }}>
-          <div style={{ border: '1px solid #4b5563', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 28px', flexShrink: 0, marginTop: 'auto' }}>
+          <button
+            type="button"
+            onClick={() => {
+              alert(
+                `Active Question Information:\n\n` +
+                `Subject: ${curSubName ? curSubName.toUpperCase() : 'N/A'}\n` +
+                `Question Number: Question ${activeSubIndex !== -1 ? activeSubIndex + 1 : currentIdx + 1} of ${activeSubjectQuestions.length}\n` +
+                `Subject Attempted: ${activeSubAttemptedCount} of ${activeSubjectQuestions.length}\n` +
+                `Overall Session: Question ${currentIdx + 1} of ${examQuestions.length}\n` +
+                `Topic: ${(curQ as any)?.topic_name || 'General Syllabus'}\n` +
+                `Exam Source: ${(curQ as any)?.year || '2025'} ${(curQ as any)?.exam_type || examType}`
+              );
+            }}
+            style={{
+              border: '1px solid #1e3a8a',
+              backgroundColor: '#1e3a8a',
+              color: '#ffffff',
+              borderRadius: '4px',
+              padding: '4px 12px',
+              fontSize: '11px',
+              fontWeight: 800,
+              fontFamily: 'Arial, sans-serif',
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
             INFO
-          </div>
+          </button>
           <div style={{ fontSize: '13px', color: '#1f2937', lineHeight: 1.5 }}>
-            <div>Question {currentIdx + 1} of {examQuestions.length} (Attempted {attemptedCount} of {examQuestions.length})</div>
+            <div>
+              Question {activeSubIndex !== -1 ? activeSubIndex + 1 : currentIdx + 1} of {activeSubjectQuestions.length} (Attempted {activeSubAttemptedCount} of {activeSubjectQuestions.length})
+            </div>
             <div>
               {curSubName ? `${curSubName.toUpperCase()}` : ''}
               {(curQ as any)?.topic_name ? ` • ${(curQ as any).topic_name}` : ''}
