@@ -2118,7 +2118,7 @@ export default function App() {
           {[
             ['A', 'Select option A'], ['B', 'Select option B'], ['C', 'Select option C'], ['D', 'Select option D'],
             ['N', 'Next/Forward'], ['P', 'Previous/Back'], ['↑', 'Move up'], ['↓', 'Move down'],
-            ['S', 'Submit/End Exam'], ['Y', 'Confirm/End Exam'],
+            ['S', isPracticeMode ? 'Complete Study' : 'Submit/End Exam'], ['Y', isPracticeMode ? 'Confirm/End Study' : 'Confirm/End Exam'],
           ].map(([key, label], i) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '7px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.06)', fontFamily: 'Arial, sans-serif' }}>
               <div style={{
@@ -2372,7 +2372,7 @@ export default function App() {
                     ))}
                   </div>
                   <button style={{ ...styles.btn, ...styles.btnDanger, width: '100%', marginTop: '24px' }} onClick={manualSubmitExam}>
-                    Submit Test Now
+                    {isPracticeMode ? 'Complete Study' : isQuizMode ? 'Submit Quiz Now' : 'Submit Test Now'}
                   </button>
                 </div>
               </div>
@@ -2667,8 +2667,10 @@ export default function App() {
           zIndex: 100000
         }}>
           <div style={{ backgroundColor: colors.surface, padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px' }}>
-            <h2>Submit Exam?</h2>
-            <p style={{ margin: '16px 0', fontSize: '14px', color: colors.textSecondary }}>Press 'Y' or click Confirm to submit your exam.</p>
+            <h2>{isPracticeMode ? 'Complete Study?' : isQuizMode ? 'Submit Quiz?' : 'Submit Exam?'}</h2>
+            <p style={{ margin: '16px 0', fontSize: '14px', color: colors.textSecondary }}>
+              Press 'Y' or click Confirm to {isPracticeMode ? 'complete your study session' : isQuizMode ? 'submit your quiz' : 'submit your exam'}.
+            </p>
             <button onClick={() => { setShowSubmitConfirm(false); processSubmission(); }} style={{ ...styles.btn, ...styles.btnSuccess, marginRight: '10px' }}>
               Confirm (Y)
             </button>
