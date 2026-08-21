@@ -1193,7 +1193,12 @@ export default function App() {
           </div>
         </header>
 
-        <main style={styles.content}>
+      <main
+  style={{
+    ...styles.content,
+    ...((screen === 'EXAM' || screen === 'INSTRUCTIONS') ? { padding: 0, overflow: 'hidden' } : {}),
+  }}
+>
           {/* ================= ACTIVATION SCREEN ================= */}
           {screen === 'ACTIVATION' && (
             <div style={{ maxWidth: '460px', margin: '60px auto' }}>
@@ -2056,9 +2061,9 @@ export default function App() {
             </div>
           )}
 
-  {/* ================= INSTRUCTIONS SCREEN ================= */}
+{/* ================= INSTRUCTIONS SCREEN ================= */}
 {screen === 'INSTRUCTIONS' && (
-<div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7', margin: '-27px', overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
+<div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7', overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
 
   {/* ---------- MAIN COLUMN ---------- */}
   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
@@ -2160,31 +2165,30 @@ export default function App() {
   <div style={{ width: '250px', flexShrink: 0, backgroundColor: '#2f6fb0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)' }}>
     <div style={{ backgroundColor: 'white', padding: '8px', width: '140px', height: '140px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
       <img
-         src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-    activation?.email
-      ? `${activation.email}|${activation.passcode}`
-      : 'Candidate-Free'
-  )}`} alt="QR code"
+        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+          activation?.email
+            ? `${activation.email}|${activation.passcode}`
+            : 'Candidate-Free'
+        )}`}
+        alt="QR code"
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
       />
     </div>
 
     <div style={{ color: 'white', fontSize: '14px', fontWeight: 700, marginTop: '18px', marginBottom: '16px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
-      Candidate Profile
+      Your Details...
     </div>
-{/* ================= 
+
     <div style={{ backgroundColor: 'white', width: '130px', height: '140px', overflow: 'hidden', borderRadius: '12px', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-    
-       <img
-        src={activation?.profile_picture || "https://i.pravatar.cc/150?img=12"}
+      <img
+        src={activation?.profile_picture || "https://th.bing.com/th/id/OIP.7O4_GREtLbxqPdJCTmfatQHaHa?r=0&o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3"}
         alt="Candidate Profile"
         onError={(e) => {
-          (e.target as HTMLElement).setAttribute('src', "https://i.pravatar.cc/150?img=12");
+          (e.target as HTMLElement).setAttribute('src', "https://th.bing.com/th/id/OIP.7O4_GREtLbxqPdJCTmfatQHaHa?r=0&o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=32");
         }}
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
-      
-    </div>*/}
+    </div>
 
     <div style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, marginTop: '16px', textAlign: 'center', lineHeight: '1.3', wordBreak: 'break-word', padding: '0 8px' }}>
       {activation ? (activation.user_name || activation.email.split('@')[0]) : 'Candidate (Free)'}
@@ -2209,175 +2213,291 @@ export default function App() {
 </div>
 )}
 
-          {/* ================= EXAM SCREEN ================= */}
-          {screen === 'EXAM' && examQuestions.length > 0 && (
-            <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-              <div style={{ backgroundColor: colors.surface, padding: '12px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
-                  {examSubjects.map((sub) => (
-                    <button
-                      key={sub.id}
-                      onClick={() => {
-                        const targetIdx = examQuestions.findIndex(q => q.subject_id === sub.id);
-                        if (targetIdx !== -1) setCurrentIdx(targetIdx);
-                      }}
-                      style={{ backgroundColor: sub.id === examQuestions[currentIdx]?.subject_id ? '#1d4ed8' : colors.bg, color: sub.id === examQuestions[currentIdx]?.subject_id ? 'white' : colors.text, fontWeight: 700, padding: '6px 12px', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                    >
-                      {sub.name}
-                    </button>
-                  ))}
-                </div>
+    {/* ================= EXAM SCREEN ================= */}
+{screen === 'EXAM' && examQuestions.length > 0 && (() => {
+  const curQ = examQuestions[currentIdx];
+  const curSubId = curQ?.subject_id;
+  const curSubName = curQ?.subject_name || examSubjects.find(s => s.id === curSubId)?.name;
+  const attemptedCount = Object.keys(answers).length;
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <button
-                    onClick={() => setIsCalcOpen(!isCalcOpen)}
-                    style={{ ...styles.btn, ...styles.btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-                  >
-                    <Calculator size={18} color={colors.primary} />
-                    Calculator
-                  </button>
+  return (
+    <div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7',  overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
 
-                  <div style={styles.timerPanel}>
-                    {formatTimer(timeLeft)}
-                  </div>
+      {/* ---------- MAIN COLUMN ---------- */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+
+        {/* Top bar: subjects / calculator / timer / submit */}
+        <div style={{ height: '64px', backgroundColor: '#c3e2ed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap', overflowX: 'auto' }}>
+            {examSubjects.map((sub) => {
+              const isActive = sub.id === curSubId;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => {
+                    const targetIdx = examQuestions.findIndex(q => q.subject_id === sub.id);
+                    if (targetIdx !== -1) setCurrentIdx(targetIdx);
+                  }}
+                  style={{
+                    backgroundColor: isActive ? '#1e4620' : '#2f6fb0',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    padding: '8px 14px',
+                    borderRadius: '4px',
+                    letterSpacing: '0.3px',
+                    fontFamily: 'Arial, sans-serif',
+                    whiteSpace: 'nowrap',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {sub.name.toUpperCase()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', textAlign: 'center' }}>
+            <div style={{ backgroundColor: '#2f6fb0', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+              <Calculator size={18} color="white" />
+            </div>
+            <div style={{ color: '#1e3a5f', fontSize: '11px', fontFamily: 'Arial, sans-serif', marginTop: '4px' }}>Calculator</div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e3a5f', fontWeight: 700, fontSize: '17px', fontFamily: 'Arial, sans-serif' }}>
+            <Clock size={18} />
+            {formatTimer(timeLeft)}
+          </div>
+
+          <button
+            onClick={manualSubmitExam}
+            style={{ background: 'none', border: 'none', color: '#b3261e', fontSize: '17px', fontWeight: 700, fontFamily: 'Georgia, serif', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Submit
+          </button>
+        </div>
+
+        {/* Subject / question label + MODE badge */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px 28px 0' }}>
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#1e6b3c', fontFamily: 'Arial, sans-serif' }}>
+              {curSubName ? curSubName.toUpperCase() : ''}
+            </div>
+            <div style={{ fontSize: '14px', color: '#374151', marginTop: '10px' }}>
+              Question {currentIdx + 1}
+            </div>
+          </div>
+          <div style={{ backgroundColor: '#e8623f', color: 'white', fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: '4px', letterSpacing: '0.5px', fontFamily: 'Arial, sans-serif' }}>
+            {isPracticeMode ? 'STUDY MODE' : isQuizMode ? 'DAILY QUIZ MODE' : 'EXAM MODE'}
+          </div>
+        </div>
+
+        {/* Question + options */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
+          <p style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: '32px' }}>
+            {curQ.question_text}
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {[
+              { key: 'A', text: curQ.option_a },
+              { key: 'B', text: curQ.option_b },
+              { key: 'C', text: curQ.option_c },
+              { key: 'D', text: curQ.option_d },
+            ].map((opt) => {
+              const isSelected = answers[curQ.id] === opt.key;
+              return (
+                <div
+                  key={opt.key}
+                  onClick={() => selectAnswer(opt.key as any)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0', cursor: 'pointer', fontSize: '16px', color: '#1a1a1a' }}
+                >
+                  <span style={{ fontWeight: 700 }}>({opt.key})</span>
+                  <span style={{
+                    width: '16px', height: '16px', borderRadius: '50%',
+                    border: `2px solid ${isSelected ? '#1e4620' : '#4b5563'}`,
+                    backgroundColor: isSelected ? '#1e4620' : 'transparent',
+                    display: 'inline-block', flexShrink: 0,
+                  }} />
+                  <span>{opt.text}</span>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Practice Mode: Toggle View Answer / Explanation */}
+          {isPracticeMode && (
+            <div style={{ marginTop: '24px', borderTop: '1px dashed rgba(0,0,0,0.15)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  disabled={!answers[curQ?.id]}
+                  onClick={() => setRevealExplanation(!revealExplanation)}
+                  style={{
+                    fontFamily: 'Arial, sans-serif', fontWeight: 700, fontSize: '13px',
+                    padding: '10px 16px', borderRadius: '6px', border: 'none',
+                    backgroundColor: revealExplanation ? '#fde8d3' : '#dbeafe',
+                    color: revealExplanation ? '#b45309' : '#1d4ed8',
+                    opacity: answers[curQ?.id] ? 1 : 0.5,
+                    cursor: answers[curQ?.id] ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
+                </button>
+
+                {!answers[curQ?.id] && (
+                  <span style={{ fontSize: '12px', color: '#6b7280', fontFamily: 'Arial, sans-serif' }}>
+                    (Select an option first to view explanation)
+                  </span>
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: '24px' }}>
-                <div style={styles.questionCard}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                    {(() => {
-                      const curQ = examQuestions[currentIdx];
-                      const curSubId = curQ?.subject_id;
-                      const curSubName = curQ?.subject_name || examSubjects.find(s => s.id === curSubId)?.name;
-                      const subQuestions = examQuestions.filter(q => q.subject_id === curSubId);
-                      const subCurrentIdx = examQuestions.slice(0, currentIdx + 1).filter(q => q.subject_id === curSubId).length;
-
-                      return (
-                        <span style={{ padding: '6px 14px', backgroundColor: colors.primaryLight, color: colors.primary, borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
-                          Question {subCurrentIdx || (currentIdx + 1)} of {subQuestions.length || examQuestions.length} {curSubName ? `(${curSubName})` : ''}
-                        </span>
-                      );
-                    })()}
+              {revealExplanation && answers[curQ?.id] && (
+                <div style={{ marginTop: '14px', padding: '16px', backgroundColor: 'white', borderRadius: '10px', fontFamily: 'Arial, sans-serif', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 800, color: '#1e6b3c' }}>
+                      Correct Answer: Option {curQ.correct_answer}
+                    </span>
+                    <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', textTransform: 'uppercase', fontWeight: 700, color: '#4b5563' }}>
+                      Difficulty: {curQ.difficulty || 'medium'}
+                    </span>
                   </div>
 
-                  <p style={{ fontSize: '17px', lineHeight: 1.7, marginBottom: '28px', fontWeight: 500 }}>
-                    {examQuestions[currentIdx].question_text}
-                  </p>
-
-                  <div>
-                    {[
-                      { key: 'A', text: examQuestions[currentIdx].option_a },
-                      { key: 'B', text: examQuestions[currentIdx].option_b },
-                      { key: 'C', text: examQuestions[currentIdx].option_c },
-                      { key: 'D', text: examQuestions[currentIdx].option_d },
-                    ].map((opt) => {
-                      const isSelected = answers[examQuestions[currentIdx].id] === opt.key;
-                      return (
-                        <div
-                          key={opt.key}
-                          style={{ ...styles.optionItem, ...(isSelected ? styles.optionItemSelected : {}) }}
-                          onClick={() => selectAnswer(opt.key as any)}
-                        >
-                          <div style={{ ...styles.optionMarker, ...(isSelected ? { backgroundColor: colors.primary, color: '#fff' } : {}) }}>{opt.key}</div>
-                          <div>{opt.text}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Practice Mode: Toggle View Answer / Explanation */}
-                  {isPracticeMode && (
-                    <div style={{ marginTop: '20px', borderTop: `1px dashed ${colors.border}`, paddingTop: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <button
-                          disabled={!answers[examQuestions[currentIdx]?.id]}
-                          style={{
-                            ...styles.btn,
-                            ...styles.btnSecondary,
-                            ...styles.btnSm,
-                            fontWeight: 700,
-                            backgroundColor: revealExplanation ? colors.warningLight : colors.primaryLight,
-                            color: revealExplanation ? colors.warning : colors.primary,
-                            border: 'none',
-                            opacity: answers[examQuestions[currentIdx]?.id] ? 1 : 0.5,
-                            cursor: answers[examQuestions[currentIdx]?.id] ? 'pointer' : 'not-allowed'
-                          }}
-                          onClick={() => setRevealExplanation(!revealExplanation)}
-                        >
-                           {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
-                        </button>
-
-                        {!answers[examQuestions[currentIdx]?.id] && (
-                          <span style={{ fontSize: '12px', color: colors.textMuted }}>
-                            (Select an option first to view explanation)
-                          </span>
-                        )}
-                      </div>
-
-                      {revealExplanation && answers[examQuestions[currentIdx]?.id] && (
-                        <div style={styles.explanationBox}>
-                          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 800, color: colors.success }}>
-                              Correct Answer: Option {examQuestions[currentIdx].correct_answer}
-                            </span>
-                            <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', backgroundColor: colors.surface, border: `1px solid ${colors.border}`, textTransform: 'uppercase', fontWeight: 700, color: colors.textSecondary }}>
-                              Difficulty: {examQuestions[currentIdx].difficulty || 'medium'}
-                            </span>
-                          </div>
-
-                          {examQuestions[currentIdx].correct_explanation && (
-                            <div style={{ marginBottom: '8px' }}>
-                              <strong>Explanation:</strong> {examQuestions[currentIdx].correct_explanation}
-                            </div>
-                          )}
-
-                          {examQuestions[currentIdx].topic_explanation && (
-                            <div style={{ color: colors.textSecondary, fontSize: '13px' }}>
-                              <strong>Topic Insight:</strong> {examQuestions[currentIdx].topic_explanation}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  {curQ.correct_explanation && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>Explanation:</strong> {curQ.correct_explanation}
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px' }}>
-                    <button style={{ ...styles.btn, ...styles.btnSecondary }} disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev - 1)}>
-                      Previous
-                    </button>
-                    {currentIdx < examQuestions.length - 1 ? (
-                      <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setCurrentIdx(prev => prev + 1)}>
-                        Next
-                      </button>
-                    ) : (
-                      <button style={{ ...styles.btn, ...styles.btnSuccess }} onClick={manualSubmitExam}>
-                        {isPracticeMode ? 'Complete Study' : isQuizMode ? 'Complete Quiz' : 'Complete Exam'}
-                      </button>
-                    )}
-                  </div>
+                  {curQ.topic_explanation && (
+                    <div style={{ color: '#4b5563' }}>
+                      <strong>Topic Insight:</strong> {curQ.topic_explanation}
+                    </div>
+                  )}
                 </div>
-
-                <div style={styles.paletteCard}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px' }}>Question Palette</h3>
-                  <div style={styles.paletteGrid}>
-                    {examQuestions.map((q, idx) => (
-                      <button
-                        key={q.id}
-                        style={{ ...styles.paletteBtn, ...(idx === currentIdx ? styles.paletteBtnActive : answers[q.id] ? styles.paletteBtnAnswered : {}) }}
-                        onClick={() => setCurrentIdx(idx)}
-                      >
-                        {idx + 1}
-                      </button>
-                    ))}
-                  </div>
-                  <button style={{ ...styles.btn, ...styles.btnDanger, width: '100%', marginTop: '24px' }} onClick={manualSubmitExam}>
-                    {isPracticeMode ? 'Complete Study' : isQuizMode ? 'Submit Quiz Now' : 'Submit Test Now'}
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
           )}
+        </div>
+
+        {/* PREVIOUS / NEXT */}
+        <div style={{ display: 'flex', gap: '16px', padding: '0 28px', flexShrink: 0 , marginTop:"120px !important"}}>
+          <button
+            disabled={currentIdx === 0}
+            onClick={() => setCurrentIdx(prev => prev - 1)}
+            style={{
+              backgroundColor: '#2f6fb0', color: 'white', padding: '12px 28px', fontSize: '14px', fontWeight: 700,
+              border: 'none', borderRadius: '6px', cursor: currentIdx === 0 ? 'not-allowed' : 'pointer',
+              opacity: currentIdx === 0 ? 0.5 : 1, fontFamily: 'Arial, sans-serif', letterSpacing: '0.3px',
+            }}
+          >
+            PREVIOUS
+          </button>
+          {currentIdx < examQuestions.length - 1 ? (
+            <button
+              onClick={() => setCurrentIdx(prev => prev + 1)}
+              style={{ backgroundColor: '#2f6fb0', color: 'white', padding: '12px 28px', fontSize: '14px', fontWeight: 700, border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Arial, sans-serif', letterSpacing: '0.3px' }}
+            >
+              NEXT
+            </button>
+          ) : (
+            <button
+              onClick={manualSubmitExam}
+              style={{ backgroundColor: '#d8362b', color: 'white', padding: '12px 28px', fontSize: '14px', fontWeight: 700, border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Arial, sans-serif', letterSpacing: '0.3px' }}
+            >
+              {isPracticeMode ? 'COMPLETE STUDY' : isQuizMode ? 'COMPLETE QUIZ' : 'COMPLETE EXAM'}
+            </button>
+          )}
+        </div>
+
+        {/* Question palette */}
+        <div style={{ padding: '18px 28px 8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            {examQuestions.map((q, idx) => {
+              const isCurrent = idx === currentIdx;
+              const isAnswered = !!answers[q.id];
+              const bg = isCurrent ? '#e8623f' : isAnswered ? '#1e6b3c' : '#d8362b';
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setCurrentIdx(idx)}
+                  style={{
+                    width: '30px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: bg, color: 'white', fontSize: '12px', fontWeight: 700, borderRadius: '3px',
+                    border: 'none', cursor: 'pointer', fontFamily: 'Arial, sans-serif',
+                  }}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer: info + attempted count */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 28px', flexShrink: 0, marginTop: 'auto' }}>
+          <div style={{ border: '1px solid #4b5563', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
+            INFO
+          </div>
+          <div style={{ fontSize: '13px', color: '#1f2937', lineHeight: 1.5 }}>
+            <div>Attempted {attemptedCount} of {examQuestions.length}</div>
+            <div>Random question selection. Extract of 2025 UTME questions</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- RIGHT SIDEBAR: candidate ID ---------- */}
+      <div style={{ width: '250px', flexShrink: 0, backgroundColor: '#2f6fb0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px', boxShadow: '-2px 0 10px rgba(0,0,0,0.1)' }}>
+        <div style={{ backgroundColor: 'white', padding: '8px', width: '140px', height: '140px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+              activation?.email
+                ? `${activation.email}|${activation.passcode}`
+                : 'Candidate-Free'
+            )}`}
+            alt="QR code"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+        </div>
+
+        <div style={{ color: 'white', fontSize: '14px', fontWeight: 700, marginTop: '18px', marginBottom: '16px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
+          Your Details...
+        </div>
+
+        <div style={{ backgroundColor: 'white', width: '130px', height: '140px', overflow: 'hidden', borderRadius: '12px', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+          <img
+            src={activation?.profile_picture || "https://th.bing.com/th/id/OIP.7O4_GREtLbxqPdJCTmfatQHaHa?r=0&o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3"}
+            alt="Candidate Profile"
+            onError={(e) => {
+              (e.target as HTMLElement).setAttribute('src', "https://i.pravatar.cc/150?img=12");
+            }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </div>
+
+        <div style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, marginTop: '16px', textAlign: 'center', lineHeight: '1.3', wordBreak: 'break-word', padding: '0 8px' }}>
+          {activation ? (activation.user_name || activation.email.split('@')[0]) : 'Candidate (Free)'}
+          {activation?.email && (
+            <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#e0f2fe', marginTop: '3px' }}>
+              {activation.email}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: '18px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.15)', padding: '12px 16px', borderRadius: '10px', width: '85%' }}>
+          <div style={{ color: '#e0f2fe', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Passcode</div>
+          <div style={{ color: '#ffffff', fontSize: '19px', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '1px', marginTop: '4px' }}>
+            {activation ? activation.passcode : 'FREE-MODE'}
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minHeight: '20px' }} />
+        <div style={{ color: 'white', fontWeight: 800, fontSize: '15px', fontFamily: 'Arial, sans-serif' }}>FILLOP TECH</div>
+        <div style={{ color: '#cfe0f0', fontSize: '10px', fontFamily: 'Arial, sans-serif' }}>...simplifying your tech world</div>
+      </div>
+    </div>
+  );
+})()}
 
           {/* ================= RESULT SCREEN ================= */}
           {screen === 'RESULT' && activeResult && (
