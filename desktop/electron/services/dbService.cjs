@@ -164,6 +164,18 @@ function createTables() {
         PRIMARY KEY (user_name, news_id)
       );
 
+      CREATE TABLE IF NOT EXISTS saved_logins (
+        email TEXT NOT NULL,
+        passcode TEXT NOT NULL PRIMARY KEY,
+        user_name TEXT,
+        profile_picture TEXT,
+        exam_category TEXT DEFAULT 'ALL',
+        allowed_subjects TEXT DEFAULT '',
+        activated_at TEXT NOT NULL,
+        expiry_date TEXT,
+        last_used_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_questions_filter
         ON questions (exam_type, subject_id, year);
 

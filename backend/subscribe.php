@@ -153,10 +153,53 @@ if (empty($dbSubjectsMap['NECO'])) {
                 <input type="email" id="candEmail" placeholder="user@example.com" required>
             </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
             <div class="form-group">
                 <label>Phone Number *</label>
                 <input type="tel" id="candPhone" placeholder="08012345678" required>
+            </div>
+            <div class="form-group">
+                <label>State *</label>
+                <select id="candState" required>
+                    <option value="">-- Select State --</option>
+                    <option value="Abia">Abia</option>
+                    <option value="Adamawa">Adamawa</option>
+                    <option value="Akwa Ibom">Akwa Ibom</option>
+                    <option value="Anambra">Anambra</option>
+                    <option value="Bauchi">Bauchi</option>
+                    <option value="Bayelsa">Bayelsa</option>
+                    <option value="Benue">Benue</option>
+                    <option value="Borno">Borno</option>
+                    <option value="Cross River">Cross River</option>
+                    <option value="Delta">Delta</option>
+                    <option value="Ebonyi">Ebonyi</option>
+                    <option value="Edo">Edo</option>
+                    <option value="Ekiti">Ekiti</option>
+                    <option value="Enugu">Enugu</option>
+                    <option value="FCT - Abuja">FCT - Abuja</option>
+                    <option value="Gombe">Gombe</option>
+                    <option value="Imo">Imo</option>
+                    <option value="Jigawa">Jigawa</option>
+                    <option value="Kaduna">Kaduna</option>
+                    <option value="Kano">Kano</option>
+                    <option value="Katsina">Katsina</option>
+                    <option value="Kebbi">Kebbi</option>
+                    <option value="Kogi">Kogi</option>
+                    <option value="Kwara">Kwara</option>
+                    <option value="Lagos">Lagos</option>
+                    <option value="Nasarawa">Nasarawa</option>
+                    <option value="Niger">Niger</option>
+                    <option value="Ogun">Ogun</option>
+                    <option value="Ondo">Ondo</option>
+                    <option value="Osun">Osun</option>
+                    <option value="Oyo">Oyo</option>
+                    <option value="Plateau">Plateau</option>
+                    <option value="Rivers">Rivers</option>
+                    <option value="Sokoto">Sokoto</option>
+                    <option value="Taraba">Taraba</option>
+                    <option value="Yobe">Yobe</option>
+                    <option value="Zamfara">Zamfara</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>Organization Type</label>
@@ -174,6 +217,11 @@ if (empty($dbSubjectsMap['NECO'])) {
                 </select>
             </div>
         </div>
+
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; font-weight: 600;">
+            ⚠️ Please provide your organization/school name for Bulk purchase
+        </div>
+
         <div class="form-group">
             <label>Organization / School Name (Required for Bulk Purchases)</label>
             <input type="text" id="orgName" placeholder="e.g. Bright Stars College / Fillop Tutorial Center">
@@ -203,9 +251,10 @@ if (empty($dbSubjectsMap['NECO'])) {
 
         <!-- JAMB Subject Panel -->
         <div class="exam-subject-card active-card" id="panelJAMB">
-            <div class="card-header">
+            <div class="card-header" style="cursor: pointer;" onclick="togglePanelCollapse('JAMB')">
                 <div class="card-title">
                     <span>JAMB UTME Subjects</span>
+                    <span id="collapseIconJAMB" style="font-size: 12px; margin-left: 8px;">▼</span>
                 </div>
                 <span class="card-badge">Min 4 — Max 5 Subjects</span>
             </div>
@@ -214,9 +263,10 @@ if (empty($dbSubjectsMap['NECO'])) {
 
         <!-- WAEC Subject Panel -->
         <div class="exam-subject-card" id="panelWAEC">
-            <div class="card-header">
+            <div class="card-header" style="cursor: pointer;" onclick="togglePanelCollapse('WAEC')">
                 <div class="card-title">
                     <span>WAEC SSCE Subjects</span>
+                    <span id="collapseIconWAEC" style="font-size: 12px; margin-left: 8px;">▼</span>
                 </div>
                 <span class="card-badge">Min 4 — Max 9 Subjects</span>
             </div>
@@ -225,9 +275,10 @@ if (empty($dbSubjectsMap['NECO'])) {
 
         <!-- NECO Subject Panel -->
         <div class="exam-subject-card" id="panelNECO">
-            <div class="card-header">
+            <div class="card-header" style="cursor: pointer;" onclick="togglePanelCollapse('NECO')">
                 <div class="card-title">
                     <span>NECO SSCE Subjects</span>
+                    <span id="collapseIconNECO" style="font-size: 12px; margin-left: 8px;">▼</span>
                 </div>
                 <span class="card-badge">Min 4 — Max 9 Subjects</span>
             </div>
@@ -453,11 +504,28 @@ if (empty($dbSubjectsMap['NECO'])) {
         const panel = document.getElementById(`panel${cat}`);
         if (chk.checked) {
             panel.classList.add("active-card");
+            const grid = document.getElementById(`grid${cat}`);
+            if (grid) grid.style.display = "grid";
+            const icon = document.getElementById(`collapseIcon${cat}`);
+            if (icon) icon.innerText = "▼";
         } else {
             panel.classList.remove("active-card");
         }
 
         calculateTotal();
+    }
+
+    function togglePanelCollapse(cat) {
+        const grid = document.getElementById(`grid${cat}`);
+        const icon = document.getElementById(`collapseIcon${cat}`);
+        if (!grid) return;
+        if (grid.style.display === "none") {
+            grid.style.display = "grid";
+            if (icon) icon.innerText = "▼";
+        } else {
+            grid.style.display = "none";
+            if (icon) icon.innerText = "▲";
+        }
     }
 
     function getSelectedCategoriesAndSubjects() {
@@ -482,7 +550,27 @@ if (empty($dbSubjectsMap['NECO'])) {
         return { selectedCategories: cats, selections };
     }
 
+    function updateSubjectLimits() {
+        const limits = { JAMB: 5, WAEC: 9, NECO: 9 };
+        ["JAMB", "WAEC", "NECO"].forEach(cat => {
+            const inputs = Array.from(document.querySelectorAll(`input[name="subj_${cat}"]`));
+            const checkedInputs = inputs.filter(cb => cb.checked);
+            const maxLimit = limits[cat];
+
+            if (checkedInputs.length >= maxLimit) {
+                inputs.forEach(cb => {
+                    if (!cb.checked) cb.disabled = true;
+                });
+            } else {
+                inputs.forEach(cb => {
+                    cb.disabled = false;
+                });
+            }
+        });
+    }
+
     function calculateTotal() {
+        updateSubjectLimits();
         const { selectedCategories, selections } = getSelectedCategoriesAndSubjects();
         const catCount = selectedCategories.length || 1;
         const qty = parseInt(document.getElementById("passcodeQty").value) || 1;
@@ -514,6 +602,7 @@ if (empty($dbSubjectsMap['NECO'])) {
         const name = document.getElementById("candName").value.trim();
         const email = document.getElementById("candEmail").value.trim();
         const phone = document.getElementById("candPhone").value.trim();
+        const state = document.getElementById("candState").value.trim();
         const orgType = document.getElementById("orgType").value;
         const orgName = document.getElementById("orgName").value.trim();
 
@@ -564,6 +653,7 @@ if (empty($dbSubjectsMap['NECO'])) {
                     name,
                     email,
                     phone,
+                    state,
                     organization_type: orgType,
                     organization_name: orgName,
                     quantity: qty,

@@ -24,6 +24,7 @@ if (!$data) {
 $name = trim($data['name'] ?? 'Candidate');
 $email = trim($data['email'] ?? '');
 $phone = trim($data['phone'] ?? '');
+$state = trim($data['state'] ?? '');
 $organization_name = trim($data['organization_name'] ?? '');
 $organization_type = trim($data['organization_type'] ?? 'Individual');
 $quantity = max(1, intval($data['quantity'] ?? 1));
@@ -142,6 +143,7 @@ $pending[$payment_reference] = [
     'name' => $name,
     'email' => $email,
     'phone' => $phone,
+    'state' => $state,
     'organization_name' => $organization_name,
     'organization_type' => $organization_type,
     'quantity' => $quantity,
