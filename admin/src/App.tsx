@@ -23,7 +23,7 @@ const API_BASE = 'http://localhost:80/fillop/api/v1';
 const ALL_SUBJECT_OPTIONS = ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Economics", "Government", "Literature"];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'NEWS' | 'UPGRADES'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'USERS' | 'PASSCODES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'NEWS' | 'UPGRADES' | 'UPDATES'>('DASHBOARD');
 
   // Stats
   const [stats, setStats] = useState({
@@ -43,6 +43,14 @@ export default function App() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
   const [upgrades, setUpgrades] = useState<any[]>([]);
+  const [updatesList, setUpdatesList] = useState<any[]>([]);
+  const [newUpdateForm, setNewUpdateForm] = useState({
+    version: '',
+    firmware: '',
+    improvements: '',
+    size: '45.0 MB',
+    url: ''
+  });
 
   // Search/Filters
   const [userSearch, setUserSearch] = useState('');
@@ -315,6 +323,7 @@ export default function App() {
       fetchSubjectsAndTopics();
     }
     if (activeTab === 'NEWS') fetchNews();
+    if (activeTab === 'UPDATES') fetchUpdates();
     if (activeTab === 'PRICING') fetchPricing();
   }, [activeTab]);
 
@@ -716,6 +725,65 @@ export default function App() {
     }
   };
 
+  const fetchUpdates = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/updates.php`);
+      const data = await res.json();
+      if (data.success) {
+        setUpdatesList(data.updates || []);
+      }
+    } catch (e) {
+      console.error('Failed to load software updates:', e);
+    }
+  };
+
+  const handleAddUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/updates.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', ...newUpdateForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Software update added successfully!');
+        fetchUpdates();
+        setNewUpdateForm({
+          version: '',
+          firmware: '',
+          improvements: '',
+          size: '45.0 MB',
+          url: ''
+        });
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Failed to add software update.', 'error');
+    }
+  };
+
+  const handleDeleteUpdate = async (id: number) => {
+    if (!window.confirm('Delete this software update record?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/updates.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message);
+        fetchUpdates();
+      } else {
+        showNotification(data.message, 'error');
+      }
+    } catch (e) {
+      showNotification('Delete update failed.', 'error');
+    }
+  };
+
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
     setImportErrors([]);
@@ -762,6 +830,7 @@ export default function App() {
           <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>🎟️ Promo Codes</button>
           <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>📚 Question Bank</button>
           <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>📰 Admin News</button>
+          <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>⚙️ Software Updates</button>
         </nav>
       </aside>
 
@@ -795,6 +864,7 @@ export default function App() {
               {activeTab === 'PROMOS' && 'Promotions & Referral Codes'}
               {activeTab === 'QUESTIONS' && 'Question Bank Master Management'}
               {activeTab === 'NEWS' && 'Admin News Management'}
+              {activeTab === 'UPDATES' && 'Software Release & Firmware Updates Management'}
             </h1>
             <p className="admin-subtitle">Fillop CBT Guru Cloud Admin Panel</p>
           </div>
@@ -1362,6 +1432,111 @@ export default function App() {
                           </span>
                         </td>
                         <td>{new Date(pr.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'UPDATES' && (
+          <div>
+            <div className="admin-card">
+              <h2 className="card-title">Add New Software Release Update</h2>
+              <form onSubmit={handleAddUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1.2rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Version</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. v3.0.2"
+                      value={newUpdateForm.version}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, version: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Firmware</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. FW-2026.08"
+                      value={newUpdateForm.firmware}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, firmware: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Update Size</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. 45.2 MB"
+                      value={newUpdateForm.size}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, size: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Download / Info URL</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="https://filloptech.com/downloads/v3.0.2"
+                      value={newUpdateForm.url}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, url: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">New Improvements &amp; Bug Fixes</label>
+                  <textarea
+                    className="form-input"
+                    style={{ height: '120px', resize: 'vertical', fontFamily: 'inherit' }}
+                    placeholder="List improvements, new features, and patch details..."
+                    value={newUpdateForm.improvements}
+                    onChange={(e) => setNewUpdateForm({ ...newUpdateForm, improvements: e.target.value })}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn" style={{ width: 'fit-content' }}>Save Software Update 🚀</button>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <h2 className="card-title">Software Update History</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Firmware</th>
+                    <th>Size</th>
+                    <th>Improvements / Release Notes</th>
+                    <th>URL</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {updatesList.length === 0 ? (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No software updates recorded yet.</td></tr>
+                  ) : (
+                    updatesList.map((item) => (
+                      <tr key={item.id}>
+                        <td><span className="badge badge-info">{item.version}</span></td>
+                        <td><strong>{item.firmware}</strong></td>
+                        <td>{item.size}</td>
+                        <td style={{ maxWidth: '300px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{item.improvements}</td>
+                        <td><a href={item.url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Link</a></td>
+                        <td>{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</td>
+                        <td>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUpdate(item.id)}>Delete</button>
+                        </td>
                       </tr>
                     ))
                   )}

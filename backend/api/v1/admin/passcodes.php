@@ -14,7 +14,16 @@ $db = getDbConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 
 function generateUniquePasscode() {
-    return 'GP-' . strtoupper(bin2hex(random_bytes(4))) . '-' . strtoupper(bin2hex(random_bytes(4)));
+    $digits = '';
+    for ($i = 0; $i < 8; $i++) {
+        $digits .= random_int(0, 9);
+    }
+    $letters = '';
+    $alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for ($i = 0; $i < 2; $i++) {
+        $letters .= $alpha[random_int(0, 25)];
+    }
+    return $digits . $letters;
 }
 
 if ($method === 'GET') {

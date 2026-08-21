@@ -3678,5 +3678,18 @@ INSERT INTO `questions` (`id`, `exam_type`, `subject_id`, `year`, `topic_id`, `d
 (3150, 'NECO', 105, 2020, 105, 'medium', '[NECO] Auto Mechanics Practice Question 30: What is the primary concept behind Auto Mechanics topic 30?', 'Option A (Auto Mechanics concept)', 'Option B (Auto Mechanics alternative)', 'Option C (Auto Mechanics distractor)', 'Option D (Auto Mechanics secondary distractor)', 'A', 'Auto Mechanics fundamental concepts and theories.', 'Option A is correct based on Auto Mechanics standard curriculum.', 'Options B, C, and D are incorrect applications of Auto Mechanics rules.')
 ON DUPLICATE KEY UPDATE `question_text`=VALUES(`question_text`);
 
+CREATE TABLE IF NOT EXISTS `software_updates` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `version` VARCHAR(50) NOT NULL,
+  `firmware` VARCHAR(100) NOT NULL,
+  `improvements` TEXT NOT NULL,
+  `size` VARCHAR(50) NOT NULL,
+  `url` VARCHAR(255) NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `software_updates` (`id`, `version`, `firmware`, `improvements`, `size`, `url`, `created_at`) VALUES
+(1, 'v3.0.1', 'FW-2026.08', 'Performance enhancements, Offline exam room navigation improvements, Updated news & updates widget, and bug fixes for passcode synchronization.', '45.2 MB', 'https://filloptech.com/downloads/fillop-cbt-v3.0.1.exe', '2026-08-21 10:00:00')
+ON DUPLICATE KEY UPDATE `version` = VALUES(`version`);
 
 COMMIT;
