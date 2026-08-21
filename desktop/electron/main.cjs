@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const dbService = require("./services/dbService.cjs");
@@ -548,8 +548,9 @@ ipcMain.handle("db:get-read-news-ids", async (event, userName) => {
 
 ipcMain.handle("sync:get-status", async () => {
   const logs = dbService.all("SELECT * FROM sync_logs ORDER BY timestamp DESC LIMIT 15");
+  const isSysOnline = net && typeof net.isOnline === 'function' ? net.isOnline() : true;
   return {
-    isOnline: syncService.checkInternet(),
+    isOnline: isSysOnline && syncService.checkInternet(),
     logs
   };
 });

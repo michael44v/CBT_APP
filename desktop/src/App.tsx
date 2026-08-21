@@ -28,10 +28,50 @@ export default function App() {
   // First Activation Welcome Modal
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
 
+  // Network & Updates State
+  const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(navigator.onLine);
+  const [softwareUpdates, setSoftwareUpdates] = useState<any[]>([]);
+
   // News State & Read Tracking
   const [newsList, setNewsList] = useState<any[]>([]);
   const [readNewsIds, setReadNewsIds] = useState<number[]>([]);
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsNetworkOnline(true);
+    const handleOffline = () => setIsNetworkOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const loadSoftwareUpdates = async () => {
+    try {
+      const urls = [
+        'https://cbt.filloptech.com/api/v1/updates.php',
+        'http://localhost:80/fillop/api/v1/updates.php'
+      ];
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.updates)) {
+              setSoftwareUpdates(data.updates);
+              break;
+            }
+          }
+        } catch (err) {
+          // try next url
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch software updates:', e);
+    }
+  };
 
   const loadReadNewsIds = async () => {
     if (window.api && window.api.getReadNewsIds) {
@@ -349,6 +389,7 @@ export default function App() {
       loadSyllabusData();
       loadResultsHistory();
       loadNewsList();
+      loadSoftwareUpdates();
       loadReadNewsIds();
       loadSavedLogins();
     }
@@ -1057,7 +1098,8 @@ export default function App() {
                 ...styles.sidebarItem,
                 marginTop: '8px',
                 border: '1px stroke rgba(255,255,255,0.15)',
-                backgroundColor: 'rgba(255,255,255,0.05)'
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                marginBottom: '16px'
               }}
               onClick={triggerBuyPasscodeOnline}
             >
@@ -1068,19 +1110,46 @@ export default function App() {
             </button>
           </nav>
 
-          <div style={{
-            margin: '0 16px 16px',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            border: isDarkMode ? '1px solid #2d2d2d' : '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            position: 'relative'
-          }}>
-            <img
-              src={imageAdsList[activeAdIdx].image}
-              alt={imageAdsList[activeAdIdx].alt}
-              style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }}
-            />
+          {/* Sidebar Latest News Widgets */}
+          <div style={{ padding: '0 16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {newsList.slice(0, 2).map((item) => {
+              const pubDate = item.published_at
+                ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                : new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => handleOpenNewsDetail(item)}
+                  style={{
+                    cursor: 'pointer',
+                    borderRadius: '10px',
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '8px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {item.thumbnail_url ? (
+                    <img
+                      src={item.thumbnail_url}
+                      alt={item.title}
+                      style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '6px', marginBottom: '6px', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '90px', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '6px', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c7d2fe', fontSize: '12px' }}>
+                      News Preview
+                    </div>
+                  )}
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', lineHeight: 1.3, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#93c5fd', textAlign: 'right' }}>
+                    {pubDate}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div style={styles.sidebarFooter}>
@@ -1133,18 +1202,25 @@ export default function App() {
               </span>
             )}
 
-            <div style={styles.networkPill}>
-              <span style={{ ...styles.dot, backgroundColor: syncStatus.isOnline ? colors.success : colors.danger }}></span>
-              <span>{syncStatus.isOnline ? 'Online' : 'Offline'}</span>
-            </div>
+            {(() => {
+              const isEffectiveOnline = isNetworkOnline && syncStatus.isOnline;
+              return (
+                <>
+                  <div style={styles.networkPill}>
+                    <span style={{ ...styles.dot, backgroundColor: isEffectiveOnline ? colors.success : colors.danger }}></span>
+                    <span>{isEffectiveOnline ? 'Online' : 'Offline'}</span>
+                  </div>
 
-            <button
-              style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }}
-              onClick={triggerManualSync}
-              disabled={!syncStatus.isOnline}
-            >
-              Sync
-            </button>
+                  <button
+                    style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }}
+                    onClick={triggerManualSync}
+                    disabled={!isEffectiveOnline}
+                  >
+                    Sync
+                  </button>
+                </>
+              );
+            })()}
 
             {screen === 'DASHBOARD' && (
               <button style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }} onClick={handleLogout}>
@@ -1225,11 +1301,11 @@ export default function App() {
                   </div>
 
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Passcode (Leave blank for Free Version)</label>
+                    <label style={styles.label}>Passcode (10 characters, e.g. 01520976GG)</label>
                     <input
                       type="text"
                       style={{ ...styles.input, fontFamily: 'monospace', letterSpacing: '0.08em' }}
-                      placeholder="GP-XXXX-XXXX"
+                      placeholder="01520976GG"
                       value={actPasscode}
                       onChange={(e) => setActPasscode(e.target.value)}
                     />
@@ -1584,7 +1660,24 @@ export default function App() {
                                 const isChecked = mockSelectedSubjects.includes(s.id);
                                 const isLocked = (s as any).is_locked;
                                 return (
-                                  <label key={s.id} style={{ ...styles.checkboxLabel, opacity: isLocked ? 0.6 : 1 }}>
+                                  <label
+                                    key={s.id}
+                                    style={{
+                                      ...styles.checkboxLabel,
+                                      backgroundColor: isLocked ? (isDarkMode ? '#1e293b' : '#f8fafc') : '#1e3a8a',
+                                      color: isLocked ? colors.textMuted : '#ffffff',
+                                      border: `1px solid ${isLocked ? colors.border : '#1e3a8a'}`,
+                                      fontWeight: isLocked ? 500 : 700,
+                                      padding: '10px 14px',
+                                      borderRadius: '8px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '10px',
+                                      transition: 'all 0.15s ease',
+                                      boxShadow: isLocked ? 'none' : '0 2px 6px rgba(30, 58, 138, 0.25)'
+                                    }}
+                                  >
                                     <input
                                       type="checkbox"
                                       checked={isChecked}
@@ -1600,14 +1693,14 @@ export default function App() {
                                           setMockSelectedSubjects(prev => [...prev, s.id]);
                                         }
                                       }}
-                                      style={{ width: '16px', height: '16px', accentColor: colors.primary }}
+                                      style={{ width: '16px', height: '16px', accentColor: '#ffffff', cursor: 'pointer' }}
                                     />
                                     {isLocked ? (
                                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                         <Lock size={14} color={colors.warning} /> {s.name}
                                       </span>
                                     ) : (
-                                      s.name
+                                      <span>{s.name}</span>
                                     )}
                                   </label>
                                 );
@@ -1870,107 +1963,62 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Panel: News & Sync */}
+              {/* Right Panel: Software Updates & Sync */}
               <div style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={styles.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: colors.textMuted, margin: 0, letterSpacing: '0.5px' }}>Latest Admin News</h3>
-                    {newsList.filter(n => !readNewsIds.includes(n.id)).length > 0 && (
+                    <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: colors.textMuted, margin: 0, letterSpacing: '0.5px' }}>UPDATES</h3>
+                    {softwareUpdates.length > 0 && (
                       <span style={{ fontSize: '11px', fontWeight: 800, backgroundColor: colors.primary, color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
-                        {newsList.filter(n => !readNewsIds.includes(n.id)).length} New
+                        {softwareUpdates.length} New
                       </span>
                     )}
                   </div>
 
-                  <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {newsList.length === 0 ? (
-                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No announcements published.</p>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {softwareUpdates.length === 0 ? (
+                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No software update records available.</p>
                     ) : (
-                      newsList.map(item => {
-                        const isRead = readNewsIds.includes(item.id);
-                        const publishedDateStr = item.published_at
-                          ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                          : new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() => handleOpenNewsDetail(item)}
-                            style={{
-                              display: 'flex',
-                              gap: '12px',
-                              cursor: 'pointer',
-                              padding: '10px',
-                              borderRadius: '10px',
-                              backgroundColor: isRead ? colors.bg : (isDarkMode ? '#222938' : '#f0f4ff'),
-                              border: `1px solid ${isRead ? colors.border : colors.primaryLight}`,
-                              transition: 'all 0.15s ease',
-                              opacity: isRead ? 0.8 : 1
-                            }}
-                          >
-                            {/* Medium photo by the left */}
-                            <div style={{ width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, backgroundColor: colors.border, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {item.thumbnail_url ? (
-                                <img
-                                  src={item.thumbnail_url}
-                                  alt={item.title}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                              ) : (
-                                <Newspaper size={28} color={colors.primary} />
-                              )}
-                            </div>
-
-                            {/* Topic title (clamped to 3 lines) + publish date */}
-                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                              <div>
-                                <div
-                                  style={{
-                                    fontWeight: isRead ? 600 : 800,
-                                    fontSize: '13px',
-                                    color: colors.text,
-                                    lineHeight: '1.3',
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 3,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
-                                  }}
-                                  title={item.title}
-                                >
-                                  {item.title}
-                                </div>
-                                {item.title.length < 50 && item.content && (
-                                  <div
-                                    style={{
-                                      fontSize: '11px',
-                                      color: colors.textSecondary,
-                                      marginTop: '3px',
-                                      display: '-webkit-box',
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: 'vertical',
-                                      overflow: 'hidden'
-                                    }}
-                                  >
-                                    {item.content}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
-                                <span style={{ fontSize: '10px', fontWeight: 600, color: colors.textMuted }}>
-                                  📅 {publishedDateStr}
-                                </span>
-                                {isRead ? (
-                                  <span style={{ fontSize: '10px', color: colors.textMuted, fontWeight: 600 }}>✓ Read</span>
-                                ) : (
-                                  <span style={{ fontSize: '10px', color: colors.primary, fontWeight: 800 }}>● Unread</span>
-                                )}
-                              </div>
-                            </div>
+                      softwareUpdates.map(upd => (
+                        <div
+                          key={upd.id}
+                          onClick={() => {
+                            if (upd.url) {
+                              if (window.api && window.api.openExternal) {
+                                window.api.openExternal(upd.url);
+                              } else {
+                                window.open(upd.url, '_blank');
+                              }
+                            }
+                          }}
+                          style={{
+                            padding: '12px',
+                            borderRadius: '10px',
+                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                            border: `1px solid ${colors.border}`,
+                            cursor: upd.url ? 'pointer' : 'default',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: colors.primary }}>
+                              {upd.version}
+                            </span>
+                            <span style={{ fontSize: '10px', fontWeight: 700, backgroundColor: colors.primaryLight, color: colors.primary, padding: '2px 6px', borderRadius: '4px' }}>
+                              {upd.firmware}
+                            </span>
                           </div>
-                        );
-                      })
+                          <div style={{ fontSize: '12px', color: colors.text, lineHeight: 1.4, marginBottom: '6px' }}>
+                            {upd.improvements}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: colors.textMuted }}>
+                            <span>Size: {upd.size}</span>
+                            <span style={{ color: colors.primary, fontWeight: 700 }}>
+                              {upd.url ? 'Download Update ↗' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
@@ -2434,14 +2482,18 @@ export default function App() {
           </div>
         </div>
 
-        {/* Footer: info + attempted count */}
+        {/* Footer: info + active question details */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 28px', flexShrink: 0, marginTop: 'auto' }}>
           <div style={{ border: '1px solid #4b5563', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, fontFamily: 'Arial, sans-serif', color: '#1a1a1a' }}>
             INFO
           </div>
           <div style={{ fontSize: '13px', color: '#1f2937', lineHeight: 1.5 }}>
-            <div>Attempted {attemptedCount} of {examQuestions.length}</div>
-            <div>Random question selection. Extract of 2025 UTME questions</div>
+            <div>Question {currentIdx + 1} of {examQuestions.length} (Attempted {attemptedCount} of {examQuestions.length})</div>
+            <div>
+              {curSubName ? `${curSubName.toUpperCase()}` : ''}
+              {(curQ as any)?.topic_name ? ` • ${(curQ as any).topic_name}` : ''}
+              {` • Extract of ${(curQ as any)?.year || '2025'} ${(curQ as any)?.exam_type || examType} past questions`}
+            </div>
           </div>
         </div>
       </div>
