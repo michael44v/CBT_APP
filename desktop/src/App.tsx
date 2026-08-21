@@ -1068,8 +1068,8 @@ export default function App() {
 
   return (
     <div style={styles.app}>
-      {/* Sidebar */}
-      {screen !== 'ACTIVATION' && (
+      {/* Sidebar - Hidden in Mock Exam Room to prevent distractions */}
+      {screen !== 'ACTIVATION' && !(screen === 'EXAM' && !isPracticeMode && !isQuizMode) && !(screen === 'INSTRUCTIONS' && !isPracticeMode && !isQuizMode) && (
         <aside style={styles.sidebar}>
           <div style={styles.sidebarBrand}>
             <img src="./icon.png" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid white' }} alt="App Icon" />
