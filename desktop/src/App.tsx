@@ -660,10 +660,6 @@ export default function App() {
         alert('Please choose at least one subject.');
         return;
       }
-      if (mockSelectedSubjects.length > 4) {
-        alert('Mock exams are limited to a maximum of 4 subjects.');
-        return;
-      }
     }
 
     if (mockSelectionMode === 'YEAR' && !mockSelectedYear) {
@@ -946,7 +942,7 @@ export default function App() {
     sidebarBrandText: { color: '#fff', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.2px' },
     sidebarNav: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 10px', flex: 1 },
     sidebarItem: { padding: '10px 14px', borderRadius: '8px', color: '#c7d2fe', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.15s ease', border: 'none', background: 'none', width: '100%', textAlign: 'left' },
-    sidebarItemActive: { backgroundColor: colors.primary, color: '#fff' },
+    sidebarItemActive: { backgroundColor: 'rgba(255, 255, 255, 0.15)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)' },
     sidebarFooter: { padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontSize: '12px' },
     main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
     header: { height: '60px', backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 },
@@ -1021,7 +1017,7 @@ export default function App() {
   ];
 
   const isSidebarActive = (id: string) => {
-    if (id === 'DASHBOARD' && screen === 'DASHBOARD') return true;
+    if (id === 'DASHBOARD' && screen === 'DASHBOARD' && dashboardMode !== 'ANALYTICS') return true;
     if (id === 'PROFILE' && screen === 'PROFILE') return true;
     if (id === 'ANALYTICS' && screen === 'DASHBOARD' && dashboardMode === 'ANALYTICS') return true;
     return false;
@@ -1077,27 +1073,30 @@ export default function App() {
           </div>
 
           <nav style={styles.sidebarNav}>
-            {sidebarNavItems.map(item => (
-              <button
-                key={item.id}
-                style={{
-                  ...styles.sidebarItem,
-                  ...(isSidebarActive(item.id) ? styles.sidebarItemActive : {})
-                }}
-                onClick={() => handleSidebarClick(item.id)}
-              >
-                <span style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: isSidebarActive(item.id) ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
-                  {item.icon}
-                </span>
-                {item.label}
-              </button>
-            ))}
+            {sidebarNavItems.map(item => {
+              const active = isSidebarActive(item.id);
+              return (
+                <button
+                  key={item.id}
+                  style={{
+                    ...styles.sidebarItem,
+                    ...(active ? styles.sidebarItemActive : {})
+                  }}
+                  onClick={() => handleSidebarClick(item.id)}
+                >
+                  <span style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: active ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </button>
+              );
+            })}
 
             <button
               style={{
                 ...styles.sidebarItem,
                 marginTop: '8px',
-                border: '1px stroke rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.15)',
                 backgroundColor: 'rgba(255,255,255,0.05)',
                 marginBottom: '16px'
               }}
