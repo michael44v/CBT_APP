@@ -5,63 +5,86 @@
   "type": "module",
   "main": "electron/main.cjs",
   "productName": "CBT Practice App",
+
   "scripts": {
     "dev": "vite",
     "build:react": "vite build",
+
     "electron": "wait-on http://localhost:5173 && electronmon .",
+
     "start": "concurrently \"npm run dev\" \"npm run electron\"",
+
     "postinstall": "electron-builder install-app-deps",
+
+    "rebuild:x64": "electron-rebuild -f -w better-sqlite3 --version 43.4.0 --arch x64",
+
+    "rebuild:ia32": "electron-rebuild -f -w better-sqlite3 --version 43.4.0 --arch ia32",
+
     "dist": "npm run build:react && electron-builder",
+
     "dist:mac": "npm run build:react && electron-builder --mac",
-    "dist:win": "npm run build:react && electron-builder --win"
+
+    "dist:win:x64": "npm run build:react && electron-builder --win --x64",
+
+    "dist:win:ia32": "npm run build:react && electron-builder --win --ia32"
   },
+
   "devDependencies": {
-     "@electron/rebuild": "^4.2.0",
-  "@types/node": "^26.2.0",
-  "@types/react": "^19.2.18",
-  "@types/react-dom": "^19.2.4",
-  "@vitejs/plugin-react": "^6.0.5",
-  "concurrently": "^9.2.4",
-  "cross-env": "^10.1.0",
-  "electron": "43.4.0",
-  "electron-builder": "^26.15.3",
-  "electronmon": "^2.0.4",
-  "typescript": "^7.0.2",
-  "vite": "^8.2.0",
-  "wait-on": "^9.1.0"
+    "@electron/rebuild": "^4.2.0",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^9.2.4",
+    "cross-env": "^10.1.0",
+    "electron": "43.4.0",
+    "electron-builder": "^26.15.3",
+    "electronmon": "^2.0.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "wait-on": "^9.1.0"
   },
- "build": {
-  "appId": "com.cbt.app",
-  "npmRebuild": true,
-  "productName": "CBT Practice App",
-  "files": [
-    "dist/**/*",
-    "electron/**/*",
-    "node_modules/**/*"
-  ],
-  "asarUnpack": [
-    "**/*.node"
-  ],
-  "directories": {
-    "buildResources": "build",
-    "output": "release"
-  },
-  "mac": {
-    "target": "dmg",
-    "category": "public.app-category.education",
-    "icon": "build/icon.icns"
-  },
-  "win": {
-    "target": [
-      {
-        "target": "portable",
-        "arch": ["x64", "ia32"]
-      }
+
+  "build": {
+    "appId": "com.cbt.app",
+    "productName": "CBT Practice App",
+
+    "npmRebuild": false,
+
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*"
     ],
-    "icon": "build/icon.ico",
-    "artifactName": "${productName} ${version}-${arch}.${ext}"
-  }
-},
+
+    "asar": true,
+
+    "asarUnpack": [
+      "**/*.node"
+    ],
+
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.education",
+      "icon": "build/icon.icns"
+    },
+
+    "win": {
+      "target": [
+        {
+          "target": "portable"
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName} ${version}-${arch}.${ext}"
+    }
+  },
+
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "lucide-react": "^1.31.0",
