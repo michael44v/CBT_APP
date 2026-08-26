@@ -1,0 +1,62 @@
+================================================================================
+FILLOP CBT GURU - QUESTION MANAGEMENT & BULK CSV IMPORT SYSTEM
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+The Question Management (QM) module in Fillop CBT Guru central admin panel
+provides comprehensive facilities for managing exam question banks, subject
+associations, topic structures, and bulk CSV question imports.
+
+All question data is synchronized with desktop clients using monotonically
+increasing `sync_version` tags.
+
+2. DATABASE ARCHITECTURE & HIERARCHY
+--------------------------------------------------------------------------------
+- EXAM CATEGORY: 'JAMB', 'WAEC', or 'NECO'
+- SUBJECTS (`subjects` table):
+  * Unique per exam category (`name`, `exam_type`).
+  * Mapped by ID range (JAMB: 1-35, WAEC: 36-70, NECO: 71-105).
+- TOPICS (`topics` table):
+  * Linked to specific `subject_id`.
+  * Dynamically created upon uploading CSV files if non-existent.
+- QUESTIONS (`questions` table):
+  * Fields: `exam_type`, `subject_id`, `year`, `topic_id`, `difficulty`,
+    `question_text`, `option_a`, `option_b`, `option_c`, `option_d`,
+    `correct_answer`, `topic_explanation`, `correct_explanation`, `wrong_explanations`.
+
+3. BULK CSV IMPORT SCHEMA & SPECIFICATION
+--------------------------------------------------------------------------------
+CSV Header Row Required:
+exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer
+
+Sample CSV Row:
+JAMB,Mathematics,2024,Quadratic Equations,medium,"Solve for x: x^2 - 5x + 6 = 0",x = 2 or x = 3,x = -2 or x = -3,x = 1 or x = 6,x = -1 or x = -6,A
+
+4. IMPORT VALIDATION & PROCESSING RULES
+--------------------------------------------------------------------------------
+- Human-Readable Subject Resolution:
+  The CSV `subject` column is matched against the database `subjects` table
+  by name and `exam_type`.
+- Dynamic Topic Creation:
+  If the specified topic does not exist for the matched subject, it is
+  automatically inserted into the `topics` table.
+- Duplicate Detection:
+  Rows with identical `subject_id` and `question_text` are flagged to prevent
+  duplicate imports.
+- Transactional Safety:
+  All inserts occur inside a MySQL database transaction (`START TRANSACTION` /
+  `COMMIT` / `ROLLBACK`). If errors exceed limits or validation fails, changes
+  are safely rolled back.
+
+5. ADMIN API ENDPOINTS
+--------------------------------------------------------------------------------
+- POST /fillop/api/v1/admin/questions.php
+  Actions:
+  * `get_subjects_and_topics`: Fetch current DB subject and topic listings.
+  * `create_topic`: Create a new topic under a subject.
+  * `create`: Insert an individual question manually.
+  * `bulk_import`: Upload and process bulk CSV string data.
+  * `delete`: Delete a question by ID and record tombstone for sync.
+
+================================================================================
