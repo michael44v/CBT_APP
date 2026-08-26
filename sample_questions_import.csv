@@ -1,5 +1,7 @@
-exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation
-JAMB,Mathematics,2024,Quadratic Equations,medium,Find the positive root of x^2 - 9 = 0,3,9,-3,0,A,Quadratic equations topic,x^2 = 9 so x = 3
-JAMB,English,2024,Synonyms,easy,Choose the synonym for 'Abundant',Plentiful,Scarce,Small,Narrow,A,Vocabulary lexis,Abundant means existing in large quantities
-WAEC,Physics,2024,Mechanics,easy,What is the SI unit of force?,Newton,Joule,Watt,Pascal,A,Units and vectors,Force is measured in Newtons (N)
-NECO,Chemistry,2024,Acids and Bases,medium,What is the pH of a neutral solution at 25°C?,7,1,14,0,A,pH scale,Pure water has pH of 7
+exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer
+JAMB,Mathematics,2024,Quadratic Equations,medium,"Solve for x: x^2 - 5x + 6 = 0",x = 2 or x = 3,x = -2 or x = -3,x = 1 or x = 6,x = -1 or x = -6,A
+JAMB,English Language,2024,Lexis & Structure,easy,Choose the word opposite in meaning to 'ABUNDANT':,Scarce,Plentiful,Copious,Excessive,A
+JAMB,Chemistry,2024,Chemical Bonding,medium,Which type of bond is formed by the sharing of electron pairs between atoms?,Covalent Bond,Ionic Bond,Metallic Bond,Hydrogen Bond,A
+WAEC,Physics,2023,Newtonian Mechanics,hard,"Calculate the acceleration of a 10kg mass acted upon by a net force of 50N.",5 m/s^2,10 m/s^2,0.2 m/s^2,500 m/s^2,A
+WAEC,Biology,2023,Cell Biology,easy,Which organelle is known as the powerhouse of the cell?,Mitochondria,Ribosome,Golgi Apparatus,Nucleus,A
+NECO,Economics,2024,Macroeconomics,medium,What happens to demand when price increases according to the law of demand?,Demand decreases,Demand increases,Demand stays constant,Supply decreases,A
