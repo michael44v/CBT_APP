@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import fillopIcon from './icon.png';
 
-const API_BASE = 'http://localhost:80/fillop/api/v1';
+const API_BASE = 'https://cbt.filloptech.com/api/v1';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -566,7 +566,11 @@ export default function App() {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="sidebar-brand">
-          <Shield size={24} color="var(--accent)" />
+           <img
+              src={fillopIcon}
+              alt="Fillop Icon"
+              style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'contain' }}
+            />
           <span>Fillop Admin</span>
         </div>
         <nav className="sidebar-menu">
@@ -652,11 +656,7 @@ export default function App() {
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
               <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
-            <img
-              src={fillopIcon}
-              alt="Fillop Icon"
-              style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'contain' }}
-            />
+           
           </div>
         </header>
 
