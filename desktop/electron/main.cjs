@@ -306,22 +306,31 @@ ipcMain.handle("db:get-subjects", async (event, examType) => {
         }
       } else {
         // Passcode Activated Mode
-        const userCat = (actRow.exam_category || 'ALL').toUpperCase();
-        const allowedStr = actRow.allowed_subjects || '';
+        const userCatStr = actRow.exam_category || 'ALL';
+        const allowedCats = userCatStr.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+        const isCatAllowed = allowedCats.includes('ALL') || allowedCats.includes(examType.toUpperCase());
 
-        // 1. Check category restriction
-        if (userCat !== 'ALL' && userCat !== examType.toUpperCase()) {
+        if (!isCatAllowed) {
           is_locked = true;
-        }
+        } else {
+          const allowedStr = actRow.allowed_subjects || '';
+          const allowedList = allowedStr.split(',').map(item => item.trim().toLowerCase()).filter(Boolean);
 
-        // 2. Check subject restriction if allowedStr specified
-        if (!is_locked && allowedStr.trim() !== '') {
-          const allowedList = allowedStr.split(',').map(item => item.trim().toLowerCase());
-          const nameMatch = allowedList.includes(s.name.toLowerCase());
-          const idMatch = allowedList.includes(String(s.id));
+          if (allowedList.length === 0) {
+            // Default: Lock all subjects except Mathematics and English Language
+            const sNameLower = s.name.toLowerCase();
+            if (sNameLower !== 'mathematics' && sNameLower !== 'english language' && sNameLower !== 'english') {
+              is_locked = true;
+            }
+          } else {
+            const sNameLower = s.name.toLowerCase();
+            const nameMatch = allowedList.includes(sNameLower) ||
+                              (sNameLower.includes('english') && allowedList.some(item => item.includes('english')));
+            const idMatch = allowedList.includes(String(s.id));
 
-          if (!nameMatch && !idMatch) {
-            is_locked = true;
+            if (!nameMatch && !idMatch) {
+              is_locked = true;
+            }
           }
         }
       }
