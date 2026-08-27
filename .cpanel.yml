@@ -3,4 +3,4 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/fillqtym/cbt.filloptech.com/api/v1/
     - mkdir -p $DEPLOYPATH
-    - /bin/cp -R ./api/v1/* $DEPLOYPATH
+    - /bin/cp -R ./backend/api/v1/* $DEPLOYPATH
