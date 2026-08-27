@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net } = require("electron");
+const { app, BrowserWindow, ipcMain, net, powerMonitor } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const dbService = require("./services/dbService.cjs");
@@ -192,11 +192,19 @@ ipcMain.handle("auth:activate", async (event, { email, passcode }) => {
   }
 
   try {
-    const response = await fetch("https://cbt.filloptech.com/api/v1/activate.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, passcode, device_uuid, hardware_hash })
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let response;
+    try {
+      response = await fetch("https://cbt.filloptech.com/api/v1/activate.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, passcode, device_uuid, hardware_hash }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     const result = await response.json();
 
     if (result.success) {
@@ -577,6 +585,19 @@ ipcMain.handle("sync:set-online", async (event, isOnline) => {
 app.whenReady().then(() => {
   createSplashWindow();
   initializeApp();
+
+  powerMonitor.on("suspend", () => {
+    console.log("[Main] System entering suspend/sleep state. Pausing background sync.");
+    syncService.stopBackgroundSync();
+  });
+
+  powerMonitor.on("resume", () => {
+    console.log("[Main] System resumed from sleep state. Resuming background sync.");
+    syncService.startBackgroundSync();
+    if (syncService.checkInternet()) {
+      syncService.triggerSync().catch(err => console.error("[Main] Post-resume sync error:", err));
+    }
+  });
 });
 
 app.on("window-all-closed", () => {
