@@ -941,8 +941,25 @@ export default function App() {
     sidebarBrand: { padding: '0 20px 24px', display: 'flex', alignItems: 'center', gap: '10px' },
     sidebarBrandText: { color: '#fff', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.2px' },
     sidebarNav: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 10px', flex: 1 },
-    sidebarItem: { padding: '10px 14px', borderRadius: '8px', color: '#c7d2fe', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.15s ease', border: 'none', background: 'none', width: '100%', textAlign: 'left' },
-    sidebarItemActive: { backgroundColor: 'rgba(255, 255, 255, 0.15)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)' },
+   sidebarItem: {
+  padding: '10px 14px',
+  borderRadius: '8px',
+  color: '#c7d2fe',
+  fontSize: '13px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  transition: 'all 0.15s ease',
+  border: 'none',
+  outline: 'none',
+  backgroundColor: 'transparent',   // explicit, not shorthand 'none'
+  WebkitAppearance: 'none',         // kills native button chrome
+  appearance: 'none',
+  width: '100%',
+  textAlign: 'left'
+}, sidebarItemActive: { backgroundColor: 'rgba(255, 255, 255, 0.15)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)' },
     sidebarFooter: { padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontSize: '12px' },
     main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
     header: { height: '60px', backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 },
@@ -1097,7 +1114,7 @@ export default function App() {
                 ...styles.sidebarItem,
                 marginTop: '8px',
                 border: '1px solid rgba(255,255,255,0.15)',
-                backgroundColor: 'rgba(255,255,255,0.05)',
+               
                 marginBottom: '16px'
               }}
               onClick={triggerBuyPasscodeOnline}
