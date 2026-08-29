@@ -441,31 +441,39 @@ export default function App() {
   }, [practiceSubject]);
 
   const handleOpenLeaderboard = async () => {
-    if (!syncStatus.isOnline) {
+    if (!syncStatus.isOnline && !navigator.onLine) {
       alert("Leaderboard is an online feature. Please connect to the internet.");
       return;
     }
     setShowLeaderboard(true);
     setLeaderboardLoading(true);
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      let res;
+    const urls = [
+      "https://cbt.filloptech.com/api/v1/leader.php",
+      "http://localhost:80/fillop/api/v1/leader.php"
+    ];
+    for (const url of urls) {
       try {
-        res = await fetch("http://localhost:80/fillop/api/v1/leaderboard.php", { signal: controller.signal });
-      } finally {
-        clearTimeout(timer);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        let res;
+        try {
+          res = await fetch(url, { signal: controller.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setLeaderboardData(data.leaderboard || []);
+            setLeaderboardTimeframe(data.timeframe || 'This Week');
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch leaderboard from " + url, e);
       }
-      const data = await res.json();
-      if (data.success) {
-        setLeaderboardData(data.leaderboard || []);
-        setLeaderboardTimeframe(data.timeframe || 'This Week');
-      }
-    } catch (e) {
-      console.error("Failed to fetch leaderboard:", e);
-    } finally {
-      setLeaderboardLoading(false);
     }
+    setLeaderboardLoading(false);
   };
 
   const checkActivation = async () => {
@@ -2938,6 +2946,252 @@ export default function App() {
             >
               Get Started
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= LEADERBOARD MODAL ================= */}
+      {showLeaderboard && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '24px',
+            maxWidth: '680px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '28px 32px',
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+          }}>
+            {/* Header / Title Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: colors.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Trophy size={22} color={colors.primary} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: colors.text }}>Candidate Leaderboard</h2>
+                  <span style={{ fontSize: '12px', color: colors.textSecondary }}>Top performing candidates on Fillop CBT</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: colors.textMuted,
+                  fontSize: '22px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  padding: '4px 8px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Timeframe Filter Tabs */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
+              {['Week', 'Month', 'Year', 'All time'].map((tf) => {
+                const isActive = (leaderboardTimeframe.toLowerCase().includes('week') && tf === 'Week') ||
+                  (leaderboardTimeframe.toLowerCase().includes('all') && tf === 'All time') ||
+                  (leaderboardTimeframe === tf);
+                return (
+                  <button
+                    key={tf}
+                    style={{
+                      padding: '8px 20px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      backgroundColor: isActive ? colors.primary : (isDarkMode ? '#2d2d2d' : '#f1f5f9'),
+                      color: isActive ? '#ffffff' : colors.textSecondary,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => setLeaderboardTimeframe(tf)}
+                  >
+                    {tf}
+                  </button>
+                );
+              })}
+            </div>
+
+            {leaderboardLoading ? (
+              <div style={{ padding: '60px 0', textAlign: 'center', color: colors.textMuted, fontSize: '14px' }}>
+                Fetching live performance rankings...
+              </div>
+            ) : leaderboardData.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: colors.textMuted, fontSize: '14px' }}>
+                No leaderboard entries available for this period.
+              </div>
+            ) : (
+              <>
+                {/* Podium Cards for Top 3 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
+                  {[1, 0, 2].map((rankIdx) => {
+                    const candidate = leaderboardData[rankIdx];
+                    if (!candidate) return <div key={rankIdx} />;
+                    const rankNum = rankIdx + 1;
+                    const isFirst = rankNum === 1;
+                    const crownBg = isFirst ? '#f59e0b' : rankNum === 2 ? '#94a3b8' : '#cd7f32';
+                    const name = candidate.email ? candidate.email.split('@')[0] : 'Candidate';
+                    const avgPct = candidate.average_percentage ? Number(candidate.average_percentage).toFixed(0) : '0';
+
+                    return (
+                      <div
+                        key={rankIdx}
+                        style={{
+                          backgroundColor: isFirst ? colors.primary : (isDarkMode ? '#27272a' : '#e0e7ff'),
+                          color: isFirst ? '#ffffff' : colors.text,
+                          borderRadius: '20px',
+                          padding: '20px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          textAlign: 'center',
+                          position: 'relative',
+                          boxShadow: isFirst ? '0 10px 20px -3px rgba(29, 48, 144, 0.4)' : 'none',
+                          transform: isFirst ? 'scale(1.05)' : 'none',
+                          zIndex: isFirst ? 2 : 1
+                        }}
+                      >
+                        {/* Crown Badge */}
+                        <div style={{
+                          position: 'relative',
+                          marginBottom: '12px'
+                        }}>
+                          <div style={{
+                            width: '28px',
+                            height: '20px',
+                            backgroundColor: crownBg,
+                            clipPath: 'polygon(0% 100%, 0% 20%, 25% 60%, 50% 0%, 75% 60%, 100% 20%, 100% 100%)',
+                            margin: '0 auto 4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            color: '#fff'
+                          }} />
+                          <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            border: `3px solid ${isFirst ? '#ffffff' : crownBg}`,
+                            backgroundColor: colors.surface
+                          }}>
+                            <img
+                              src={`https://i.pravatar.cc/150?u=${encodeURIComponent(candidate.email)}`}
+                              alt={name}
+                              onError={(e) => {
+                                (e.target as HTMLElement).setAttribute('src', "https://th.bing.com/th/id/OIP.7O4_GREtLbxqPdJCTmfatQHaHa?r=0&o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3");
+                              }}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ fontWeight: 800, fontSize: '15px', marginBottom: '2px', wordBreak: 'break-word', width: '100%' }}>
+                          {name}
+                        </div>
+                        <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '8px' }}>
+                          {candidate.exam_type || 'JAMB'} • {candidate.total_exams || 1} Tests
+                        </div>
+                        <div style={{
+                          backgroundColor: isFirst ? 'rgba(255, 255, 255, 0.2)' : 'rgba(29, 48, 144, 0.12)',
+                          color: isFirst ? '#ffffff' : colors.primary,
+                          padding: '4px 12px',
+                          borderRadius: '12px',
+                          fontSize: '13px',
+                          fontWeight: 800
+                        }}>
+                          {avgPct}% Avg
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Remaining Rankings List (4+) */}
+                {leaderboardData.length > 3 && (
+                  <div>
+                    <h3 style={{ fontSize: '15px', fontWeight: 800, color: colors.text, marginBottom: '14px' }}>
+                      Other Featured Candidates ›
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {leaderboardData.slice(3).map((candidate, idx) => {
+                        const rankNum = idx + 4;
+                        const name = candidate.email ? candidate.email.split('@')[0] : 'Candidate';
+                        const avgPct = candidate.average_percentage ? Number(candidate.average_percentage).toFixed(0) : '0';
+
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              backgroundColor: isDarkMode ? '#27272a' : '#f8fafc',
+                              border: `1px solid ${colors.border}`,
+                              borderRadius: '16px',
+                              padding: '12px 18px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                              <div style={{ width: '42px', height: '42px', borderRadius: '50%', overflow: 'hidden', backgroundColor: colors.border, flexShrink: 0 }}>
+                                <img
+                                  src={`https://i.pravatar.cc/150?u=${encodeURIComponent(candidate.email)}`}
+                                  alt={name}
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).setAttribute('src', "https://th.bing.com/th/id/OIP.7O4_GREtLbxqPdJCTmfatQHaHa?r=0&o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3");
+                                  }}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '14px', color: colors.text }}>{name}</div>
+                                <div style={{ fontSize: '11px', color: colors.textMuted }}>
+                                  Average Score: <strong style={{ color: colors.primary }}>{avgPct}%</strong> • Total Tests: {candidate.total_exams || 1}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              backgroundColor: colors.primaryLight,
+                              color: colors.primary,
+                              fontWeight: 800,
+                              fontSize: '13px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              {rankNum}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
