@@ -58,7 +58,7 @@ export default function App() {
     if (!navigator.onLine) return;
     try {
       const urls = [
-        'https://cbt.filloptech.com/api/v1/updates.php',
+        'https://cbt.filloptech.com/api/v1/admin/updates.php',
         'http://localhost:80/fillop/api/v1/updates.php'
       ];
       for (const url of urls) {
