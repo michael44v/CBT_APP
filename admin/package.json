@@ -8,8 +8,10 @@
     "build": "vite build"
   },
   "dependencies": {
+    "lucide-react": "^1.37.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.5",

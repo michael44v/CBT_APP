@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Shield,
   LayoutDashboard,
@@ -38,7 +39,11 @@ import {
   BarChart2,
   Calendar,
   CheckSquare,
-  FileCheck
+  FileCheck,
+  UserX,
+  UserCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import fillopIcon from './icon.png';
 
@@ -53,14 +58,20 @@ export default function App() {
     'DASHBOARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'NEWS' | 'UPDATES'
   >('DASHBOARD');
 
-  // Stats
+  // Extended Stats State
   const [stats, setStats] = useState({
     total_users: 0,
     active_passcodes: 0,
     suspended_passcodes: 0,
+    total_passcodes: 0,
     estimated_revenue: 0,
     total_questions: 0,
     total_promos: 0,
+    active_promos: 0,
+    pending_upgrades: 0,
+    news_count: 0,
+    updates_count: 0,
+    latest_update_version: 'v3.0.1'
   });
 
   // Results & Analytics
@@ -170,12 +181,14 @@ export default function App() {
     url: ''
   });
 
-  // Bulk Import
+  // Bulk Import State
   const [csvInput, setCsvInput] = useState('');
+  const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSuccessMsg, setImportSuccessMsg] = useState('');
 
   // News Form
+  const [editingNewsId, setEditingNewsId] = useState<number | null>(null);
   const [newNewsForm, setNewNewsForm] = useState({
     title: '',
     content: '',
@@ -213,7 +226,6 @@ export default function App() {
         setDbSubjects(data.subjects || []);
         setDbTopics(data.topics || []);
 
-        // Default allowed_subjects for passcode form if empty
         if (data.subjects && data.subjects.length > 0 && newPasscodeForm.allowed_subjects.length === 0) {
           const jambSubjs = data.subjects.filter((s: any) => s.exam_type === 'JAMB').map((s: any) => s.name).slice(0, 4);
           setNewPasscodeForm(prev => ({ ...prev, allowed_subjects: jambSubjs }));
@@ -229,7 +241,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/admin/analytics.php`);
       const data = await res.json();
       if (data.success) {
-        setStats(data.analytics);
+        setStats(prev => ({ ...prev, ...data.analytics }));
         if (data.results) setResultsList(data.results);
         if (data.performance) setPerformanceData(data.performance);
       }
@@ -259,7 +271,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/admin/users.php?search=${encodeURIComponent(userSearch)}`);
       const data = await res.json();
       if (data.success) {
-        setUsers(data.users);
+        setUsers(data.users || []);
       }
     } catch (e) {
       console.error('Failed to load users', e);
@@ -285,7 +297,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/admin/promo_codes.php`);
       const data = await res.json();
       if (data.success) {
-        setPromos(data.promo_codes);
+        setPromos(data.promo_codes || []);
       }
     } catch (e) {
       console.error('Failed to load promos', e);
@@ -299,7 +311,7 @@ export default function App() {
       );
       const data = await res.json();
       if (data.success) {
-        setQuestions(data.questions);
+        setQuestions(data.questions || []);
       }
     } catch (e) {
       console.error('Failed to load questions', e);
@@ -311,7 +323,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/admin/news.php`);
       const data = await res.json();
       if (data.success) {
-        setNews(data.news);
+        setNews(data.news || []);
       }
     } catch (e) {
       console.error('Failed to load news', e);
@@ -355,6 +367,269 @@ export default function App() {
       fetchQuestions();
     }
   }, [questionExamFilter, questionSubjectFilter]);
+
+  // Update CSV Preview Table whenever csvInput changes
+  useEffect(() => {
+    if (!csvInput.trim()) {
+      setPreviewRows([]);
+      return;
+    }
+    try {
+      const lines = csvInput.trim().split('\n').filter(l => l.trim().length > 0);
+      if (lines.length <= 1) {
+        setPreviewRows([]);
+        return;
+      }
+      const firstLine = lines[0];
+      const delimiter = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+      const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+      const preview = lines.slice(1, 6).map(line => {
+        const values = line.split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ''));
+        const rowObj: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          rowObj[h] = values[idx] || '';
+        });
+        return rowObj;
+      });
+      setPreviewRows(preview);
+    } catch (e) {
+      setPreviewRows([]);
+    }
+  }, [csvInput]);
+
+  // Candidate Actions: Disable (Toggle Status) & Delete Account
+  const handleToggleUserDisable = async (user: any) => {
+    const isSuspended = user.status === 'suspended';
+    const newStatus = isSuspended ? 'active' : 'suspended';
+    const actionLabel = isSuspended ? 'Enable' : 'Disable';
+
+    if (!window.confirm(`Are you sure you want to ${actionLabel.toLowerCase()} candidate "${user.name}" (${user.email})?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/users.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'admin_update_user_status',
+          email: user.email,
+          status: newStatus
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(`Candidate ${actionLabel.toLowerCase()}d successfully!`);
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+      } else {
+        showNotification(data.message || `Failed to ${actionLabel.toLowerCase()} user.`, 'error');
+      }
+    } catch (e) {
+      showNotification(`Failed to ${actionLabel.toLowerCase()} candidate.`, 'error');
+    }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    if (!window.confirm(`Are you sure you want to permanently DELETE candidate account "${user.name}" (${user.email})? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/users.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'admin_delete_user',
+          id: user.id,
+          email: user.email
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Candidate account deleted successfully!');
+        setUsers(prev => prev.filter(u => u.id !== user.id));
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to delete candidate.', 'error');
+      }
+    } catch (e) {
+      showNotification('Failed to delete candidate account.', 'error');
+    }
+  };
+
+  // Question Action: Delete Question
+  const handleDeleteQuestion = async (qId: number) => {
+    if (!window.confirm(`Are you sure you want to delete question #${qId}?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/questions.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'admin_delete_question',
+          id: qId
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Question deleted successfully!');
+        setQuestions(prev => prev.filter(q => q.id !== qId));
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to delete question.', 'error');
+      }
+    } catch (e) {
+      showNotification('Failed to delete question.', 'error');
+    }
+  };
+
+  // Handle XLSX / CSV File Select & Client-Side XLSX Conversion via SheetJS
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      reader.onload = (evt) => {
+        try {
+          const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const csvText = XLSX.utils.sheet_to_csv(worksheet);
+          setCsvInput(csvText);
+          showNotification('Excel file parsed successfully!');
+        } catch (err) {
+          showNotification('Failed to parse Excel file.', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = (evt) => {
+        if (evt.target?.result) {
+          setCsvInput(evt.target.result as string);
+          showNotification('CSV file loaded successfully!');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Download Bulk Import Template
+  const handleDownloadTemplate = () => {
+    const csvContent =
+      'exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations\n' +
+      'JAMB,Mathematics,2024,Mathematics Core Topics,medium,Solve for x in the equation 2x + 5 = 15.,5,10,20,15,A,Linear Equations,2x = 10 so x = 5.,Incorrect options arise from algebraic arithmetic errors.\n' +
+      'WAEC,English Language,2023,English Language Core Topics,easy,Choose the option opposite in meaning to ANCIENT.,Old,Modern,Aged,Historic,B,Antonyms,Modern is the direct antonym of ancient.,Old and historic are synonyms of ancient.';
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'cbt_questions_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // News Actions: Create, Edit, Delete
+  const handleSaveNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = editingNewsId
+        ? { action: 'update', id: editingNewsId, ...newNewsForm }
+        : { action: 'create', ...newNewsForm };
+
+      const res = await fetch(`${API_BASE}/admin/news.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(editingNewsId ? 'News updated successfully!' : 'News announcement published!');
+        setEditingNewsId(null);
+        setNewNewsForm({
+          title: '',
+          content: '',
+          icon_name: 'newspaper',
+          thumbnail_url: '',
+          published_at: new Date().toISOString().slice(0, 16)
+        });
+        fetchNews();
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to save news.', 'error');
+      }
+    } catch (e) {
+      showNotification('Save news failed.', 'error');
+    }
+  };
+
+  const handleDeleteNews = async (newsId: number) => {
+    if (!window.confirm(`Are you sure you want to delete news announcement #${newsId}?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/news.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: newsId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('News deleted successfully!');
+        setNews(prev => prev.filter(n => n.id !== newsId));
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to delete news.', 'error');
+      }
+    } catch (e) {
+      showNotification('Delete news failed.', 'error');
+    }
+  };
+
+  const handleEditNews = (item: any) => {
+    setEditingNewsId(item.id);
+    setNewNewsForm({
+      title: item.title || '',
+      content: item.content || '',
+      icon_name: item.icon_name || 'newspaper',
+      thumbnail_url: item.thumbnail_url || '',
+      published_at: item.published_at ? item.published_at.slice(0, 16) : new Date().toISOString().slice(0, 16)
+    });
+  };
+
+  // Cloudinary News Image Upload
+  const handleNewsImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingNewsImage(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'futyApp');
+
+    try {
+      const res = await fetch('https://api.cloudinary.com/v1_1/dguvkirdr/image/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.secure_url) {
+        setNewNewsForm(prev => ({ ...prev, thumbnail_url: data.secure_url }));
+        showNotification('Thumbnail image uploaded to Cloudinary!');
+      } else {
+        showNotification('Image upload failed.', 'error');
+      }
+    } catch (err) {
+      showNotification('Cloudinary upload error.', 'error');
+    } finally {
+      setUploadingNewsImage(false);
+    }
+  };
 
   const handleUpdatePricing = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -502,7 +777,7 @@ export default function App() {
 
       if (data.success) {
         setImportSuccessMsg(data.message);
-        showNotification('Bulk import completed!');
+        showNotification(data.message || 'Bulk import completed successfully!');
         setCsvInput('');
         fetchQuestions();
         fetchStatsAndAnalytics();
@@ -510,7 +785,7 @@ export default function App() {
         if (data.errors && data.errors.length > 0) {
           setImportErrors(data.errors);
         }
-        showNotification(data.message, 'error');
+        showNotification(data.message || 'Bulk import validation failed.', 'error');
       }
     } catch (e) {
       showNotification('Bulk import call failed.', 'error');
@@ -559,7 +834,6 @@ export default function App() {
     );
   };
 
-  // Available subject options grouped from DB
   const availableSubjectNames = Array.from(new Set(dbSubjects.map(s => s.name)));
 
   return (
@@ -631,7 +905,7 @@ export default function App() {
         <header className="admin-header">
           <div>
             <h1 className="admin-title">
-              {activeTab === 'DASHBOARD' && 'Management Dashboard'}
+              {activeTab === 'DASHBOARD' && 'Management Dashboard Overview'}
               {activeTab === 'RESULTS' && 'Uploaded Results & Performance Analytics'}
               {activeTab === 'USERS' && 'Candidates / Subscriptions'}
               {activeTab === 'PASSCODES' && 'Passcode Subject Allocations & Licensing'}
@@ -656,46 +930,117 @@ export default function App() {
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
               <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
-           
           </div>
         </header>
 
+        {/* ================= 1. REBUILT MANAGEMENT DASHBOARD OVERVIEW ================= */}
         {activeTab === 'DASHBOARD' && (
           <div>
-            <div className="dashboard-stats">
-              <div className="stat-card">
-                <div className="stat-label">Total Users</div>
-                <div className="stat-val">{stats.total_users}</div>
+            <div className="dashboard-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
+
+              {/* Card 1: Uploaded Results & Performance Analytics */}
+              <div className="stat-card" onClick={() => setActiveTab('RESULTS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Results &amp; Analytics</div>
+                  <BarChart3 size={22} color="var(--accent)" />
+                </div>
+                <div className="stat-val">{resultsList.length}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Uploaded exam attempts ›</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">Active Passcodes</div>
-                <div className="stat-val" style={{ color: 'var(--success)' }}>{stats.active_passcodes}</div>
+
+              {/* Card 2: Passcode Subject Allocations & Licensing */}
+              <div className="stat-card" onClick={() => setActiveTab('PASSCODES')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Total Passcodes</div>
+                  <Key size={22} color="var(--success)" />
+                </div>
+                <div className="stat-val" style={{ color: 'var(--success)' }}>{stats.total_passcodes || (stats.active_passcodes + stats.suspended_passcodes)}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{stats.active_passcodes} Active • {stats.suspended_passcodes} Suspended ›</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">Suspended Codes</div>
-                <div className="stat-val" style={{ color: 'var(--danger)' }}>{stats.suspended_passcodes}</div>
+
+              {/* Card 3: Passcode Upgrade Requests & Logs */}
+              <div className="stat-card" onClick={() => setActiveTab('UPGRADES')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Pending Upgrades</div>
+                  <RefreshCw size={22} color="var(--warning)" />
+                </div>
+                <div className="stat-val" style={{ color: stats.pending_upgrades > 0 ? 'var(--warning)' : 'var(--text-color)' }}>
+                  {stats.pending_upgrades}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Awaiting admin approval ›</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">Estimated Revenue</div>
-                <div className="stat-val" style={{ color: 'var(--warning)' }}>₦{(stats.estimated_revenue).toLocaleString()}</div>
+
+              {/* Card 4: Dynamic Pricing Configuration */}
+              <div className="stat-card" onClick={() => setActiveTab('PRICING')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Pricing Configuration</div>
+                  <DollarSign size={22} color="var(--accent)" />
+                </div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-color)', marginTop: '4px' }}>
+                  ₦{pricingForm.single_passcode_price_6m} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>/ Single</span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Small: ₦{pricingForm.small_bulk_price_6m} • Bulk: ₦{pricingForm.large_bulk_price_6m} ›
+                </div>
               </div>
+
+              {/* Card 5: Promo Codes */}
+              <div className="stat-card" onClick={() => setActiveTab('PROMOS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Active Promos</div>
+                  <Tag size={22} color="var(--success)" />
+                </div>
+                <div className="stat-val" style={{ color: 'var(--success)' }}>{stats.active_promos || stats.total_promos}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{stats.total_promos} total promo codes ›</div>
+              </div>
+
+              {/* Card 6: Available Questions */}
+              <div className="stat-card" onClick={() => setActiveTab('QUESTIONS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Question Bank</div>
+                  <BookOpen size={22} color="var(--accent)" />
+                </div>
+                <div className="stat-val">{stats.total_questions}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Total available questions ›</div>
+              </div>
+
+              {/* Card 7: News Published */}
+              <div className="stat-card" onClick={() => setActiveTab('NEWS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">News Published</div>
+                  <Newspaper size={22} color="var(--accent)" />
+                </div>
+                <div className="stat-val">{stats.news_count || news.length}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Active announcements ›</div>
+              </div>
+
+              {/* Card 8: Software Updates */}
+              <div className="stat-card" onClick={() => setActiveTab('UPDATES')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div className="stat-label">Software Release</div>
+                  <Settings size={22} color="var(--accent)" />
+                </div>
+                <div className="stat-val" style={{ fontSize: '1.5rem' }}>{stats.latest_update_version}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{stats.updates_count || updatesList.length} releases published ›</div>
+              </div>
+
             </div>
 
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Activity size={20} /> Subject Access Control &amp; Usage Overview
+                <Activity size={20} /> System Operational Overview
               </h2>
               <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                Fillop CBT Guru manages database subjects dynamically.
-                Currently, <strong>{stats.total_questions} questions</strong> are active across all database subjects and exam categories.
+                Welcome to the Fillop CBT Guru central administrative portal. Click any summary card above or sidebar menu item to jump directly to specific management modules.
               </p>
-              <button className="btn btn-secondary" onClick={fetchStatsAndAnalytics} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <RefreshCw size={16} /> Refresh Core Analytics
+              <button className="btn btn-secondary" onClick={() => { fetchStatsAndAnalytics(); fetchPricing(); fetchNews(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <RefreshCw size={16} /> Refresh Dashboard Data
               </button>
             </div>
           </div>
         )}
 
+        {/* ================= RESULTS & ANALYTICS TAB ================= */}
         {activeTab === 'RESULTS' && (
           <div>
             <div className="dashboard-stats">
@@ -725,7 +1070,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Topic Analysis: Strong, Improvement, Weak Areas */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
               <div className="admin-card" style={{ borderLeft: '4px solid var(--success)' }}>
                 <h3 className="card-title" style={{ color: 'var(--success)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -776,7 +1120,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Performance Charts: Daily, Weekly, Monthly */}
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BarChart3 size={20} /> Candidate Progress Tracking Charts
@@ -805,7 +1148,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Subject Performance Breakdown */}
             <div className="admin-card">
               <h2 className="card-title">Subject Performance &amp; Supported Subjects</h2>
               <table style={{ width: '100%' }}>
@@ -832,7 +1174,6 @@ export default function App() {
               </table>
             </div>
 
-            {/* Uploaded Results Table */}
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileCheck size={20} /> Uploaded Candidate Exam Results
@@ -873,10 +1214,11 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= 2. CANDIDATES TAB WITH ACTION BUTTONS ================= */}
         {activeTab === 'USERS' && (
           <div className="admin-card">
             <div className="card-title">
-              <span>Candidate List</span>
+              <span>Candidate List &amp; Subscriptions</span>
               <input
                 type="text"
                 placeholder="Search candidates..."
@@ -892,31 +1234,60 @@ export default function App() {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
-                  <th>State</th>
-                  <th>School</th>
+                  <th>State / School</th>
+                  <th>Status</th>
                   <th>Signed Up At</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No candidates registered yet.</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No candidates registered yet.</td></tr>
                 ) : (
-                  users.map((u) => (
-                    <tr key={u.id}>
-                      <td style={{ fontWeight: '600' }}>{u.name}</td>
-                      <td>{u.email}</td>
-                      <td>{u.phone || 'N/A'}</td>
-                      <td>{u.state || 'N/A'}</td>
-                      <td>{u.school || 'N/A'}</td>
-                      <td>{new Date(u.created_at).toLocaleString()}</td>
-                    </tr>
-                  ))
+                  users.map((u) => {
+                    const isSuspended = u.status === 'suspended';
+                    return (
+                      <tr key={u.id}>
+                        <td style={{ fontWeight: '600' }}>{u.name}</td>
+                        <td>{u.email}</td>
+                        <td>{u.phone || 'N/A'}</td>
+                        <td>{u.school || u.state || 'N/A'}</td>
+                        <td>
+                          <span className={`badge ${isSuspended ? 'badge-danger' : 'badge-success'}`}>
+                            {isSuspended ? 'Suspended' : 'Active'}
+                          </span>
+                        </td>
+                        <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button
+                              className={`btn ${isSuspended ? 'btn-success' : 'btn-secondary'}`}
+                              onClick={() => handleToggleUserDisable(u)}
+                              title={isSuspended ? "Enable Account" : "Disable Account"}
+                              style={{ padding: '4px 8px' }}
+                            >
+                              {isSuspended ? <UserCheck size={16} /> : <UserX size={16} />}
+                            </button>
+                            <button
+                              className="btn btn-danger"
+                              onClick={() => handleDeleteUser(u)}
+                              title="Delete Account"
+                              style={{ padding: '4px 8px' }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         )}
 
+        {/* ================= PASSCODES TAB ================= */}
         {activeTab === 'PASSCODES' && (
           <div>
             <div className="admin-card">
@@ -993,7 +1364,7 @@ export default function App() {
                 </div>
 
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Allowed Subject Combination (Pulled from Database)</label>
+                  <label className="form-label">Allowed Subject Combination</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: 'var(--primary-light)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     {availableSubjectNames.map(sub => {
                       const isChecked = newPasscodeForm.allowed_subjects.includes(sub);
@@ -1080,6 +1451,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= 3. QUESTION MANAGEMENT WITH DELETE & ENHANCED BULK IMPORT ================= */}
         {activeTab === 'QUESTIONS' && (
           <div>
             <div className="admin-card">
@@ -1118,48 +1490,85 @@ export default function App() {
               </form>
             </div>
 
+            {/* Bulk CSV / XLSX Question Import Card */}
             <div className="admin-card">
-              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Upload size={18} /> Bulk CSV Question Management &amp; Validation
-              </h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Upload size={18} /> Bulk CSV / XLSX Question Management &amp; Validation
+                </h2>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleDownloadTemplate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                >
+                  <Download size={15} /> Download CSV Template
+                </button>
+              </div>
+
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
-                Upload or paste CSV questions. Accepts human-readable subject names, validates rows, checks for duplicate questions, and imports within a transaction!
+                Upload a <strong>.csv</strong> or <strong>.xlsx</strong> file or paste raw CSV data. Subject and topic names are validated case-insensitively against the database. Validates all rows before importing.
               </p>
 
               <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Upload CSV File</label>
+                <label className="form-label">Upload File (.csv or .xlsx)</label>
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv, .xlsx, .xls"
                   className="form-input"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (evt) => {
-                        if (evt.target?.result) {
-                          setCsvInput(evt.target.result as string);
-                        }
-                      };
-                      reader.readAsText(file);
-                    }
-                  }}
+                  onChange={handleFileUpload}
                 />
               </div>
 
               <form onSubmit={handleBulkImport}>
                 <div className="form-group">
-                  <label className="form-label">Or Paste Raw CSV Data</label>
+                  <label className="form-label">Or Paste / Edit Raw CSV Data</label>
                   <textarea
                     className="textarea-csv"
-                    placeholder="exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer&#10;JAMB,Mathematics,2024,Quadratic Equations,medium,Find roots of x^2 - 9 = 0,3,9,-3,0,A"
+                    placeholder="exam_type,subject,year,topic,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer&#10;JAMB,Mathematics,2024,Mathematics Core Topics,medium,Find roots of x^2 - 9 = 0,3,9,-3,0,A"
                     value={csvInput}
                     onChange={(e) => setCsvInput(e.target.value)}
                     required
                   />
                 </div>
+
+                {/* Preview Table for first 5 rows */}
+                {previewRows.length > 0 && (
+                  <div style={{ marginBottom: '1.2rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--text-color)' }}>
+                      Preview (First 5 Parsed Rows):
+                    </h4>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ fontSize: '0.8rem', width: '100%' }}>
+                        <thead>
+                          <tr>
+                            <th>Exam</th>
+                            <th>Subject</th>
+                            <th>Year</th>
+                            <th>Topic</th>
+                            <th>Question</th>
+                            <th>Ans</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewRows.map((r, i) => (
+                            <tr key={i}>
+                              <td><strong>{r.exam_type || 'N/A'}</strong></td>
+                              <td>{r.subject || r.subject_name || 'N/A'}</td>
+                              <td>{r.year || 'N/A'}</td>
+                              <td>{r.topic || r.topic_name || 'N/A'}</td>
+                              <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.question_text || 'N/A'}</td>
+                              <td><strong>{r.correct_answer || 'N/A'}</strong></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 <button type="submit" className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Upload size={16} /> Process &amp; Start Bulk Import
+                  <Upload size={16} /> Process &amp; Import Questions
                 </button>
               </form>
 
@@ -1170,11 +1579,11 @@ export default function App() {
               )}
 
               {importErrors.length > 0 && (
-                <div className="errors-box">
-                  <div className="errors-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <AlertTriangle size={16} /> Validation Issues Found ({importErrors.length}):
+                <div className="errors-box" style={{ marginTop: '1rem' }}>
+                  <div className="errors-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--danger)', fontWeight: 700 }}>
+                    <AlertTriangle size={16} /> Import Validation Issues ({importErrors.length}):
                   </div>
-                  <ul className="errors-list">
+                  <ul className="errors-list" style={{ marginTop: '0.5rem', color: 'var(--danger)', fontSize: '0.85rem' }}>
                     {importErrors.map((err, idx) => (
                       <li key={idx}>{err}</li>
                     ))}
@@ -1199,7 +1608,7 @@ export default function App() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Select Subject (Database Table)</label>
+                  <label className="form-label">Select Subject</label>
                   <select
                     className="form-input"
                     value={newQuestionForm.subject_id}
@@ -1317,6 +1726,7 @@ export default function App() {
               </form>
             </div>
 
+            {/* Questions List with Per-Row Delete Button */}
             <div className="admin-card">
               <div className="card-title">
                 <span>Core Question Bank Listing</span>
@@ -1329,13 +1739,14 @@ export default function App() {
                     <th>Subject</th>
                     <th>Year</th>
                     <th>Question Content</th>
-                    <th>Correct Ans</th>
+                    <th>Ans</th>
                     <th>Difficulty</th>
+                    <th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {questions.length === 0 ? (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No questions match filters.</td></tr>
+                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No questions match filters.</td></tr>
                   ) : (
                     questions.map((q) => (
                       <tr key={q.id}>
@@ -1346,6 +1757,16 @@ export default function App() {
                         <td style={{ maxWidth: '300px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{q.question_text}</td>
                         <td style={{ fontWeight: 'bold' }}>{q.correct_answer}</td>
                         <td><span className={`badge ${q.difficulty === 'easy' ? 'badge-success' : q.difficulty === 'hard' ? 'badge-danger' : 'badge-warning'}`}>{q.difficulty}</span></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            title="Delete Question"
+                            style={{ padding: '4px 8px' }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1355,6 +1776,159 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= 4. ADMIN NEWS MANAGEMENT TAB ================= */}
+        {activeTab === 'NEWS' && (
+          <div>
+            <div className="admin-card">
+              <h2 className="card-title">
+                {editingNewsId ? 'Edit Announcement' : 'Publish Admin News Announcement'}
+              </h2>
+              <form onSubmit={handleSaveNews} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem' }}>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Announcement Title</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Official JAMB 2026 Registration Announcement"
+                    value={newNewsForm.title}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, title: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Full Content / Body</label>
+                  <textarea
+                    className="form-input"
+                    style={{ minHeight: '120px', resize: 'vertical' }}
+                    placeholder="Enter announcement details..."
+                    value={newNewsForm.content}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, content: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Icon Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="newspaper"
+                    value={newNewsForm.icon_name}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, icon_name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Publish Date &amp; Time</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input"
+                    value={newNewsForm.published_at}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, published_at: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="form-label">Thumbnail Cover Photo URL (or Upload)</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="https://cbt.filloptech.com/uploads/news_banner.jpg"
+                      value={newNewsForm.thumbnail_url}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, thumbnail_url: e.target.value })}
+                    />
+                    <label className="btn btn-secondary" style={{ cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Upload size={16} /> {uploadingNewsImage ? 'Uploading...' : 'Upload Image'}
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleNewsImageUpload} disabled={uploadingNewsImage} />
+                    </label>
+                  </div>
+                  {newNewsForm.thumbnail_url && (
+                    <img src={newNewsForm.thumbnail_url} alt="Thumbnail Preview" style={{ marginTop: '8px', maxHeight: '100px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  )}
+                </div>
+
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px' }}>
+                  <button type="submit" className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Newspaper size={16} /> {editingNewsId ? 'Update News Announcement' : 'Publish Announcement'}
+                  </button>
+                  {editingNewsId && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setEditingNewsId(null);
+                        setNewNewsForm({
+                          title: '',
+                          content: '',
+                          icon_name: 'newspaper',
+                          thumbnail_url: '',
+                          published_at: new Date().toISOString().slice(0, 16)
+                        });
+                      }}
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <div className="card-title">
+                <span>Published Admin News Announcements</span>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Published At</th>
+                    <th>Created At</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {news.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No news announcements published yet.</td></tr>
+                  ) : (
+                    news.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.id}</td>
+                        <td style={{ fontWeight: '600', maxWidth: '300px' }}>{item.title}</td>
+                        <td>{new Date(item.published_at || item.created_at).toLocaleString()}</td>
+                        <td>{new Date(item.created_at).toLocaleDateString()}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button
+                              className="btn btn-secondary"
+                              onClick={() => handleEditNews(item)}
+                              title="Edit News"
+                              style={{ padding: '4px 8px' }}
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              className="btn btn-danger"
+                              onClick={() => handleDeleteNews(item.id)}
+                              title="Delete News"
+                              style={{ padding: '4px 8px' }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ================= PRICING TAB ================= */}
         {activeTab === 'PRICING' && (
           <div className="admin-card">
             <h2 className="card-title">Modify Dynamic Passcode Pricing Tiers</h2>
@@ -1399,6 +1973,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= INSTITUTIONS TAB ================= */}
         {activeTab === 'INSTITUTIONS' && (
           <div>
             <div className="admin-card">
@@ -1460,6 +2035,7 @@ export default function App() {
             </div>
           </div>
         )}
+
       </main>
     </div>
   );
