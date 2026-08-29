@@ -92,7 +92,11 @@
   "deleteAppDataOnUninstall": false,
   "createDesktopShortcut": true,
   "createStartMenuShortcut": true,
-  "shortcutName": "CBT Practice App"
+  "shortcutName": "Fillop CBT Guru",
+  "installerHeaderTitle": "Fillop CBT Guru - Professional Exam Prep",
+  "installerHeader": "public/exam_hall_1.jpg",
+  "installerSidebar": "public/computer_center_1.jpg",
+  "uninstallerSidebar": "public/exam_hall_2.jpg"
 }
   },
 

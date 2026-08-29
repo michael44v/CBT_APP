@@ -298,6 +298,7 @@ if (empty($dbSubjectsMap['NECO'])) {
             <div class="form-group">
                 <label>Subscription Duration *</label>
                 <select id="subDuration" onchange="calculateTotal()">
+                    <option value="1">1 Month (Same Base Price as 6 Months)</option>
                     <option value="6" selected>6 Months (Default)</option>
                     <option value="12">1 Year (6 Months Price × 2)</option>
                 </select>
@@ -471,11 +472,11 @@ if (empty($dbSubjectsMap['NECO'])) {
         const p3 = pricingSettings.large_bulk_price_6m.toLocaleString();
 
         document.getElementById("tierNotice").innerHTML = `
-            <strong>Pricing Tiers (6 Months Base):</strong><br>
+            <strong>Pricing Tiers (Base Rate for 1 Month & 6 Months):</strong><br>
             • Single Passcode (1): <strong>₦${p1}</strong><br>
             • Small Bulk (2 – 9 Passcodes): <strong>₦${p2}</strong> per passcode<br>
             • Large Bulk (10+ Passcodes): <strong>₦${p3}</strong> per passcode<br>
-            • 1-Year Subscriptions cost exactly twice (2×) the 6-month fee. Multi-category selection adds an extra fee per category.
+            • 1 Month and 6 Months carry the same base price. 1-Year Subscriptions cost exactly twice (2×) the base fee.
         `;
     }
 
@@ -575,7 +576,7 @@ if (empty($dbSubjectsMap['NECO'])) {
         const catCount = selectedCategories.length || 1;
         const qty = parseInt(document.getElementById("passcodeQty").value) || 1;
         const durationMonths = parseInt(document.getElementById("subDuration").value) || 6;
-        const durMultiplier = (durationMonths === 12) ? 2.0 : 1.0;
+        const durMultiplier = (durationMonths >= 12) ? 2.0 : 1.0;
 
         let unitPrice6m = pricingSettings.single_passcode_price_6m;
         if (qty >= 10) {
