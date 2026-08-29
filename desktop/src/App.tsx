@@ -249,6 +249,7 @@ export default function App() {
   const [answers, setAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [flagged, setFlagged] = useState<Record<number, boolean>>({});
   const [revealExplanation, setRevealExplanation] = useState<boolean>(false);
+  const [revealedQuestions, setRevealedQuestions] = useState<Record<number, boolean>>({});
   const [fallbackNotice, setFallbackNotice] = useState<string>('');
 
   // Timers
@@ -650,6 +651,7 @@ export default function App() {
       setIsPracticeMode(true);
       setIsQuizMode(false);
       setRevealExplanation(false);
+      setRevealedQuestions({});
       setAnswers({});
       setFlagged({});
 
@@ -2468,7 +2470,7 @@ export default function App() {
               { key: 'D', text: curQ.option_d },
             ].map((opt) => {
               const isSelected = answers[curQ.id] === opt.key;
-              const isLockedInStudy = isPracticeMode && revealExplanation;
+              const isLockedInStudy = isPracticeMode && (revealExplanation || !!revealedQuestions[curQ.id]);
               return (
                 <div
                   key={opt.key}
@@ -2501,7 +2503,12 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <button
                   disabled={!answers[curQ?.id]}
-                  onClick={() => setRevealExplanation(!revealExplanation)}
+                  onClick={() => {
+                    if (!revealExplanation && curQ?.id) {
+                      setRevealedQuestions(prev => ({ ...prev, [curQ.id]: true }));
+                    }
+                    setRevealExplanation(!revealExplanation);
+                  }}
                   style={{
                     fontFamily: 'Arial, sans-serif', fontWeight: 700, fontSize: '13px',
                     padding: '10px 16px', borderRadius: '6px', border: 'none',
