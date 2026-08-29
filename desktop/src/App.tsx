@@ -56,8 +56,15 @@ export default function App() {
       ];
       for (const url of urls) {
         try {
-          const res = await fetch(url);
-          if (res.ok) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 5000); // 5s timeout for updates
+          let res;
+          try {
+            res = await fetch(url, { signal: controller.signal });
+          } finally {
+            clearTimeout(timer);
+          }
+          if (res && res.ok) {
             const data = await res.json();
             if (data.success && Array.isArray(data.updates)) {
               setSoftwareUpdates(data.updates);
@@ -187,10 +194,11 @@ export default function App() {
 
   useEffect(() => {
     const timer = setInterval(() => {
+      if (document.hidden || screen === 'EXAM') return;
       setActiveAdIdx(prev => (prev + 1) % imageAdsList.length);
     }, 3000);
     return () => clearInterval(timer);
-  }, []);
+  }, [screen]);
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -416,7 +424,14 @@ export default function App() {
     setShowLeaderboard(true);
     setLeaderboardLoading(true);
     try {
-      const res = await fetch("http://localhost:80/fillop/api/v1/leaderboard.php");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      let res;
+      try {
+        res = await fetch("http://localhost:80/fillop/api/v1/leaderboard.php", { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       const data = await res.json();
       if (data.success) {
         setLeaderboardData(data.leaderboard || []);

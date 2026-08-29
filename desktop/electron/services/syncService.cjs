@@ -13,6 +13,24 @@ let changeCallback = null;
 let isSyncing = false;
 let examActive = false;
 let syncIntervalMinutes = 30; // Configurable 30-minute default interval
+let notifyTimer = null;
+
+function notifyChange(reason) {
+  if (changeCallback) {
+    if (reason === 'PASSCODE_REVOKED') {
+      if (notifyTimer) clearTimeout(notifyTimer);
+      notifyTimer = null;
+      changeCallback('PASSCODE_REVOKED');
+      return;
+    }
+    if (!notifyTimer) {
+      notifyTimer = setTimeout(() => {
+        notifyTimer = null;
+        if (changeCallback) changeCallback();
+      }, 300);
+    }
+  }
+}
 
 function setExamActive(active) {
   examActive = !!active;
@@ -36,9 +54,7 @@ function logSyncEvent(eventType, status, message) {
 
     console.log(`[Sync Log] [${eventType}] [${status}] - ${message}`);
 
-    if (changeCallback) {
-      changeCallback();
-    }
+    notifyChange();
   } catch (err) {
     console.error('[Sync Service] Failed to log sync event:', err);
   }
@@ -85,7 +101,14 @@ async function downloadQuestions() {
       url += `&email=${encodeURIComponent(actRow.email)}&passcode=${encodeURIComponent(actRow.passcode)}`;
     }
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let response;
+    try {
+      response = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!response.ok) {
       throw new Error(
@@ -117,7 +140,7 @@ async function downloadQuestions() {
     if (passcodeInfo && passcodeInfo.status && passcodeInfo.status !== 'active') {
       logSyncEvent('AUTH_REVOKED', 'FAILED', `Passcode status is ${passcodeInfo.status}. Revoking local activation session.`);
       run('DELETE FROM activation');
-      if (changeCallback) changeCallback('PASSCODE_REVOKED');
+      notifyChange('PASSCODE_REVOKED');
       return false;
     }
 
@@ -289,18 +312,26 @@ async function uploadResults() {
       submitted_at: r.submitted_at
     }));
 
-    const response = await fetch(
-      'https://cbt.filloptech.com/api/v1/sync/push.php',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          results: resultsPayload
-        })
-      }
-    );
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let response;
+    try {
+      response = await fetch(
+        'https://cbt.filloptech.com/api/v1/sync/push.php',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            results: resultsPayload
+          }),
+          signal: controller.signal
+        }
+      );
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!response.ok) {
       throw new Error(
@@ -383,9 +414,7 @@ function setOnlineStatus(isOnline) {
 
   console.log(`[Sync Service] Network Simulated Online: ${isOnline}`);
 
-  if (changeCallback) {
-    changeCallback();
-  }
+  notifyChange();
 
   if (isOnline && !previous) {
     logSyncEvent(
