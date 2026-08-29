@@ -38,8 +38,14 @@ export default function App() {
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
 
   useEffect(() => {
-    const handleOnline = () => setIsNetworkOnline(true);
-    const handleOffline = () => setIsNetworkOnline(false);
+    const handleOnline = () => {
+      setIsNetworkOnline(true);
+      loadSoftwareUpdates();
+    };
+    const handleOffline = () => {
+      setIsNetworkOnline(false);
+      setSoftwareUpdates([]);
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -49,6 +55,7 @@ export default function App() {
   }, []);
 
   const loadSoftwareUpdates = async () => {
+    if (!navigator.onLine) return;
     try {
       const urls = [
         'https://cbt.filloptech.com/api/v1/updates.php',
@@ -302,6 +309,7 @@ export default function App() {
         loadResultsHistory();
         loadNewsList();
         loadReadNewsIds();
+        loadSoftwareUpdates();
       });
     }
 
@@ -630,6 +638,7 @@ export default function App() {
       await window.api.startSync();
       loadSyncLogs();
       loadResultsHistory();
+      loadSoftwareUpdates();
     }
   };
 
