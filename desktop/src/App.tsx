@@ -224,6 +224,7 @@ export default function App() {
 
   // Metadata Lists
   const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
+  const [allCategoriesSubjectsMap, setAllCategoriesSubjectsMap] = useState<Record<string, Subject[]>>({});
   const [topicsList, setTopicsList] = useState<Topic[]>([]);
   const [yearsList, setYearsList] = useState<number[]>([]);
 
@@ -516,6 +517,18 @@ export default function App() {
         setSubjectsList(sortedSubs);
         setMockSelectedSubjects([]);
         setPracticeSubject('');
+
+        // Preload subjects for all exam categories (JAMB, WAEC, NECO) for Profile table lookup
+        const catMap: Record<string, Subject[]> = {};
+        for (const cat of ['JAMB', 'WAEC', 'NECO'] as const) {
+          try {
+            const catSubs = await window.api.getSubjects(cat);
+            if (Array.isArray(catSubs)) {
+              catMap[cat] = catSubs;
+            }
+          } catch (e) {}
+        }
+        setAllCategoriesSubjectsMap(catMap);
       } catch (error) {
         console.error("[RENDER] Failed to load subjects:", error);
         setSubjectsList([]);
@@ -2136,13 +2149,13 @@ export default function App() {
                         {activation ? (
                           (activation.exam_category || 'JAMB').split(',').map((cat) => {
                             const trimmedCat = cat.trim().toUpperCase();
-                            const subjs = subjectsList.filter(s => s.exam_type === trimmedCat);
+                            const catSubjs = allCategoriesSubjectsMap[trimmedCat] || subjectsList.filter(s => s.exam_type === trimmedCat);
                             const allowedList = activation.allowed_subjects
                               ? activation.allowed_subjects.split(',').map(s => s.trim().toUpperCase())
                               : [];
                             const activeSubjs = allowedList.length > 0
-                              ? subjs.filter(s => allowedList.includes(s.name.toUpperCase()) || allowedList.includes(s.id.toString()))
-                              : subjs;
+                              ? catSubjs.filter(s => allowedList.includes(s.name.toUpperCase()) || allowedList.includes(s.id.toString()))
+                              : catSubjs;
                             return (
                               <tr key={trimmedCat} style={{ borderBottom: `1px solid ${colors.border}` }}>
                                 <td style={{ padding: '8px 12px', fontWeight: 700 }}>{trimmedCat}</td>
