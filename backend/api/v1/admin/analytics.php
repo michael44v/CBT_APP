@@ -31,9 +31,31 @@ $estimated_revenue = $res ? floatval($res->fetch_assoc()['rev'] ?? 0) : 0;
 $res = $db->query("SELECT COUNT(*) as count FROM questions");
 $total_questions = $res ? $res->fetch_assoc()['count'] : 0;
 
-// Promo Codes Usage
+// Promo Codes Usage & Active Promos
 $res = $db->query("SELECT COUNT(*) as count FROM promo_codes");
 $total_promos = $res ? $res->fetch_assoc()['count'] : 0;
+
+$res = $db->query("SELECT COUNT(*) as count FROM promo_codes WHERE active = 1 AND (expires_at IS NULL OR expires_at > NOW())");
+$active_promos = $res ? $res->fetch_assoc()['count'] : 0;
+
+// Pending Upgrades Count
+$res = $db->query("SELECT COUNT(*) as count FROM passcode_upgrades WHERE status = 'pending'");
+$pending_upgrades = $res ? $res->fetch_assoc()['count'] : 0;
+
+// Total Passcodes Count
+$res = $db->query("SELECT COUNT(*) as count FROM passcodes");
+$total_passcodes = $res ? $res->fetch_assoc()['count'] : 0;
+
+// News Count
+$res = $db->query("SELECT COUNT(*) as count FROM news");
+$news_count = $res ? $res->fetch_assoc()['count'] : 0;
+
+// Software Updates
+$res = $db->query("SELECT COUNT(*) as count FROM software_updates");
+$updates_count = $res ? $res->fetch_assoc()['count'] : 0;
+
+$res = $db->query("SELECT version FROM software_updates ORDER BY created_at DESC, id DESC LIMIT 1");
+$latest_update_version = ($res && $row = $res->fetch_assoc()) ? $row['version'] : 'N/A';
 
 // Uploaded Exam Results
 $results = [];
@@ -183,9 +205,15 @@ echo json_encode([
         "total_users" => intval($total_users),
         "active_passcodes" => intval($active_passcodes),
         "suspended_passcodes" => intval($suspended_passcodes),
+        "total_passcodes" => intval($total_passcodes),
         "estimated_revenue" => $estimated_revenue,
         "total_questions" => intval($total_questions),
-        "total_promos" => intval($total_promos)
+        "total_promos" => intval($total_promos),
+        "active_promos" => intval($active_promos),
+        "pending_upgrades" => intval($pending_upgrades),
+        "news_count" => intval($news_count),
+        "updates_count" => intval($updates_count),
+        "latest_update_version" => $latest_update_version
     ],
     "results" => $results,
     "performance" => [
