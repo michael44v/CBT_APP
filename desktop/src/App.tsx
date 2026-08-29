@@ -40,12 +40,23 @@ export default function App() {
   useEffect(() => {
     const handleOnline = () => {
       setIsNetworkOnline(true);
+      if (window.api && window.api.setOnlineStatus) {
+        window.api.setOnlineStatus(true).then(() => loadSyncLogs());
+      }
       loadSoftwareUpdates();
     };
     const handleOffline = () => {
       setIsNetworkOnline(false);
+      if (window.api && window.api.setOnlineStatus) {
+        window.api.setOnlineStatus(false).then(() => loadSyncLogs());
+      }
       setSoftwareUpdates([]);
     };
+
+    if (window.api && window.api.setOnlineStatus) {
+      window.api.setOnlineStatus(navigator.onLine).then(() => loadSyncLogs());
+    }
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -751,7 +762,9 @@ export default function App() {
         setFallbackNotice(res.fallbackNote);
       }
 
-      const activeSubs = subjectsList.filter(s => mockSelectedSubjects.includes(s.id));
+      const activeSubs = mockSelectedSubjects
+        .map(id => subjectsList.find(s => s.id === id))
+        .filter((s): s is Subject => Boolean(s));
       setExamSubjects(activeSubs);
 
       const sessId = `session-${Date.now()}`;
