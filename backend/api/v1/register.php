@@ -33,7 +33,13 @@ $exam_category = strtoupper(trim($data['exam_category'] ?? 'JAMB')); // e.g. JAM
 $selected_subjects = $data['selected_subjects'] ?? []; // array or comma-separated string
 $max_devices = max(1, intval($data['max_devices'] ?? 1));
 $duration_months = max(1, intval($data['duration_months'] ?? 6));
-$duration_days = ($duration_months >= 12) ? 365 : 180;
+if ($duration_months == 1) {
+    $duration_days = 30;
+} elseif ($duration_months >= 12) {
+    $duration_days = 365;
+} else {
+    $duration_days = 180;
+}
 
 $promo_code_input = strtoupper(trim($data['promo_code'] ?? ''));
 

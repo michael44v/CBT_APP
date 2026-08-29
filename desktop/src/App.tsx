@@ -362,20 +362,34 @@ export default function App() {
         if (currentIdx > 0) {
           setCurrentIdx(prev => prev - 1);
         }
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentIdx > 0) {
+          setCurrentIdx(prev => prev - 1);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentIdx < examQuestions.length - 1) {
+          setCurrentIdx(prev => prev + 1);
+        }
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const currentAns = answers[currentQuestion.id];
-        if (!currentAns) selectAnswer('D');
-        else if (currentAns === 'D') selectAnswer('C');
-        else if (currentAns === 'C') selectAnswer('B');
-        else if (currentAns === 'B') selectAnswer('A');
+        const scrollElem = document.getElementById('examQuestionContentPanel');
+        if (scrollElem) {
+          scrollElem.scrollBy({ top: -80, behavior: 'smooth' });
+        } else {
+          window.scrollBy({ top: -80, behavior: 'smooth' });
+        }
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const currentAns = answers[currentQuestion.id];
-        if (!currentAns) selectAnswer('A');
-        else if (currentAns === 'A') selectAnswer('B');
-        else if (currentAns === 'B') selectAnswer('C');
-        else if (currentAns === 'C') selectAnswer('D');
+        const scrollElem = document.getElementById('examQuestionContentPanel');
+        if (scrollElem) {
+          scrollElem.scrollBy({ top: 80, behavior: 'smooth' });
+        } else {
+          window.scrollBy({ top: 80, behavior: 'smooth' });
+        }
+      } else if (e.key === 'Escape') {
+        if (showSubmitConfirm) {
+          setShowSubmitConfirm(false);
+        }
       } else if (key === 'S') {
         setShowSubmitConfirm(true);
       } else if (key === 'Y') {
@@ -648,7 +662,7 @@ export default function App() {
       setExamQuestions(qList);
       setCurrentIdx(0);
 
-      const totalSecs = practiceTimed ? 60 * 60 : 0;
+      const totalSecs = practiceTimed ? qList.length * 40 : 0;
       setTimeLeft(totalSecs);
       setScreen('INSTRUCTIONS');
     } catch (e) {
@@ -716,7 +730,7 @@ export default function App() {
       setExamQuestions(res.questions);
       setCurrentIdx(0);
 
-      const totalSecs = 120 * 60;
+      const totalSecs = res.questions.length * 40;
       setTimeLeft(totalSecs);
       setScreen('INSTRUCTIONS');
     } catch (e) {
@@ -1013,7 +1027,7 @@ export default function App() {
     logStatusPending: { backgroundColor: colors.warningLight, color: colors.warning },
     logText: { color: colors.textSecondary, marginBottom: '2px' },
     logTime: { color: colors.textMuted, fontSize: '11px' },
-    checkboxGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', backgroundColor: colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` },
+    checkboxGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', backgroundColor: colors.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, maxHeight: '320px', overflowY: 'auto' },
     checkboxLabel: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', cursor: 'pointer', padding: '6px 0' },
     examHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
     timerPanel: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', backgroundColor: colors.primaryDark, color: '#fff', borderRadius: '12px', fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' },
@@ -1522,7 +1536,7 @@ export default function App() {
                   <div style={styles.tabs}>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'DAILY_QUIZ' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('DAILY_QUIZ')}>Daily Quiz</button>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Study Mode</button>
-                    <button style={{ ...styles.tab, ...(dashboardMode === 'MOCK' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('MOCK')}>Mock Exam</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'MOCK' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('MOCK')}>Take Exams</button>
                     <button
                       style={{ ...styles.tab, ...(dashboardMode === 'ANALYTICS' ? styles.tabActive : {}) }}
                       onClick={() => {
@@ -2100,11 +2114,54 @@ export default function App() {
 
                 <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
                   <h3 style={{ fontSize: '15px', fontWeight: 700, color: colors.primary, marginBottom: '12px' }}>Current Active Session</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px', marginBottom: '16px' }}>
                     <div><strong>Account Email:</strong> {activation ? activation.email : 'Free Mode (Unactivated)'}</div>
                     <div><strong>Passcode:</strong> {activation ? activation.passcode : 'None'}</div>
                     <div><strong>Exam Category:</strong> {activation?.exam_category || 'N/A'}</div>
+                    <div><strong>Passcode Expiry Date:</strong> {activation?.expiry_date ? new Date(activation.expiry_date).toLocaleString() : 'Lifetime / N/A'}</div>
                     <div><strong>Activation Date:</strong> {activation?.activated_at ? new Date(activation.activated_at).toLocaleString() : 'N/A'}</div>
+                  </div>
+
+                  {/* Registered Subjects Table */}
+                  <div style={{ marginTop: '16px' }}>
+                    <h4 style={{ fontSize: '13px', fontWeight: 700, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Registered Subjects by Exam Category</h4>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: colors.surface, borderBottom: `2px solid ${colors.border}`, textAlign: 'left' }}>
+                          <th style={{ padding: '8px 12px', color: colors.primary }}>Category</th>
+                          <th style={{ padding: '8px 12px', color: colors.primary }}>Allowed / Registered Subjects</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activation ? (
+                          (activation.exam_category || 'JAMB').split(',').map((cat) => {
+                            const trimmedCat = cat.trim().toUpperCase();
+                            const subjs = subjectsList.filter(s => s.exam_type === trimmedCat);
+                            const allowedList = activation.allowed_subjects
+                              ? activation.allowed_subjects.split(',').map(s => s.trim().toUpperCase())
+                              : [];
+                            const activeSubjs = allowedList.length > 0
+                              ? subjs.filter(s => allowedList.includes(s.name.toUpperCase()) || allowedList.includes(s.id.toString()))
+                              : subjs;
+                            return (
+                              <tr key={trimmedCat} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                <td style={{ padding: '8px 12px', fontWeight: 700 }}>{trimmedCat}</td>
+                                <td style={{ padding: '8px 12px' }}>
+                                  {activeSubjs.length > 0
+                                    ? activeSubjs.map(s => s.name).join(', ')
+                                    : (activation.allowed_subjects || 'All Available Subjects')}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td style={{ padding: '8px 12px', fontWeight: 700 }}>Free Mode</td>
+                            <td style={{ padding: '8px 12px' }}>Mathematics, English Language (Max 30 Questions/Session)</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -2125,7 +2182,7 @@ export default function App() {
                               Passcode: {item.passcode}
                             </div>
                             <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '2px' }}>
-                              Category: {item.exam_category || 'ALL'} • Last used: {new Date(item.last_used_at).toLocaleDateString()}
+                              Category: {item.exam_category || 'ALL'} • Expiry: {item.expiry_date ? new Date(item.expiry_date).toLocaleDateString() : 'Lifetime / N/A'} • Last used: {new Date(item.last_used_at).toLocaleDateString()}
                             </div>
                           </div>
 
@@ -2385,7 +2442,7 @@ export default function App() {
         </div>
 
         {/* Question + options */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
+        <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
           <p style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: '32px' }}>
             {curQ.question_text}
           </p>
@@ -2398,11 +2455,19 @@ export default function App() {
               { key: 'D', text: curQ.option_d },
             ].map((opt) => {
               const isSelected = answers[curQ.id] === opt.key;
+              const isLockedInStudy = isPracticeMode && revealExplanation;
               return (
                 <div
                   key={opt.key}
-                  onClick={() => selectAnswer(opt.key as any)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0', cursor: 'pointer', fontSize: '16px', color: '#1a1a1a' }}
+                  onClick={() => {
+                    if (isLockedInStudy) return;
+                    selectAnswer(opt.key as any);
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0',
+                    cursor: isLockedInStudy ? 'not-allowed' : 'pointer', fontSize: '16px', color: '#1a1a1a',
+                    opacity: isLockedInStudy && !isSelected ? 0.6 : 1
+                  }}
                 >
                   <span style={{ fontWeight: 700 }}>({opt.key})</span>
                   <span style={{
@@ -2508,7 +2573,7 @@ export default function App() {
               const globalIdx = examQuestions.findIndex(gq => gq.id === q.id);
               const isCurrent = globalIdx === currentIdx;
               const isAnswered = !!answers[q.id];
-              const bg = isCurrent ? '#1e6b3c' : isAnswered ? '#e8623f' : '#d8362b';
+              const bg = isCurrent ? '#2563eb' : isAnswered ? '#16a34a' : '#dc2626';
               return (
                 <button
                   key={q.id}
@@ -2655,7 +2720,8 @@ export default function App() {
                     <button
                       style={{ ...styles.btn, backgroundColor: '#25D366', color: 'white' }}
                       onClick={() => {
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        const shareUrl = `https://cbt.filloptech.com/results.php?result=${activeResult.id}`;
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru! View full result online: ${shareUrl}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -2664,7 +2730,8 @@ export default function App() {
                     <button
                       style={{ ...styles.btn, ...styles.btnSecondary }}
                       onClick={() => {
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        const shareUrl = `https://cbt.filloptech.com/results.php?result=${activeResult.id}`;
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!\n\nView full result online: ${shareUrl}`;
                         window.open(`mailto:?subject=Fillop CBT Result&body=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -2912,13 +2979,13 @@ export default function App() {
           <div style={{ backgroundColor: colors.surface, padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px' }}>
             <h2>{isPracticeMode ? 'Complete Study?' : isQuizMode ? 'Submit Quiz?' : 'Submit Exam?'}</h2>
             <p style={{ margin: '16px 0', fontSize: '14px', color: colors.textSecondary }}>
-              Press 'Y' or click Confirm to {isPracticeMode ? 'complete your study session' : isQuizMode ? 'submit your quiz' : 'submit your exam'}.
+              Press 'Y' or click Confirm to {isPracticeMode ? 'complete your study session' : isQuizMode ? 'submit your quiz' : 'submit your exam'}. Press 'ESC' key or click Cancel to close this box.
             </p>
             <button onClick={() => { setShowSubmitConfirm(false); processSubmission(); }} style={{ ...styles.btn, ...styles.btnSuccess, marginRight: '10px' }}>
               Confirm (Y)
             </button>
             <button onClick={() => setShowSubmitConfirm(false)} style={{ ...styles.btn, ...styles.btnSecondary }}>
-              Cancel
+              Cancel (ESC)
             </button>
           </div>
         </div>
