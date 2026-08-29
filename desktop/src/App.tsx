@@ -1549,8 +1549,8 @@ export default function App() {
                 {/* Mode Tabs + Content */}
                 <div style={styles.card}>
                   <div style={styles.tabs}>
-                    <button style={{ ...styles.tab, ...(dashboardMode === 'DAILY_QUIZ' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('DAILY_QUIZ')}>Daily Quiz</button>
-                    <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Study Mode</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'DAILY_QUIZ' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('DAILY_QUIZ')}>Take Quiz</button>
+                    <button style={{ ...styles.tab, ...(dashboardMode === 'PRACTICE' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('PRACTICE')}>Study </button>
                     <button style={{ ...styles.tab, ...(dashboardMode === 'MOCK' ? styles.tabActive : {}) }} onClick={() => setDashboardMode('MOCK')}>Take Exams</button>
                     <button
                       style={{ ...styles.tab, ...(dashboardMode === 'ANALYTICS' ? styles.tabActive : {}) }}
