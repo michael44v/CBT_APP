@@ -43,7 +43,9 @@ import {
   UserX,
   UserCheck,
   Eye,
-  EyeOff
+  EyeOff,
+  Bell,
+  ArrowRight
 } from 'lucide-react';
 import fillopIcon from './icon.png';
 
@@ -397,7 +399,7 @@ export default function App() {
     }
   }, [csvInput]);
 
-  // Candidate Actions: Disable (Toggle Status) & Delete Account
+  // Candidate Actions: Disable & Delete Account
   const handleToggleUserDisable = async (user: any) => {
     const isSuspended = user.status === 'suspended';
     const newStatus = isSuspended ? 'active' : 'suspended';
@@ -792,39 +794,36 @@ export default function App() {
     }
   };
 
+  // Rounded Tops Bar Chart Render Function
   const renderSVGChart = (chartData: any[], color: string) => {
     if (!chartData || chartData.length === 0) return null;
     const maxVal = Math.max(...chartData.map(d => d.score), 100);
-    const height = 140;
+    const height = 150;
     const width = 360;
-    const padding = 25;
-
-    const points = chartData.map((d, i) => {
-      const x = padding + (i / (chartData.length - 1 || 1)) * (width - padding * 2);
-      const y = height - padding - (d.score / maxVal) * (height - padding * 2);
-      return `${x},${y}`;
-    }).join(' ');
+    const barWidth = 24;
+    const gap = (width - chartData.length * barWidth) / (chartData.length + 1);
 
     return (
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
-        <polyline
-          fill="none"
-          stroke={color}
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
         {chartData.map((d, i) => {
-          const x = padding + (i / (chartData.length - 1 || 1)) * (width - padding * 2);
-          const y = height - padding - (d.score / maxVal) * (height - padding * 2);
+          const x = gap + i * (barWidth + gap);
+          const barHeight = (d.score / maxVal) * (height - 40);
+          const y = height - 20 - barHeight;
           return (
             <g key={i}>
-              <circle cx={x} cy={y} r="4" fill={color} />
-              <text x={x} y={y - 8} fontSize="10" textAnchor="middle" fill="var(--text-secondary)" fontWeight="600">
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                rx={8}
+                ry={8}
+                fill={color}
+              />
+              <text x={x + barWidth / 2} y={y - 6} fontSize="11" textAnchor="middle" fill="var(--text-secondary)" fontWeight="700">
                 {d.score}%
               </text>
-              <text x={x} y={height - 5} fontSize="10" textAnchor="middle" fill="var(--text-secondary)">
+              <text x={x + barWidth / 2} y={height - 4} fontSize="10" textAnchor="middle" fill="var(--text-muted)">
                 {d.label}
               </text>
             </g>
@@ -834,52 +833,58 @@ export default function App() {
     );
   };
 
+  // Donut Circular Progress Ring
+  const totalPasscodesCount = stats.total_passcodes || (stats.active_passcodes + stats.suspended_passcodes) || 1;
+  const activePct = Math.round((stats.active_passcodes / totalPasscodesCount) * 100) || 85;
+  const strokeDasharray = `${activePct * 2.83} 283`;
+
   const availableSubjectNames = Array.from(new Set(dbSubjects.map(s => s.name)));
 
   return (
     <div className="admin-layout">
+      {/* Sidebar with preserved text descriptions */}
       <aside className="admin-sidebar">
         <div className="sidebar-brand">
            <img
               src={fillopIcon}
               alt="Fillop Icon"
-              style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'contain' }}
+              style={{ width: '38px', height: '38px', borderRadius: '10px', objectFit: 'contain' }}
             />
           <span>Fillop Admin</span>
         </div>
         <nav className="sidebar-menu">
           <button className={`menu-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>
-            <LayoutDashboard size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Dashboard
+            <LayoutDashboard size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Dashboard
           </button>
           <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
-            <BarChart3 size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Uploaded Results &amp; Analytics
+            <BarChart3 size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Uploaded Results &amp; Analytics
           </button>
           <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>
-            <Users size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Candidates
+            <Users size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Candidates
           </button>
           <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
-            <Key size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Passcodes
+            <Key size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Passcodes
           </button>
           <button className={`menu-btn ${activeTab === 'UPGRADES' ? 'active' : ''}`} onClick={() => setActiveTab('UPGRADES')}>
-            <RefreshCw size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Upgrade Queue
+            <RefreshCw size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Upgrade Queue
           </button>
           <button className={`menu-btn ${activeTab === 'INSTITUTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('INSTITUTIONS')}>
-            <Building2 size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Institutions
+            <Building2 size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Institutions
           </button>
           <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>
-            <DollarSign size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Pricing Settings
+            <DollarSign size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Pricing Settings
           </button>
           <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>
-            <Tag size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Promo Codes
+            <Tag size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Promo Codes
           </button>
           <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>
-            <BookOpen size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Question Bank
+            <BookOpen size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Question Bank
           </button>
           <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>
-            <Newspaper size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Admin News
+            <Newspaper size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Admin News
           </button>
           <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>
-            <Settings size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Software Release
+            <Settings size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Software Release
           </button>
         </nav>
       </aside>
@@ -893,19 +898,20 @@ export default function App() {
             backgroundColor: notification.type === 'success' ? 'var(--success)' : 'var(--danger)',
             color: 'white',
             padding: '1rem 1.5rem',
-            borderRadius: '6px',
+            borderRadius: '12px',
             zIndex: 1000,
-            fontWeight: 600,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            fontWeight: 700,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
           }}>
             {notification.text}
           </div>
         )}
 
+        {/* Greeting-style Header matching reference design */}
         <header className="admin-header">
           <div>
             <h1 className="admin-title">
-              {activeTab === 'DASHBOARD' && 'Management Dashboard Overview'}
+              {activeTab === 'DASHBOARD' && 'Good Morning, Fillop Admin!'}
               {activeTab === 'RESULTS' && 'Uploaded Results & Performance Analytics'}
               {activeTab === 'USERS' && 'Candidates / Subscriptions'}
               {activeTab === 'PASSCODES' && 'Passcode Subject Allocations & Licensing'}
@@ -917,153 +923,243 @@ export default function App() {
               {activeTab === 'NEWS' && 'Admin News Management'}
               {activeTab === 'UPDATES' && 'Software Release Management'}
             </h1>
-            <p className="admin-subtitle">Fillop CBT Guru Cloud Admin Panel</p>
+            <p className="admin-subtitle">Fillop CBT Guru Cloud Control Center • {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
               className="btn btn-secondary"
               onClick={toggleTheme}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.9rem' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
               title="Toggle Light / Dark Mode"
             >
-              {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
+
+            <div style={{
+              width: '42px', height: '42px', borderRadius: '12px',
+              backgroundColor: 'var(--bg-card)', boxShadow: 'var(--card-shadow)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)'
+            }}>
+              <Bell size={20} />
+            </div>
           </div>
         </header>
 
-        {/* ================= 1. REBUILT MANAGEMENT DASHBOARD OVERVIEW ================= */}
+        {/* ================= 1. DASHBOARD OVERVIEW TAB ================= */}
         {activeTab === 'DASHBOARD' && (
           <div>
-            <div className="dashboard-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
+            {/* CTA Card for Pending Upgrades if pending_upgrades > 0 */}
+            {stats.pending_upgrades > 0 && (
+              <div className="cta-card">
+                <div>
+                  <h3>Passcode Upgrades Pending Review</h3>
+                  <p>There are {stats.pending_upgrades} candidate passcode subject upgrade requests waiting for admin verification.</p>
+                </div>
+                <button className="btn btn-white" onClick={() => setActiveTab('UPGRADES')}>
+                  Review Upgrades <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
 
-              {/* Card 1: Uploaded Results & Performance Analytics */}
-              <div className="stat-card" onClick={() => setActiveTab('RESULTS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+            {/* Stat Cards Grid with Icon Badges */}
+            <div className="dashboard-stats">
+              <div className="stat-card" onClick={() => setActiveTab('RESULTS')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">Results &amp; Analytics</div>
-                  <BarChart3 size={22} color="var(--accent)" />
+                  <div className="stat-badge"><BarChart3 size={20} /></div>
                 </div>
                 <div className="stat-val">{resultsList.length}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Uploaded exam attempts ›</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>Uploaded exam attempts ›</div>
               </div>
 
-              {/* Card 2: Passcode Subject Allocations & Licensing */}
-              <div className="stat-card" onClick={() => setActiveTab('PASSCODES')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div className="stat-card" onClick={() => setActiveTab('PASSCODES')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">Total Passcodes</div>
-                  <Key size={22} color="var(--success)" />
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}><Key size={20} /></div>
                 </div>
                 <div className="stat-val" style={{ color: 'var(--success)' }}>{stats.total_passcodes || (stats.active_passcodes + stats.suspended_passcodes)}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{stats.active_passcodes} Active • {stats.suspended_passcodes} Suspended ›</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>{stats.active_passcodes} Active • {stats.suspended_passcodes} Suspended ›</div>
               </div>
 
-              {/* Card 3: Passcode Upgrade Requests & Logs */}
-              <div className="stat-card" onClick={() => setActiveTab('UPGRADES')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div className="stat-card" onClick={() => setActiveTab('UPGRADES')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">Pending Upgrades</div>
-                  <RefreshCw size={22} color="var(--warning)" />
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}><RefreshCw size={20} /></div>
                 </div>
-                <div className="stat-val" style={{ color: stats.pending_upgrades > 0 ? 'var(--warning)' : 'var(--text-color)' }}>
-                  {stats.pending_upgrades}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Awaiting admin approval ›</div>
+                <div className="stat-val" style={{ color: stats.pending_upgrades > 0 ? 'var(--warning)' : 'var(--text-main)' }}>{stats.pending_upgrades}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>Awaiting review ›</div>
               </div>
 
-              {/* Card 4: Dynamic Pricing Configuration */}
-              <div className="stat-card" onClick={() => setActiveTab('PRICING')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div className="stat-label">Pricing Configuration</div>
-                  <DollarSign size={22} color="var(--accent)" />
+              <div className="stat-card" onClick={() => setActiveTab('PRICING')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stat-label">Pricing Config</div>
+                  <div className="stat-badge"><DollarSign size={20} /></div>
                 </div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-color)', marginTop: '4px' }}>
-                  ₦{pricingForm.single_passcode_price_6m} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>/ Single</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '8px' }}>
+                  ₦{pricingForm.single_passcode_price_6m} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ 6m</span>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Small: ₦{pricingForm.small_bulk_price_6m} • Bulk: ₦{pricingForm.large_bulk_price_6m} ›
-                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>Bulk: ₦{pricingForm.large_bulk_price_6m} ›</div>
               </div>
 
-              {/* Card 5: Promo Codes */}
-              <div className="stat-card" onClick={() => setActiveTab('PROMOS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div className="stat-card" onClick={() => setActiveTab('PROMOS')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">Active Promos</div>
-                  <Tag size={22} color="var(--success)" />
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}><Tag size={20} /></div>
                 </div>
                 <div className="stat-val" style={{ color: 'var(--success)' }}>{stats.active_promos || stats.total_promos}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{stats.total_promos} total promo codes ›</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>{stats.total_promos} total promos ›</div>
               </div>
 
-              {/* Card 6: Available Questions */}
-              <div className="stat-card" onClick={() => setActiveTab('QUESTIONS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div className="stat-card" onClick={() => setActiveTab('QUESTIONS')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">Question Bank</div>
-                  <BookOpen size={22} color="var(--accent)" />
+                  <div className="stat-badge"><BookOpen size={20} /></div>
                 </div>
                 <div className="stat-val">{stats.total_questions}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Total available questions ›</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>Available questions ›</div>
               </div>
 
-              {/* Card 7: News Published */}
-              <div className="stat-card" onClick={() => setActiveTab('NEWS')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div className="stat-label">News Published</div>
-                  <Newspaper size={22} color="var(--accent)" />
+              <div className="stat-card" onClick={() => setActiveTab('NEWS')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stat-label">Published News</div>
+                  <div className="stat-badge"><Newspaper size={20} /></div>
                 </div>
                 <div className="stat-val">{stats.news_count || news.length}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Active announcements ›</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>Active announcements ›</div>
               </div>
 
-              {/* Card 8: Software Updates */}
-              <div className="stat-card" onClick={() => setActiveTab('UPDATES')} style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div className="stat-card" onClick={() => setActiveTab('UPDATES')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">Software Release</div>
-                  <Settings size={22} color="var(--accent)" />
+                  <div className="stat-badge"><Settings size={20} /></div>
                 </div>
                 <div className="stat-val" style={{ fontSize: '1.5rem' }}>{stats.latest_update_version}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{stats.updates_count || updatesList.length} releases published ›</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px' }}>{stats.updates_count || updatesList.length} releases ›</div>
+              </div>
+            </div>
+
+            {/* Layout Grid: Donut Progress Ring + Rounded Bar Chart + Recent Results */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+
+              {/* Circular Progress Ring Card */}
+              <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                <h3 className="card-title" style={{ width: '100%', textAlign: 'left' }}>Passcode License Activation</h3>
+                <div style={{ position: 'relative', width: '160px', height: '160px', margin: '1rem 0' }}>
+                  <svg width="160" height="160" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--primary-light)" strokeWidth="10" />
+                    <circle
+                      cx="50" cy="50" r="45" fill="none" stroke="var(--primary)" strokeWidth="10"
+                      strokeDasharray={strokeDasharray}
+                      strokeLinecap="round"
+                      transform="rotate(-90 50 50)"
+                    />
+                  </svg>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>{activePct}%</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Active Ratio</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', fontWeight: 700 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--primary)' }}></span>
+                    Active ({stats.active_passcodes})
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--danger)' }}></span>
+                    Suspended ({stats.suspended_passcodes})
+                  </div>
+                </div>
+              </div>
+
+              {/* Rounded Bar Chart Card */}
+              <div className="admin-card">
+                <h3 className="card-title">Candidate Exam Participation Trends</h3>
+                {renderSVGChart(performanceData.progress_tracking.daily, 'var(--primary)')}
               </div>
 
             </div>
 
+            {/* Avatar / Row list items for Recent Candidate Results */}
             <div className="admin-card">
-              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Activity size={20} /> System Operational Overview
-              </h2>
-              <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                Welcome to the Fillop CBT Guru central administrative portal. Click any summary card above or sidebar menu item to jump directly to specific management modules.
-              </p>
-              <button className="btn btn-secondary" onClick={() => { fetchStatsAndAnalytics(); fetchPricing(); fetchNews(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <RefreshCw size={16} /> Refresh Dashboard Data
-              </button>
+              <div className="card-title">
+                <span>Recent Candidate Submissions</span>
+                <button className="btn btn-secondary" onClick={() => setActiveTab('RESULTS')} style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}>
+                  View All Results ›
+                </button>
+              </div>
+
+              {resultsList.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No recent candidate exam results found.</p>
+              ) : (
+                resultsList.slice(0, 5).map((r) => (
+                  <div key={r.id} className="list-item-row">
+                    <div className="list-item-left">
+                      <div className="avatar-circle">
+                        {r.candidate_name ? r.candidate_name.charAt(0).toUpperCase() : 'C'}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{r.candidate_name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{r.email} • {r.exam_type}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{r.score} / {r.total_questions}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(r.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                      <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
+                        {r.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
 
-        {/* ================= RESULTS & ANALYTICS TAB ================= */}
+        {/* ================= 2. RESULTS & ANALYTICS TAB ================= */}
         {activeTab === 'RESULTS' && (
           <div>
             <div className="dashboard-stats">
               <div className="stat-card">
-                <div className="stat-label">Total Results Uploaded</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stat-label">Total Results Uploaded</div>
+                  <div className="stat-badge"><FileCheck size={20} /></div>
+                </div>
                 <div className="stat-val" style={{ color: 'var(--accent)' }}>{resultsList.length}</div>
               </div>
+
               <div className="stat-card">
-                <div className="stat-label">Average Performance</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stat-label">Average Performance</div>
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}><Award size={20} /></div>
+                </div>
                 <div className="stat-val" style={{ color: 'var(--success)' }}>
                   {resultsList.length > 0
                     ? (resultsList.reduce((acc, r) => acc + r.percentage, 0) / resultsList.length).toFixed(1) + '%'
                     : '0%'}
                 </div>
               </div>
+
               <div className="stat-card">
-                <div className="stat-label">Strong Topics (≥75%)</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stat-label">Strong Topics (≥75%)</div>
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}><CheckCircle size={20} /></div>
+                </div>
                 <div className="stat-val" style={{ color: 'var(--success)' }}>
                   {performanceData.topic_analysis.strong_areas.length}
                 </div>
               </div>
+
               <div className="stat-card">
-                <div className="stat-label">Weak Topics (&lt;50%)</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stat-label">Weak Topics (&lt;50%)</div>
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)' }}><AlertTriangle size={20} /></div>
+                </div>
                 <div className="stat-val" style={{ color: 'var(--danger)' }}>
                   {performanceData.topic_analysis.weak_areas.length}
                 </div>
@@ -1076,7 +1172,7 @@ export default function App() {
                   <CheckCircle size={18} /> Strong Areas (≥75%)
                 </h3>
                 {performanceData.topic_analysis.strong_areas.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No strong topics recorded yet.</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No strong topics recorded yet.</p>
                 ) : (
                   performanceData.topic_analysis.strong_areas.map((item, idx) => (
                     <div key={idx} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
@@ -1092,7 +1188,7 @@ export default function App() {
                   <TrendingUp size={18} /> Improvement Areas (50% – 74%)
                 </h3>
                 {performanceData.topic_analysis.improvement_areas.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No improvement topics recorded yet.</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No improvement topics recorded yet.</p>
                 ) : (
                   performanceData.topic_analysis.improvement_areas.map((item, idx) => (
                     <div key={idx} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
@@ -1108,7 +1204,7 @@ export default function App() {
                   <AlertTriangle size={18} /> Weak Areas (&lt;50%)
                 </h3>
                 {performanceData.topic_analysis.weak_areas.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No weak topics recorded yet.</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No weak topics recorded yet.</p>
                 ) : (
                   performanceData.topic_analysis.weak_areas.map((item, idx) => (
                     <div key={idx} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
@@ -1125,25 +1221,25 @@ export default function App() {
                 <BarChart3 size={20} /> Candidate Progress Tracking Charts
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
-                <div style={{ background: 'var(--primary-light)', padding: '1.2rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ background: 'var(--primary-light)', padding: '1.2rem', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                   <h4 style={{ marginBottom: '1rem', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Calendar size={16} /> Daily Performance Trends
                   </h4>
-                  {renderSVGChart(performanceData.progress_tracking.daily, '#3b82f6')}
+                  {renderSVGChart(performanceData.progress_tracking.daily, 'var(--accent)')}
                 </div>
 
-                <div style={{ background: 'var(--primary-light)', padding: '1.2rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ background: 'var(--primary-light)', padding: '1.2rem', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                   <h4 style={{ marginBottom: '1rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <BarChart2 size={16} /> Weekly Performance Trends
                   </h4>
-                  {renderSVGChart(performanceData.progress_tracking.weekly, '#10b981')}
+                  {renderSVGChart(performanceData.progress_tracking.weekly, 'var(--success)')}
                 </div>
 
-                <div style={{ background: 'var(--primary-light)', padding: '1.2rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ background: 'var(--primary-light)', padding: '1.2rem', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                   <h4 style={{ marginBottom: '1rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <PieChart size={16} /> Monthly Performance Trends
                   </h4>
-                  {renderSVGChart(performanceData.progress_tracking.monthly, '#f59e0b')}
+                  {renderSVGChart(performanceData.progress_tracking.monthly, 'var(--warning)')}
                 </div>
               </div>
             </div>
@@ -1191,7 +1287,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {resultsList.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No uploaded exam results found yet.</td></tr>
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No uploaded exam results found yet.</td></tr>
                   ) : (
                     resultsList.map((r) => (
                       <tr key={r.id}>
@@ -1214,7 +1310,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= 2. CANDIDATES TAB WITH ACTION BUTTONS ================= */}
+        {/* ================= 3. CANDIDATES TAB ================= */}
         {activeTab === 'USERS' && (
           <div className="admin-card">
             <div className="card-title">
@@ -1242,7 +1338,7 @@ export default function App() {
               </thead>
               <tbody>
                 {users.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No candidates registered yet.</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No candidates registered yet.</td></tr>
                 ) : (
                   users.map((u) => {
                     const isSuspended = u.status === 'suspended';
@@ -1264,7 +1360,7 @@ export default function App() {
                               className={`btn ${isSuspended ? 'btn-success' : 'btn-secondary'}`}
                               onClick={() => handleToggleUserDisable(u)}
                               title={isSuspended ? "Enable Account" : "Disable Account"}
-                              style={{ padding: '4px 8px' }}
+                              style={{ padding: '6px 10px' }}
                             >
                               {isSuspended ? <UserCheck size={16} /> : <UserX size={16} />}
                             </button>
@@ -1272,7 +1368,7 @@ export default function App() {
                               className="btn btn-danger"
                               onClick={() => handleDeleteUser(u)}
                               title="Delete Account"
-                              style={{ padding: '4px 8px' }}
+                              style={{ padding: '6px 10px' }}
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1287,7 +1383,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= PASSCODES TAB ================= */}
+        {/* ================= 4. PASSCODES TAB ================= */}
         {activeTab === 'PASSCODES' && (
           <div>
             <div className="admin-card">
@@ -1365,11 +1461,11 @@ export default function App() {
 
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label">Allowed Subject Combination</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: 'var(--primary-light)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: 'var(--primary-light)', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                     {availableSubjectNames.map(sub => {
                       const isChecked = newPasscodeForm.allowed_subjects.includes(sub);
                       return (
-                        <label key={sub} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                        <label key={sub} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}>
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -1418,7 +1514,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {passcodes.length === 0 ? (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No passcodes generated.</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No passcodes generated.</td></tr>
                   ) : (
                     passcodes.map((p) => {
                       const isExpired = p.expires_at ? new Date(p.expires_at).getTime() < Date.now() : false;
@@ -1428,7 +1524,7 @@ export default function App() {
                           <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent)' }}>{p.passcode}</td>
                           <td>
                             <div>{p.email}</div>
-                            {p.organization_name && <small style={{ color: 'var(--text-secondary)' }}>{p.organization_name}</small>}
+                            {p.organization_name && <small style={{ color: 'var(--text-muted)' }}>{p.organization_name}</small>}
                           </td>
                           <td><span className="badge badge-info">{p.exam_category || 'ALL'}</span></td>
                           <td style={{ maxWidth: '220px', fontSize: '12px' }}>{p.allowed_subjects || 'All Subjects'}</td>
@@ -1451,7 +1547,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= 3. QUESTION MANAGEMENT WITH DELETE & ENHANCED BULK IMPORT ================= */}
+        {/* ================= 5. QUESTION BANK TAB ================= */}
         {activeTab === 'QUESTIONS' && (
           <div>
             <div className="admin-card">
@@ -1490,11 +1586,10 @@ export default function App() {
               </form>
             </div>
 
-            {/* Bulk CSV / XLSX Question Import Card */}
             <div className="admin-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
                 <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Upload size={18} /> Bulk CSV / XLSX Question Management &amp; Validation
+                  <Upload size={18} /> Bulk CSV / XLSX Question Management
                 </h2>
                 <button
                   type="button"
@@ -1506,8 +1601,8 @@ export default function App() {
                 </button>
               </div>
 
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
-                Upload a <strong>.csv</strong> or <strong>.xlsx</strong> file or paste raw CSV data. Subject and topic names are validated case-insensitively against the database. Validates all rows before importing.
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
+                Upload a <strong>.csv</strong> or <strong>.xlsx</strong> file or paste raw CSV data. Validates exam types, subjects, topics, and choices before importing.
               </p>
 
               <div className="form-group" style={{ marginBottom: '1rem' }}>
@@ -1532,10 +1627,9 @@ export default function App() {
                   />
                 </div>
 
-                {/* Preview Table for first 5 rows */}
                 {previewRows.length > 0 && (
-                  <div style={{ marginBottom: '1.2rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--text-color)' }}>
+                  <div style={{ marginBottom: '1.2rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.6rem', color: 'var(--text-main)' }}>
                       Preview (First 5 Parsed Rows):
                     </h4>
                     <div style={{ overflowX: 'auto' }}>
@@ -1580,10 +1674,10 @@ export default function App() {
 
               {importErrors.length > 0 && (
                 <div className="errors-box" style={{ marginTop: '1rem' }}>
-                  <div className="errors-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--danger)', fontWeight: 700 }}>
+                  <div className="errors-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <AlertTriangle size={16} /> Import Validation Issues ({importErrors.length}):
                   </div>
-                  <ul className="errors-list" style={{ marginTop: '0.5rem', color: 'var(--danger)', fontSize: '0.85rem' }}>
+                  <ul className="errors-list">
                     {importErrors.map((err, idx) => (
                       <li key={idx}>{err}</li>
                     ))}
@@ -1726,7 +1820,6 @@ export default function App() {
               </form>
             </div>
 
-            {/* Questions List with Per-Row Delete Button */}
             <div className="admin-card">
               <div className="card-title">
                 <span>Core Question Bank Listing</span>
@@ -1746,7 +1839,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {questions.length === 0 ? (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No questions match filters.</td></tr>
+                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No questions match filters.</td></tr>
                   ) : (
                     questions.map((q) => (
                       <tr key={q.id}>
@@ -1762,7 +1855,7 @@ export default function App() {
                             className="btn btn-danger"
                             onClick={() => handleDeleteQuestion(q.id)}
                             title="Delete Question"
-                            style={{ padding: '4px 8px' }}
+                            style={{ padding: '6px 10px' }}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1776,7 +1869,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= 4. ADMIN NEWS MANAGEMENT TAB ================= */}
+        {/* ================= 6. ADMIN NEWS TAB ================= */}
         {activeTab === 'NEWS' && (
           <div>
             <div className="admin-card">
@@ -1845,7 +1938,7 @@ export default function App() {
                     </label>
                   </div>
                   {newNewsForm.thumbnail_url && (
-                    <img src={newNewsForm.thumbnail_url} alt="Thumbnail Preview" style={{ marginTop: '8px', maxHeight: '100px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                    <img src={newNewsForm.thumbnail_url} alt="Thumbnail Preview" style={{ marginTop: '8px', maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
                   )}
                 </div>
 
@@ -1891,7 +1984,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {news.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No news announcements published yet.</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No news announcements published yet.</td></tr>
                   ) : (
                     news.map((item) => (
                       <tr key={item.id}>
@@ -1905,7 +1998,7 @@ export default function App() {
                               className="btn btn-secondary"
                               onClick={() => handleEditNews(item)}
                               title="Edit News"
-                              style={{ padding: '4px 8px' }}
+                              style={{ padding: '6px 10px' }}
                             >
                               <Edit size={16} />
                             </button>
@@ -1913,7 +2006,7 @@ export default function App() {
                               className="btn btn-danger"
                               onClick={() => handleDeleteNews(item.id)}
                               title="Delete News"
-                              style={{ padding: '4px 8px' }}
+                              style={{ padding: '6px 10px' }}
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1928,7 +2021,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= PRICING TAB ================= */}
+        {/* ================= 7. PRICING TAB ================= */}
         {activeTab === 'PRICING' && (
           <div className="admin-card">
             <h2 className="card-title">Modify Dynamic Passcode Pricing Tiers</h2>
@@ -1973,7 +2066,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= INSTITUTIONS TAB ================= */}
+        {/* ================= 8. INSTITUTIONS TAB ================= */}
         {activeTab === 'INSTITUTIONS' && (
           <div>
             <div className="admin-card">
