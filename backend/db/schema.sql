@@ -3692,4 +3692,34 @@ INSERT INTO `software_updates` (`id`, `version`, `firmware`, `improvements`, `si
 (1, 'v3.0.1', 'FW-2026.08', 'Performance enhancements, Offline exam room navigation improvements, Updated news & updates widget, and bug fixes for passcode synchronization.', '45.2 MB', 'https://filloptech.com/downloads/fillop-cbt-v3.0.1.exe', '2026-08-21 10:00:00')
 ON DUPLICATE KEY UPDATE `version` = VALUES(`version`);
 
+CREATE TABLE IF NOT EXISTS `admin_users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `role` varchar(20) DEFAULT 'admin',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `admin_users` (`id`, `username`, `email`, `password_hash`, `role`) VALUES
+(1, 'admin', 'admin@filloptech.com', '$2y$10$1mfpgeuwAekz/1TgMR0hPerwO1oRjNXzJ571Qm7x0SnrBFHQaaSoi', 'admin')
+ON DUPLICATE KEY UPDATE `username` = VALUES(`username`);
+
+CREATE TABLE IF NOT EXISTS `question_upload_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `admin_user_id` int(11) DEFAULT NULL,
+  `filename` varchar(255) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `topic_id` int(11) NOT NULL,
+  `rows_imported` int(11) NOT NULL DEFAULT 0,
+  `rows_skipped` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `topic_id` (`topic_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 COMMIT;

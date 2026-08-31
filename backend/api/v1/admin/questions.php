@@ -10,13 +10,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../db.php';
 
+// Helper function to verify JWT Bearer Token for admin actions
+function verifyAdminAuth() {
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+
+    if (empty($authHeader) || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+        return null;
+    }
+
+    $token = $matches[1];
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) return null;
+
+    $payload = json_decode(base64_decode($parts[1]), true);
+    if (!$payload || ($payload['exp'] ?? 0) < time() || ($payload['role'] ?? '') !== 'admin') {
+        return null;
+    }
+
+    return $payload;
+}
+
 $db = getDbConnection();
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Enforce auth check on POST actions
+if ($method === 'POST') {
+    $authPayload = verifyAdminAuth();
+    // Allow login or check bearer token
+    if (!$authPayload) {
+        // Return error if unauthenticated
+        http_response_code(401);
+        echo json_encode(["success" => false, "message" => "Unauthorized: Admin authentication required."]);
+        exit();
+    }
+}
+
+// Helper function to bump sync_version in sync_sequence
+function bumpSyncVersion($db) {
+    $db->query("UPDATE sync_sequence SET current_version = current_version + 1 WHERE id = 1");
+    $verRes = $db->query("SELECT current_version FROM sync_sequence WHERE id = 1");
+    return ($verRes && $verRow = $verRes->fetch_assoc()) ? intval($verRow['current_version']) : 1;
+}
 
 if ($method === 'GET') {
     $exam_type = trim($_GET['exam_type'] ?? '');
     $subject_id = trim($_GET['subject_id'] ?? '');
+    $topic_id = trim($_GET['topic_id'] ?? '');
+    $search = trim($_GET['search'] ?? '');
+    $action = trim($_GET['action'] ?? '');
 
+    if ($action === 'list_subjects') {
+        $sql = "SELECT s.*,
+                    (SELECT COUNT(*) FROM topics t WHERE t.subject_id = s.id) as topic_count,
+                    (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id) as question_count
+                FROM subjects s";
+        if (!empty($exam_type)) {
+            $stmt = $db->prepare($sql . " WHERE s.exam_type = ? ORDER BY s.name");
+            $stmt->bind_param("s", $exam_type);
+            $stmt->execute();
+            $res = $stmt->get_result();
+        } else {
+            $res = $db->query($sql . " ORDER BY s.exam_type, s.name");
+        }
+        $subjects = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        echo json_encode(["success" => true, "subjects" => $subjects]);
+        exit();
+    }
+
+    if ($action === 'list_topics') {
+        if (empty($subject_id)) {
+            echo json_encode(["success" => false, "message" => "subject_id is required for listing topics."]);
+            exit();
+        }
+        $stmt = $db->prepare("SELECT t.*, (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id) as question_count FROM topics t WHERE t.subject_id = ? ORDER BY t.name");
+        $subId = intval($subject_id);
+        $stmt->bind_param("i", $subId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $topics = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        echo json_encode(["success" => true, "topics" => $topics]);
+        exit();
+    }
+
+    if ($action === 'upload_logs') {
+        $res = $db->query("SELECT l.*, s.name as subject_name, t.name as topic_name
+                          FROM question_upload_logs l
+                          LEFT JOIN subjects s ON l.subject_id = s.id
+                          LEFT JOIN topics t ON l.topic_id = t.id
+                          ORDER BY l.id DESC LIMIT 100");
+        $logs = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        echo json_encode(["success" => true, "logs" => $logs]);
+        exit();
+    }
+
+    // Default: GET questions listing
     $sql = "SELECT q.*, s.name as subject_name, t.name as topic_name
             FROM questions q
             LEFT JOIN subjects s ON q.subject_id = s.id
@@ -38,8 +126,20 @@ if ($method === 'GET') {
         $types .= "i";
     }
 
+    if (!empty($topic_id)) {
+        $conditions[] = "q.topic_id = ?";
+        $params[] = intval($topic_id);
+        $types .= "i";
+    }
+
+    if (!empty($search)) {
+        $conditions[] = "q.question_text LIKE ?";
+        $params[] = "%" . $search . "%";
+        $types .= "s";
+    }
+
     if (count($conditions) > 0) {
-        $sql .= " WHERE " . implode(" AND ", $conditions);
+        $sql .= " WHERE " . implode(" AND ", $conditions) . " ORDER BY q.id DESC LIMIT 500";
         $stmt = $db->prepare($sql);
         if ($stmt) {
             $stmt->bind_param($types, ...$params);
@@ -49,7 +149,7 @@ if ($method === 'GET') {
             $res = false;
         }
     } else {
-        $res = $db->query($sql . " ORDER BY q.id DESC LIMIT 200");
+        $res = $db->query($sql . " ORDER BY q.id DESC LIMIT 500");
     }
 
     $questions = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
@@ -58,17 +158,47 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
+    $data = json_decode(file_get_contents("php://input"), true) ?: $_POST;
     $action = trim($data['action'] ?? '');
 
     if ($action === 'get_subjects_and_topics') {
-        $subs_res = $db->query("SELECT * FROM subjects ORDER BY exam_type, name");
+        $subs_res = $db->query("SELECT s.*,
+                                    (SELECT COUNT(*) FROM topics t WHERE t.subject_id = s.id) as topic_count,
+                                    (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id) as question_count
+                                FROM subjects s ORDER BY s.exam_type, s.name");
         $subjects = $subs_res ? $subs_res->fetch_all(MYSQLI_ASSOC) : [];
 
-        $tops_res = $db->query("SELECT * FROM topics ORDER BY name");
+        $tops_res = $db->query("SELECT t.*, (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id) as question_count FROM topics t ORDER BY t.name");
         $topics = $tops_res ? $tops_res->fetch_all(MYSQLI_ASSOC) : [];
 
         echo json_encode(["success" => true, "subjects" => $subjects, "topics" => $topics]);
+        exit();
+    }
+
+    if ($action === 'create_subject') {
+        $name = trim($data['name'] ?? '');
+        $exam_type = strtoupper(trim($data['exam_type'] ?? ''));
+
+        if (empty($name) || empty($exam_type)) {
+            echo json_encode(["success" => false, "message" => "Subject name and exam_type are required."]);
+            exit();
+        }
+
+        // Check unique constraint (name, exam_type)
+        $stmtCheck = $db->prepare("SELECT id FROM subjects WHERE LOWER(name) = LOWER(?) AND exam_type = ? LIMIT 1");
+        $stmtCheck->bind_param("ss", $name, $exam_type);
+        $stmtCheck->execute();
+        if ($stmtCheck->get_result()->fetch_assoc()) {
+            echo json_encode(["success" => false, "message" => "Subject '{$name}' already exists for category {$exam_type}."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmtIns = $db->prepare("INSERT INTO subjects (name, exam_type, sync_version) VALUES (?, ?, ?)");
+        $stmtIns->bind_param("ssi", $name, $exam_type, $sync_version);
+        $stmtIns->execute();
+
+        echo json_encode(["success" => true, "subject_id" => $db->insert_id, "message" => "Subject created successfully."]);
         exit();
     }
 
@@ -81,7 +211,7 @@ if ($method === 'POST') {
             exit();
         }
 
-        // Check if topic exists
+        // Check case-insensitive duplicate
         $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?)");
         $stmt->bind_param("is", $subject_id, $topic_name);
         $stmt->execute();
@@ -89,16 +219,92 @@ if ($method === 'POST') {
         $row = $res->fetch_assoc();
 
         if ($row) {
-            echo json_encode(["success" => true, "topic_id" => intval($row['id']), "message" => "Topic already exists."]);
+            echo json_encode(["success" => true, "topic_id" => intval($row['id']), "message" => "Topic already exists.", "warning" => "Topic with similar name exists."]);
             exit();
         }
 
-        $stmt = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
-        $stmt->bind_param("is", $subject_id, $topic_name);
+        $sync_version = bumpSyncVersion($db);
+        $stmt = $db->prepare("INSERT INTO topics (subject_id, name, sync_version) VALUES (?, ?, ?)");
+        $stmt->bind_param("isi", $subject_id, $topic_name, $sync_version);
         $stmt->execute();
         $new_topic_id = $db->insert_id;
 
         echo json_encode(["success" => true, "topic_id" => $new_topic_id, "message" => "Topic created successfully."]);
+        exit();
+    }
+
+    if ($action === 'edit_topic') {
+        $topic_id = intval($data['topic_id'] ?? 0);
+        $name = trim($data['name'] ?? '');
+
+        if ($topic_id <= 0 || empty($name)) {
+            echo json_encode(["success" => false, "message" => "Valid topic_id and name are required."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmt = $db->prepare("UPDATE topics SET name = ?, sync_version = ? WHERE id = ?");
+        $stmt->bind_param("sii", $name, $sync_version, $topic_id);
+        $stmt->execute();
+
+        echo json_encode(["success" => true, "message" => "Topic updated successfully."]);
+        exit();
+    }
+
+    if ($action === 'delete_topic') {
+        $topic_id = intval($data['topic_id'] ?? 0);
+        $reassign_topic_id = intval($data['reassign_topic_id'] ?? 0);
+
+        if ($topic_id <= 0) {
+            echo json_encode(["success" => false, "message" => "Valid topic_id is required."]);
+            exit();
+        }
+
+        // Check if questions reference this topic
+        $stmtQ = $db->prepare("SELECT COUNT(*) as cnt FROM questions WHERE topic_id = ?");
+        $stmtQ->bind_param("i", $topic_id);
+        $stmtQ->execute();
+        $qCount = $stmtQ->get_result()->fetch_assoc()['cnt'] ?? 0;
+
+        if ($qCount > 0) {
+            if ($reassign_topic_id <= 0 || $reassign_topic_id === $topic_id) {
+                echo json_encode([
+                    "success" => false,
+                    "has_questions" => true,
+                    "question_count" => $qCount,
+                    "message" => "Cannot delete topic because {$qCount} questions are associated with it. Select a target topic to reassign questions first."
+                ]);
+                exit();
+            }
+
+            // Verify reassign topic belongs to same subject
+            $stmtSub1 = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
+            $stmtSub1->bind_param("i", $topic_id);
+            $stmtSub1->execute();
+            $sub1 = $stmtSub1->get_result()->fetch_assoc()['subject_id'] ?? 0;
+
+            $stmtSub2 = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
+            $stmtSub2->bind_param("i", $reassign_topic_id);
+            $stmtSub2->execute();
+            $sub2 = $stmtSub2->get_result()->fetch_assoc()['subject_id'] ?? 0;
+
+            if ($sub1 <= 0 || $sub1 !== $sub2) {
+                echo json_encode(["success" => false, "message" => "Target reassign topic must belong to the same subject."]);
+                exit();
+            }
+
+            // Reassign questions
+            $sync_version = bumpSyncVersion($db);
+            $stmtRe = $db->prepare("UPDATE questions SET topic_id = ?, sync_version = ? WHERE topic_id = ?");
+            $stmtRe->bind_param("iii", $reassign_topic_id, $sync_version, $topic_id);
+            $stmtRe->execute();
+        }
+
+        $stmtDel = $db->prepare("DELETE FROM topics WHERE id = ?");
+        $stmtDel->bind_param("i", $topic_id);
+        $stmtDel->execute();
+
+        echo json_encode(["success" => true, "message" => "Topic deleted successfully."]);
         exit();
     }
 
@@ -116,61 +322,86 @@ if ($method === 'POST') {
         $option_c = trim($data['option_c'] ?? '');
         $option_d = trim($data['option_d'] ?? '');
         $correct_answer = strtoupper(trim($data['correct_answer'] ?? ''));
+        $topic_explanation = trim($data['topic_explanation'] ?? '');
+        $correct_explanation = trim($data['correct_explanation'] ?? '');
+        $wrong_explanations = trim($data['wrong_explanations'] ?? '');
 
-        // Map subject by name if subject_id not provided or <= 0
         if ($subject_id <= 0 && !empty($subject_name)) {
             $stmt = $db->prepare("SELECT id FROM subjects WHERE exam_type = ? AND LOWER(name) = LOWER(?) LIMIT 1");
             $stmt->bind_param("ss", $exam_type, $subject_name);
             $stmt->execute();
-            $res = $stmt->get_result();
-            if ($row = $res->fetch_assoc()) {
+            if ($row = $stmt->get_result()->fetch_assoc()) {
                 $subject_id = intval($row['id']);
             }
         }
 
-        if (empty($exam_type) || $subject_id <= 0 || empty($year) || empty($question_text)) {
-            echo json_encode(["success" => false, "message" => "Valid exam_type, subject, year, and question_text are required."]);
+        if (empty($exam_type) || $subject_id <= 0 || empty($year) || empty($question_text) || !in_array($correct_answer, ['A','B','C','D'])) {
+            echo json_encode(["success" => false, "message" => "Valid exam_type, subject, year, question_text, and correct_answer (A/B/C/D) are required."]);
             exit();
         }
 
-        // Map or create topic by name
-        if ($topic_id <= 0) {
-            if (!empty($topic_name)) {
-                $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
-                $stmt->bind_param("is", $subject_id, $topic_name);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                if ($row = $res->fetch_assoc()) {
-                    $topic_id = intval($row['id']);
-                } else {
-                    $stmtIns = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
-                    $stmtIns->bind_param("is", $subject_id, $topic_name);
-                    $stmtIns->execute();
-                    $topic_id = $db->insert_id;
-                }
+        if ($topic_id <= 0 && !empty($topic_name)) {
+            $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+            $stmt->bind_param("is", $subject_id, $topic_name);
+            $stmt->execute();
+            if ($row = $stmt->get_result()->fetch_assoc()) {
+                $topic_id = intval($row['id']);
             } else {
-                // Default to first topic under subject or create a General topic
-                $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? LIMIT 1");
-                $stmt->bind_param("i", $subject_id);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                if ($row = $res->fetch_assoc()) {
-                    $topic_id = intval($row['id']);
-                } else {
-                    $defTopic = "General";
-                    $stmtIns = $db->prepare("INSERT INTO topics (subject_id, name) VALUES (?, ?)");
-                    $stmtIns->bind_param("is", $subject_id, $defTopic);
-                    $stmtIns->execute();
-                    $topic_id = $db->insert_id;
-                }
+                $sync_v = bumpSyncVersion($db);
+                $stmtIns = $db->prepare("INSERT INTO topics (subject_id, name, sync_version) VALUES (?, ?, ?)");
+                $stmtIns->bind_param("isi", $subject_id, $topic_name, $sync_v);
+                $stmtIns->execute();
+                $topic_id = $db->insert_id;
             }
         }
 
-        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiisssssss", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
+        $sync_version = bumpSyncVersion($db);
+        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("siiissssssssssi", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version);
         $stmt->execute();
 
-        echo json_encode(["success" => true, "message" => "Question added successfully."]);
+        echo json_encode(["success" => true, "id" => $db->insert_id, "message" => "Question added successfully."]);
+        exit();
+    }
+
+    if ($action === 'update') {
+        $id = intval($data['id'] ?? 0);
+        $exam_type = strtoupper(trim($data['exam_type'] ?? ''));
+        $subject_id = intval($data['subject_id'] ?? 0);
+        $year = intval($data['year'] ?? 0);
+        $topic_id = intval($data['topic_id'] ?? 0);
+        $difficulty = trim($data['difficulty'] ?? 'medium');
+        $question_text = trim($data['question_text'] ?? '');
+        $option_a = trim($data['option_a'] ?? '');
+        $option_b = trim($data['option_b'] ?? '');
+        $option_c = trim($data['option_c'] ?? '');
+        $option_d = trim($data['option_d'] ?? '');
+        $correct_answer = strtoupper(trim($data['correct_answer'] ?? ''));
+        $topic_explanation = trim($data['topic_explanation'] ?? '');
+        $correct_explanation = trim($data['correct_explanation'] ?? '');
+        $wrong_explanations = trim($data['wrong_explanations'] ?? '');
+
+        if ($id <= 0 || empty($exam_type) || $subject_id <= 0 || $topic_id <= 0 || empty($question_text) || !in_array($correct_answer, ['A','B','C','D'])) {
+            echo json_encode(["success" => false, "message" => "Invalid parameters for editing question."]);
+            exit();
+        }
+
+        // Verify topic_id belongs to subject_id
+        $stmtCheckTop = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
+        $stmtCheckTop->bind_param("i", $topic_id);
+        $stmtCheckTop->execute();
+        $topSub = $stmtCheckTop->get_result()->fetch_assoc()['subject_id'] ?? 0;
+        if ($topSub !== $subject_id) {
+            echo json_encode(["success" => false, "message" => "Topic must belong to the selected subject."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmt = $db->prepare("UPDATE questions SET exam_type=?, subject_id=?, year=?, topic_id=?, difficulty=?, question_text=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_answer=?, topic_explanation=?, correct_explanation=?, wrong_explanations=?, sync_version=? WHERE id=?");
+        $stmt->bind_param("siiissssssssssii", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version, $id);
+        $stmt->execute();
+
+        echo json_encode(["success" => true, "message" => "Question updated successfully."]);
         exit();
     }
 
@@ -181,17 +412,11 @@ if ($method === 'POST') {
             exit();
         }
 
-        // Get new sync version
-        $db->query("UPDATE sync_sequence SET current_version = current_version + 1 WHERE id = 1");
-        $verRes = $db->query("SELECT current_version FROM sync_sequence WHERE id = 1");
-        $sync_version = ($verRes && $verRow = $verRes->fetch_assoc()) ? intval($verRow['current_version']) : 1;
-
-        // Record tombstone deletion
+        $sync_version = bumpSyncVersion($db);
         $stmtDel = $db->prepare("INSERT INTO deleted_questions (question_id, sync_version) VALUES (?, ?)");
         $stmtDel->bind_param("ii", $id, $sync_version);
         $stmtDel->execute();
 
-        // Delete question row
         $stmt = $db->prepare("DELETE FROM questions WHERE id = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
@@ -200,146 +425,110 @@ if ($method === 'POST') {
         exit();
     }
 
-    // CSV Bulk Import validation and insert logic
+    if ($action === 'bulk_delete') {
+        $ids = $data['ids'] ?? [];
+        if (!is_array($ids) || count($ids) === 0) {
+            echo json_encode(["success" => false, "message" => "No question IDs provided for bulk delete."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmtDel = $db->prepare("INSERT INTO deleted_questions (question_id, sync_version) VALUES (?, ?)");
+        $stmtRem = $db->prepare("DELETE FROM questions WHERE id = ?");
+
+        $deletedCount = 0;
+        foreach ($ids as $rawId) {
+            $qId = intval($rawId);
+            if ($qId > 0) {
+                $stmtDel->bind_param("ii", $qId, $sync_version);
+                $stmtDel->execute();
+                $stmtRem->bind_param("i", $qId);
+                $stmtRem->execute();
+                $deletedCount++;
+            }
+        }
+
+        echo json_encode(["success" => true, "message" => "Successfully soft-deleted {$deletedCount} questions."]);
+        exit();
+    }
+
+    if ($action === 'bulk_move') {
+        $ids = $data['ids'] ?? [];
+        $target_topic_id = intval($data['target_topic_id'] ?? 0);
+
+        if (!is_array($ids) || count($ids) === 0 || $target_topic_id <= 0) {
+            echo json_encode(["success" => false, "message" => "Valid question IDs and target_topic_id are required."]);
+            exit();
+        }
+
+        // Fetch subject_id of target topic
+        $stmtTop = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
+        $stmtTop->bind_param("i", $target_topic_id);
+        $stmtTop->execute();
+        $targetSubId = $stmtTop->get_result()->fetch_assoc()['subject_id'] ?? 0;
+
+        if ($targetSubId <= 0) {
+            echo json_encode(["success" => false, "message" => "Target topic does not exist."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmtMove = $db->prepare("UPDATE questions SET topic_id = ?, subject_id = ?, sync_version = ? WHERE id = ?");
+
+        $movedCount = 0;
+        foreach ($ids as $rawId) {
+            $qId = intval($rawId);
+            if ($qId > 0) {
+                $stmtMove->bind_param("iiii", $target_topic_id, $targetSubId, $sync_version, $qId);
+                $stmtMove->execute();
+                $movedCount++;
+            }
+        }
+
+        echo json_encode(["success" => true, "message" => "Successfully moved {$movedCount} questions."]);
+        exit();
+    }
+
+    if ($action === 'bulk_change_difficulty') {
+        $ids = $data['ids'] ?? [];
+        $difficulty = trim($data['difficulty'] ?? 'medium');
+
+        if (!is_array($ids) || count($ids) === 0 || !in_array($difficulty, ['easy', 'medium', 'hard'])) {
+            echo json_encode(["success" => false, "message" => "Valid question IDs and difficulty are required."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmtDiff = $db->prepare("UPDATE questions SET difficulty = ?, sync_version = ? WHERE id = ?");
+
+        $updatedCount = 0;
+        foreach ($ids as $rawId) {
+            $qId = intval($rawId);
+            if ($qId > 0) {
+                $stmtDiff->bind_param("sii", $difficulty, $sync_version, $qId);
+                $stmtDiff->execute();
+                $updatedCount++;
+            }
+        }
+
+        echo json_encode(["success" => true, "message" => "Successfully updated difficulty for {$updatedCount} questions."]);
+        exit();
+    }
+
+    // CSV / Structured Bulk Import
     if ($action === 'bulk_import') {
-        $csv_data = $data['csv_data'] ?? '';
-        if (empty(trim($csv_data))) {
-            echo json_encode(["success" => false, "message" => "No CSV data provided.", "errors" => ["No CSV data provided."]]);
+        $filename = trim($data['filename'] ?? 'questions_import.csv');
+        $subject_id = intval($data['subject_id'] ?? 0);
+        $topic_id = intval($data['topic_id'] ?? 0);
+        $rows = $data['rows'] ?? [];
+
+        if (!is_array($rows) || count($rows) === 0) {
+            echo json_encode(["success" => false, "message" => "No rows provided for import."]);
             exit();
         }
 
-        $lines = explode("\n", str_replace("\r", "", trim($csv_data)));
-        if (count($lines) < 2) {
-            echo json_encode(["success" => false, "message" => "CSV contains no data rows.", "errors" => ["CSV contains no data rows."]]);
-            exit();
-        }
-
-        // Determine delimiter (comma or semicolon)
-        $first_line = $lines[0];
-        $delimiter = (substr_count($first_line, ';') > substr_count($first_line, ',')) ? ';' : ',';
-
-        $header = str_getcsv(array_shift($lines), $delimiter);
-        $header = array_map('strtolower', array_map('trim', $header));
-
-        // Required headers
-        $required_headers = ['exam_type', 'subject', 'year', 'topic', 'difficulty', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer'];
-
-        $parsed_rows = [];
-        $errors = [];
-        $row_number = 1; // 1-based index corresponding to data row (Row 2 in file, etc.)
-
-        foreach ($lines as $line) {
-            $row_number++;
-            if (empty(trim($line))) continue;
-
-            $row_data = str_getcsv($line, $delimiter);
-            if (count($row_data) < count($header)) {
-                $errors[] = "Row {$row_number}: Column count mismatch (fewer columns than header).";
-                continue;
-            }
-
-            $row = array_combine($header, array_slice($row_data, 0, count($header)));
-
-            $exam_type = strtoupper(trim($row['exam_type'] ?? ''));
-            $subject_name = trim($row['subject'] ?? $row['subject_name'] ?? '');
-            $year_str = trim($row['year'] ?? '');
-            $topic_name = trim($row['topic'] ?? $row['topic_name'] ?? '');
-            $difficulty = strtolower(trim($row['difficulty'] ?? 'medium'));
-            $question_text = trim($row['question_text'] ?? '');
-            $option_a = trim($row['option_a'] ?? '');
-            $option_b = trim($row['option_b'] ?? '');
-            $option_c = trim($row['option_c'] ?? '');
-            $option_d = trim($row['option_d'] ?? '');
-            $correct_answer = strtoupper(trim($row['correct_answer'] ?? ''));
-            $topic_explanation = trim($row['topic_explanation'] ?? '');
-            $correct_explanation = trim($row['correct_explanation'] ?? '');
-            $wrong_explanations = trim($row['wrong_explanations'] ?? '');
-
-            // 1. Validate exam_type
-            if (!in_array($exam_type, ['JAMB', 'WAEC', 'NECO'])) {
-                $errors[] = "Row {$row_number}: Invalid exam_type '{$exam_type}' (must be JAMB, WAEC, or NECO).";
-                continue;
-            }
-
-            // 2. Validate subject
-            $stmtSub = $db->prepare("SELECT id FROM subjects WHERE exam_type = ? AND LOWER(name) = LOWER(?) LIMIT 1");
-            $stmtSub->bind_param("ss", $exam_type, $subject_name);
-            $stmtSub->execute();
-            $resSub = $stmtSub->get_result();
-            if (!$rowSub = $resSub->fetch_assoc()) {
-                $errors[] = "Row {$row_number}: subject '{$subject_name}' not found for exam category {$exam_type}.";
-                continue;
-            }
-            $subject_id = intval($rowSub['id']);
-
-            // 3. Validate year (4 digits 2000-2099)
-            if (!preg_match('/^(20\d{2})$/', $year_str)) {
-                $errors[] = "Row {$row_number}: Invalid year '{$year_str}' (must be 4 digits between 2000 and 2099).";
-                continue;
-            }
-            $year = intval($year_str);
-
-            // 4. Validate topic (must exist under subject; do not auto-create)
-            $stmtTop = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
-            $stmtTop->bind_param("is", $subject_id, $topic_name);
-            $stmtTop->execute();
-            $resTop = $stmtTop->get_result();
-            if (!$rowTop = $resTop->fetch_assoc()) {
-                $errors[] = "Row {$row_number}: topic '{$topic_name}' not found under subject '{$subject_name}'.";
-                continue;
-            }
-            $topic_id = intval($rowTop['id']);
-
-            // 5. Validate non-empty question_text and option_a-d
-            if (empty($question_text) || empty($option_a) || empty($option_b) || empty($option_c) || empty($option_d)) {
-                $errors[] = "Row {$row_number}: question_text and options A–D must all be non-empty.";
-                continue;
-            }
-
-            // 6. Validate correct_answer in A, B, C, D
-            if (!in_array($correct_answer, ['A', 'B', 'C', 'D'])) {
-                $errors[] = "Row {$row_number}: Invalid correct_answer '{$correct_answer}' (must be A, B, C, or D).";
-                continue;
-            }
-
-            $parsed_rows[] = [
-                'row_number' => $row_number,
-                'exam_type' => $exam_type,
-                'subject_id' => $subject_id,
-                'year' => $year,
-                'topic_id' => $topic_id,
-                'difficulty' => empty($difficulty) ? 'medium' : $difficulty,
-                'question_text' => $question_text,
-                'option_a' => $option_a,
-                'option_b' => $option_b,
-                'option_c' => $option_c,
-                'option_d' => $option_d,
-                'correct_answer' => $correct_answer,
-                'topic_explanation' => $topic_explanation,
-                'correct_explanation' => $correct_explanation,
-                'wrong_explanations' => $wrong_explanations
-            ];
-        }
-
-        // If validation errors exist, return them all together and insert nothing
-        if (count($errors) > 0) {
-            echo json_encode([
-                "success" => false,
-                "message" => "Validation failed with " . count($errors) . " error(s). Nothing was imported.",
-                "errors" => $errors,
-                "inserted_count" => 0,
-                "skipped_duplicates" => 0
-            ]);
-            exit();
-        }
-
-        // Otherwise insert everything in one transaction
         $db->begin_transaction();
-
-        // Increment global sync version for bulk batch
-        $db->query("UPDATE sync_sequence SET current_version = current_version + 1 WHERE id = 1");
-        $verRes = $db->query("SELECT current_version FROM sync_sequence WHERE id = 1");
-        $sync_version = ($verRes && $verRow = $verRes->fetch_assoc()) ? intval($verRow['current_version']) : 1;
+        $sync_version = bumpSyncVersion($db);
 
         $inserted_count = 0;
         $skipped_duplicates = 0;
@@ -351,23 +540,44 @@ if ($method === 'POST') {
             topic_explanation, correct_explanation, wrong_explanations, sync_version
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-        foreach ($parsed_rows as $pRow) {
-            // Duplicate check via (subject_id, question_text)
-            $stmtCheck->bind_param("is", $pRow['subject_id'], $pRow['question_text']);
+        foreach ($rows as $pRow) {
+            $qText = trim($pRow['question_text'] ?? '');
+            $subId = intval($pRow['subject_id'] ?? $subject_id);
+            $topId = intval($pRow['topic_id'] ?? $topic_id);
+            $examType = strtoupper(trim($pRow['exam_type'] ?? 'JAMB'));
+            $yr = intval($pRow['year'] ?? 2024);
+            $diff = trim($pRow['difficulty'] ?? 'medium');
+            $optA = trim($pRow['option_a'] ?? '');
+            $optB = trim($pRow['option_b'] ?? '');
+            $optC = trim($pRow['option_c'] ?? '');
+            $optD = trim($pRow['option_d'] ?? '');
+            $corrAns = strtoupper(trim($pRow['correct_answer'] ?? 'A'));
+            $topExp = trim($pRow['topic_explanation'] ?? '');
+            $corrExp = trim($pRow['correct_explanation'] ?? '');
+            $wrongExp = trim($pRow['wrong_explanations'] ?? '');
+
+            // Duplicate check
+            $stmtCheck->bind_param("is", $subId, $qText);
             $stmtCheck->execute();
-            $resCheck = $stmtCheck->get_result();
-            if ($resCheck->fetch_assoc()) {
+            if ($stmtCheck->get_result()->fetch_assoc()) {
                 $skipped_duplicates++;
                 continue;
             }
 
             $stmtIns->bind_param("siiissssssssssi",
-                $pRow['exam_type'], $pRow['subject_id'], $pRow['year'], $pRow['topic_id'], $pRow['difficulty'],
-                $pRow['question_text'], $pRow['option_a'], $pRow['option_b'], $pRow['option_c'], $pRow['option_d'], $pRow['correct_answer'],
-                $pRow['topic_explanation'], $pRow['correct_explanation'], $pRow['wrong_explanations'], $sync_version
+                $examType, $subId, $yr, $topId, $diff,
+                $qText, $optA, $optB, $optC, $optD, $corrAns,
+                $topExp, $corrExp, $wrongExp, $sync_version
             );
             $stmtIns->execute();
             $inserted_count++;
+        }
+
+        // Record Upload History Log
+        if ($inserted_count > 0 || $skipped_duplicates > 0) {
+            $stmtLog = $db->prepare("INSERT INTO question_upload_logs (admin_user_id, filename, subject_id, topic_id, rows_imported, rows_skipped) VALUES (1, ?, ?, ?, ?, ?)");
+            $stmtLog->bind_param("siiii", $filename, $subject_id, $topic_id, $inserted_count, $skipped_duplicates);
+            $stmtLog->execute();
         }
 
         $db->commit();
@@ -377,7 +587,7 @@ if ($method === 'POST') {
             "message" => "Imported {$inserted_count} questions, skipped {$skipped_duplicates} duplicates",
             "inserted_count" => $inserted_count,
             "skipped_duplicates" => $skipped_duplicates,
-            "errors" => []
+            "sync_version" => $sync_version
         ]);
         exit();
     }
