@@ -49,6 +49,8 @@ const API_BASE = typeof window !== 'undefined' && window.location.hostname === '
   ? 'https://cbt.filloptech.com/api/v1'
   : 'https://cbt.filloptech.com/api/v1';
 
+ // const API_BASE = 'https://cbt.filloptech.com/api/v1';
+
 export default function App() {
   // Authentication State
   const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('admin_token'));
@@ -778,22 +780,23 @@ export default function App() {
         {/* DASHBOARD TAB */}
         {activeTab === 'DASHBOARD' && (
           <div>
-            {/* Dashboard Overview Search Filter */}
-            <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <LayoutDashboard size={18} style={{ color: 'var(--accent)' }} /> Quick Overview Search
-                </span>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Filter recent submissions or news..."
-                  value={dashboardSearch}
-                  onChange={(e) => setDashboardSearch(e.target.value)}
-                  style={{ width: '280px', padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
-                />
-              </div>
-            </div>
+           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+  <input
+    type="text"
+    className="form-input"
+    placeholder="Filter recent submissions or news..."
+    value={dashboardSearch}
+    onChange={(e) => setDashboardSearch(e.target.value)}
+    style={{
+      width: '260px',
+      padding: '0.4rem 0.8rem',
+      fontSize: '0.85rem',
+      border: '1px solid var(--accent)',
+      outline: 'none',
+      boxShadow: '0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent)',
+    }}
+  />
+</div>
 
             {/* Conditional Pending Upgrades CTA Card */}
             {stats.pending_upgrades > 0 && (

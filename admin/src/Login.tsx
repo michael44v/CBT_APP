@@ -8,7 +8,7 @@ interface LoginProps {
 
 export default function Login({ onLoginSuccess, apiBase }: LoginProps) {
   const effectiveApiBase = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:8000/api/v1'
+    ? 'https://cbt.filloptech.com/api/v1'
     : apiBase;
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
