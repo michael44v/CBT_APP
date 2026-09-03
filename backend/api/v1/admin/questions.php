@@ -23,6 +23,13 @@ function verifyAdminAuth() {
     $parts = explode('.', $token);
     if (count($parts) !== 3) return null;
 
+    $secret = getenv('JWT_SECRET') ?: 'fillop_jwt_admin_secret_key_2026';
+    $validSignature = base64_encode(hash_hmac('sha256', "{$parts[0]}.{$parts[1]}", $secret, true));
+
+    if (!hash_equals($validSignature, $parts[2])) {
+        return null;
+    }
+
     $payload = json_decode(base64_decode($parts[1]), true);
     if (!$payload || ($payload['exp'] ?? 0) < time() || ($payload['role'] ?? '') !== 'admin') {
         return null;

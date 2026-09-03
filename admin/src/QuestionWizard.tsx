@@ -106,7 +106,10 @@ export default function QuestionWizard({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({
           action: 'create_topic',
           subject_id: selectedSubject.id,

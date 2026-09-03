@@ -126,6 +126,10 @@ export default function App() {
     }
   };
 
+  // Daily Quiz Completed Today State & Modal
+  const [dailyQuizResultToday, setDailyQuizResultToday] = useState<any | null>(null);
+  const [showDailyQuizSummaryModal, setShowDailyQuizSummaryModal] = useState<boolean>(false);
+
   // Leaderboard State
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
@@ -270,11 +274,10 @@ export default function App() {
   const [revealedQuestions, setRevealedQuestions] = useState<Record<number, boolean>>({});
   const [fallbackNotice, setFallbackNotice] = useState<string>('');
 
-  // Timers
+  // Timers & Wall-Clock End Time
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const timeLeftRef = useRef<number>(0);
-  timeLeftRef.current = timeLeft;
+  const examEndTimeRef = useRef<number>(0);
 
   // Historic Results & Analytics
   const [historyResults, setHistoryResults] = useState<Result[]>([]);
@@ -783,8 +786,27 @@ export default function App() {
     }
   };
 
+  const getTodayDateKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const startDailyQuizSession = async () => {
     try {
+      const todayKey = getTodayDateKey();
+      const activeUser = activation?.email || 'Candidate (Free)';
+      const storageKey = `daily_quiz_${activeUser}_${todayKey}`;
+
+      const savedTodayResult = localStorage.getItem(storageKey);
+      if (savedTodayResult) {
+        try {
+          const parsed = JSON.parse(savedTodayResult);
+          setDailyQuizResultToday(parsed);
+          setShowDailyQuizSummaryModal(true);
+          return;
+        } catch (e) {}
+      }
+
       setFallbackNotice('');
       setIsPracticeMode(false);
       setIsQuizMode(true);
@@ -851,12 +873,17 @@ export default function App() {
     stopTimer();
     if (secs <= 0) return;
 
+    // Set wall-clock end time based on current Date.now()
+    examEndTimeRef.current = Date.now() + secs * 1000;
+
     timerRef.current = setInterval(() => {
-      if (timeLeftRef.current <= 1) {
+      const remainingSecs = Math.ceil((examEndTimeRef.current - Date.now()) / 1000);
+      if (remainingSecs <= 0) {
+        setTimeLeft(0);
         stopTimer();
         autoSubmitExam();
       } else {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft(remainingSecs);
       }
     }, 1000);
   };
@@ -929,13 +956,24 @@ export default function App() {
     let correctCount = 0;
     const detailsList: any[] = [];
 
+    // Map each subject's performance
+    const subjectStats: Record<number, { correct: number; total: number; name: string }> = {};
+
     for (const q of examQuestions) {
       const userAns = answers[q.id] || null;
       const isCorrect = userAns === q.correct_answer;
       if (isCorrect) correctCount++;
 
+      if (!subjectStats[q.subject_id]) {
+        const subName = q.subject_name || examSubjects.find(s => s.id === q.subject_id)?.name || `Subject ${q.subject_id}`;
+        subjectStats[q.subject_id] = { correct: 0, total: 0, name: subName };
+      }
+      subjectStats[q.subject_id].total++;
+      if (isCorrect) subjectStats[q.subject_id].correct++;
+
       detailsList.push({
         id: q.id,
+        subject_id: q.subject_id,
         question_text: q.question_text,
         option_a: q.option_a,
         option_b: q.option_b,
@@ -951,7 +989,31 @@ export default function App() {
       });
     }
 
-    const percentage = examQuestions.length > 0 ? (correctCount / examQuestions.length) * 100 : 0;
+    let percentage = 0;
+
+    // Weighted score generation for JAMB Mock exam:
+    // In JAMB mock: English is 34%, others are 22% each; if English is not there others are 25% each (4 subjects).
+    if (examType === 'JAMB' && !isPracticeMode && !isQuizMode && Object.keys(subjectStats).length > 0) {
+      const activeSubjects = Object.values(subjectStats);
+      const hasEnglish = activeSubjects.some(s => s.name.toLowerCase().includes('english'));
+
+      let weightedSum = 0;
+      for (const sub of activeSubjects) {
+        const subAccuracy = sub.total > 0 ? sub.correct / sub.total : 0;
+        const isEng = sub.name.toLowerCase().includes('english');
+
+        if (hasEnglish) {
+          const weight = isEng ? 34 : 22;
+          weightedSum += subAccuracy * weight;
+        } else {
+          const weight = 100 / activeSubjects.length; // e.g. 25% for 4 subjects
+          weightedSum += subAccuracy * weight;
+        }
+      }
+      percentage = Math.round(weightedSum * 10) / 10;
+    } else {
+      percentage = examQuestions.length > 0 ? (correctCount / examQuestions.length) * 100 : 0;
+    }
 
     try {
       const resultRow = await window.api.submitExamResult({
@@ -967,9 +1029,33 @@ export default function App() {
       if (window.api && window.api.setExamActive) {
         await window.api.setExamActive(false);
       }
+      // If this was Daily Quiz, save today's completion result locally
+      if (isQuizMode) {
+        const todayKey = getTodayDateKey();
+        const activeUser = activation?.email || 'Candidate (Free)';
+        const storageKey = `daily_quiz_${activeUser}_${todayKey}`;
+        localStorage.setItem(storageKey, JSON.stringify(resultRow));
+      }
+
       setActiveResult(resultRow);
       setScreen('RESULT');
     } catch (e) {
+      if (isQuizMode) {
+        const todayKey = getTodayDateKey();
+        const activeUser = activation?.email || 'Candidate (Free)';
+        const storageKey = `daily_quiz_${activeUser}_${todayKey}`;
+        const fallbackRes = {
+          id: Date.now(),
+          exam_type: examType,
+          user_name: activeUser,
+          score: correctCount,
+          total_questions: examQuestions.length,
+          percentage,
+          details: JSON.stringify(detailsList),
+          submitted_at: new Date().toISOString()
+        };
+        localStorage.setItem(storageKey, JSON.stringify(fallbackRes));
+      }
       console.error('Submission error:', e);
       if (window.api && window.api.setExamActive) {
         await window.api.setExamActive(false).catch(() => {});
@@ -2959,6 +3045,83 @@ export default function App() {
             >
               Get Started
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= DAILY QUIZ PREVIOUS SUMMARY MODAL ================= */}
+      {showDailyQuizSummaryModal && dailyQuizResultToday && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '20px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '32px',
+            textAlign: 'center',
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%', backgroundColor: colors.primaryLight,
+              color: colors.primary, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
+            }}>
+              <Zap size={28} />
+            </div>
+
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.text, marginBottom: '8px' }}>
+              Daily Quiz Completed Today
+            </h2>
+            <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '24px' }}>
+              You have already taken today's Daily Quiz ({new Date().toLocaleDateString()}). You can take the quiz again tomorrow!
+            </p>
+
+            <div style={{
+              backgroundColor: colors.bg, borderRadius: '16px', padding: '20px',
+              border: `1px solid ${colors.border}`, marginBottom: '24px'
+            }}>
+              <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+                Today's Quiz Score Summary
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: 900, color: dailyQuizResultToday.percentage >= 50 ? colors.success : colors.danger, marginBottom: '4px' }}>
+                {dailyQuizResultToday.percentage ? Number(dailyQuizResultToday.percentage).toFixed(0) : '0'}%
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: colors.text }}>
+                {dailyQuizResultToday.score} / {dailyQuizResultToday.total_questions} Questions Correct
+              </div>
+              <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '8px' }}>
+                Submitted at: {dailyQuizResultToday.submitted_at ? new Date(dailyQuizResultToday.submitted_at).toLocaleTimeString() : 'Today'}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                style={{ ...styles.btn, ...styles.btnPrimary }}
+                onClick={() => {
+                  setShowDailyQuizSummaryModal(false);
+                  setActiveResult(dailyQuizResultToday);
+                  setScreen('REVIEW');
+                }}
+              >
+                Inspect Quiz Answers
+              </button>
+              <button
+                style={{ ...styles.btn, ...styles.btnSecondary }}
+                onClick={() => setShowDailyQuizSummaryModal(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
