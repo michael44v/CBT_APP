@@ -1,7 +1,7 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -11,6 +11,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../db.php';
 
 $db = getDbConnection();
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method === 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    $action = trim($data['action'] ?? '');
+
+    if ($action === 'delete_result') {
+        $result_id = intval($data['id'] ?? 0);
+        if ($result_id > 0) {
+            $stmt = $db->prepare("DELETE FROM results WHERE id = ?");
+            $stmt->bind_param("i", $result_id);
+            $stmt->execute();
+            echo json_encode(["success" => true, "message" => "Result deleted successfully."]);
+            exit();
+        }
+        echo json_encode(["success" => false, "message" => "Invalid result ID."]);
+        exit();
+    }
+}
 
 // Users Count
 $res = $db->query("SELECT COUNT(*) as count FROM users");
@@ -23,9 +42,35 @@ $active_passcodes = $res ? $res->fetch_assoc()['count'] : 0;
 $res = $db->query("SELECT COUNT(*) as count FROM passcodes WHERE status = 'suspended'");
 $suspended_passcodes = $res ? $res->fetch_assoc()['count'] : 0;
 
-// Estimated Revenue
+// Estimated Revenue & Real Revenue Data from passcode_upgrades
 $res = $db->query("SELECT SUM(max_devices * 1200) as rev FROM passcodes");
 $estimated_revenue = $res ? floatval($res->fetch_assoc()['rev'] ?? 0) : 0;
+
+// Monthly Revenue Trend from real payments in passcode_upgrades
+$rev_res = $db->query("SELECT DATE_FORMAT(created_at, '%b %Y') as month, DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE payment_status = 'completed' or status = 'completed' GROUP BY ym ORDER BY ym ASC LIMIT 12");
+$revenue_over_time = [];
+if ($rev_res) {
+    while ($row = $rev_res->fetch_assoc()) {
+        $revenue_over_time[] = [
+            "label" => $row['month'],
+            "amount" => floatval($row['total_rev'])
+        ];
+    }
+}
+
+// Admin News List for Dashboard Rail
+$news_rail = [];
+$news_res = $db->query("SELECT id, title, content, published_at FROM news ORDER BY published_at DESC LIMIT 5");
+if ($news_res) {
+    while ($n = $news_res->fetch_assoc()) {
+        $news_rail[] = [
+            "id" => intval($n['id']),
+            "title" => $n['title'],
+            "excerpt" => mb_substr(strip_tags($n['content']), 0, 90) . '...',
+            "published_at" => $n['published_at']
+        ];
+    }
+}
 
 // Questions count
 $res = $db->query("SELECT COUNT(*) as count FROM questions");
@@ -216,6 +261,8 @@ echo json_encode([
         "latest_update_version" => $latest_update_version
     ],
     "results" => $results,
+    "revenue_over_time" => $revenue_over_time,
+    "news_rail" => $news_rail,
     "performance" => [
         "subject_performance" => $subject_performance,
         "topic_analysis" => [
