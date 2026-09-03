@@ -86,14 +86,24 @@ export default function QuestionWizard({
   const filteredTopics = dbTopics.filter(t => t.subject_id === (selectedSubject?.id || 0));
 
   useEffect(() => {
-    if (filteredSubjects.length > 0 && !selectedSubject) {
-      setSelectedSubject(filteredSubjects[0]);
+    if (filteredSubjects.length > 0) {
+      const match = filteredSubjects.find(s => s.id === selectedSubject?.id);
+      if (!match) {
+        setSelectedSubject(filteredSubjects[0]);
+      }
+    } else {
+      setSelectedSubject(null);
     }
   }, [selectedExamType, dbSubjects]);
 
   useEffect(() => {
-    if (filteredTopics.length > 0 && (!selectedTopic || selectedTopic.subject_id !== selectedSubject?.id)) {
-      setSelectedTopic(filteredTopics[0]);
+    if (filteredTopics.length > 0) {
+      const match = filteredTopics.find(t => t.id === selectedTopic?.id);
+      if (!match) {
+        setSelectedTopic(filteredTopics[0]);
+      }
+    } else {
+      setSelectedTopic(null);
     }
   }, [selectedSubject, dbTopics]);
 
