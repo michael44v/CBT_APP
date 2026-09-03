@@ -96,7 +96,9 @@ export default function App() {
 
   // Results & Analytics
   const [resultsList, setResultsList] = useState<any[]>([]);
+  const [revenueRange, setRevenueRange] = useState<'week' | 'month' | 'year'>('month');
   const [revenueOverTime, setRevenueOverTime] = useState<{ label: string; amount: number }[]>([]);
+  const [rangeTotalRevenue, setRangeTotalRevenue] = useState<number>(0);
   const [newsRailList, setNewsRailList] = useState<{ id: number; title: string; excerpt: string; published_at: string }[]>([]);
   const [performanceData, setPerformanceData] = useState<any>({
     subject_performance: [],
@@ -345,14 +347,15 @@ export default function App() {
     }
   };
 
-  const fetchStatsAndAnalytics = async () => {
+  const fetchStatsAndAnalytics = async (range: 'week' | 'month' | 'year' = revenueRange) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/analytics.php`);
+      const res = await fetch(`${API_BASE}/admin/analytics.php?range=${range}`);
       const data = await res.json();
       if (data.success) {
         setStats(prev => ({ ...prev, ...data.analytics }));
         if (data.results) setResultsList(data.results);
         if (data.revenue_over_time) setRevenueOverTime(data.revenue_over_time);
+        if (data.range_total_revenue !== undefined) setRangeTotalRevenue(data.range_total_revenue);
         if (data.news_rail) setNewsRailList(data.news_rail);
         if (data.performance) setPerformanceData(data.performance);
       }
@@ -431,7 +434,7 @@ export default function App() {
     if (!authToken) return;
     fetchSubjectsAndTopics();
     fetchQuestions();
-    fetchStatsAndAnalytics();
+    fetchStatsAndAnalytics(revenueRange);
     fetchPricing();
     if (activeTab === 'USERS') fetchUsers();
     if (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS' || activeTab === 'UPGRADES') fetchPasscodes();
@@ -439,7 +442,7 @@ export default function App() {
     if (activeTab === 'UPLOAD_LOGS') fetchUploadLogs();
     if (activeTab === 'NEWS') fetchNews();
     if (activeTab === 'UPDATES') fetchUpdates();
-  }, [authToken, activeTab]);
+  }, [authToken, activeTab, revenueRange]);
 
   if (!authToken) {
     return <Login onLoginSuccess={handleLoginSuccess} apiBase={API_BASE} />;
@@ -825,13 +828,63 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* Revenue Trend Smooth Area/Line Chart */}
                 <div className="admin-card" style={{ marginBottom: 0 }}>
-                  <div className="card-title">
+                  <div className="card-title" style={{ flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <TrendingUp size={18} style={{ color: 'var(--accent)' }} /> Revenue Trend (Completed Payments)
                     </span>
-                    <span className="badge badge-info">Real Payment Data</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      {/* Week / Month / Year Segmented Toggle */}
+                      <div style={{ display: 'inline-flex', background: 'var(--primary-light)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        {(['week', 'month', 'year'] as const).map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => {
+                              setRevenueRange(r);
+                              fetchStatsAndAnalytics(r);
+                            }}
+                            style={{
+                              border: 'none',
+                              padding: '4px 10px',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              backgroundColor: revenueRange === r ? 'var(--accent)' : 'transparent',
+                              color: revenueRange === r ? '#ffffff' : 'var(--text-muted)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="badge badge-info">Real Payment Data</span>
+                    </div>
                   </div>
+
                   {renderRevenueAreaChart(revenueOverTime)}
+
+                  {/* Legend & Prominent Total Display */}
+                  <div style={{
+                    display: 'flex',
+                    width: '100%',
+                    justify: 'space-between',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    marginTop: '0.85rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid var(--border-color)',
+                    fontSize: '0.82rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
+                      <span>Revenue (₦)</span>
+                    </div>
+                    <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.88rem', textAlign: 'right' }}>
+                      Total this {revenueRange}: <span style={{ color: 'var(--accent)' }}>₦{(rangeTotalRevenue || revenueOverTime.reduce((acc, curr) => acc + curr.amount, 0)).toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Sub-grid: Category Questions Bar + Passcodes Donut */}

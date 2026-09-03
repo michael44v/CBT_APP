@@ -80,13 +80,21 @@ if (!empty($org_name)) {
 }
 
 $generated_passcodes = [];
+$total_final_amount = floatval($details['final_amount'] ?? 0);
+$per_passcode_amount = $quantity > 0 ? ($total_final_amount / $quantity) : $total_final_amount;
 
 for ($i = 0; $i < $quantity; $i++) {
     $passcode = generateUniquePasscode();
     $stmt = $db->prepare("INSERT INTO passcodes (passcode, email, organization_id, exam_category, allowed_subjects, max_devices, duration_days, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')");
     $stmt->bind_param("ssissii", $passcode, $email, $org_id, $exam_category, $allowed_subjects, $max_devices, $duration_days);
     $stmt->execute();
+    $passcode_id = $db->insert_id;
     $generated_passcodes[] = $passcode;
+
+    // Log initial purchase in passcode_upgrades so payment analytics tracks all transactions
+    $log_stmt = $db->prepare("INSERT INTO passcode_upgrades (passcode_id, passcode, email, old_categories, new_categories, old_subjects, new_subjects, added_categories, added_subjects, amount_paid, payment_reference, payment_status, status, admin_notes) VALUES (?, ?, ?, '', ?, '', ?, ?, ?, ?, ?, 'paid', 'completed', 'Initial Passcode Purchase')");
+    $log_stmt->bind_param("issssssds", $passcode_id, $passcode, $email, $exam_category, $allowed_subjects, $exam_category, $allowed_subjects, $per_passcode_amount, $reference);
+    $log_stmt->execute();
 }
 
 if (!empty($details['promo_id'])) {

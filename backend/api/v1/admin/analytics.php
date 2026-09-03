@@ -46,15 +46,32 @@ $suspended_passcodes = $res ? $res->fetch_assoc()['count'] : 0;
 $res = $db->query("SELECT SUM(max_devices * 1200) as rev FROM passcodes");
 $estimated_revenue = $res ? floatval($res->fetch_assoc()['rev'] ?? 0) : 0;
 
-// Monthly Revenue Trend from real payments in passcode_upgrades
-$rev_res = $db->query("SELECT DATE_FORMAT(created_at, '%b %Y') as month, DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE payment_status = 'completed' or status = 'completed' GROUP BY ym ORDER BY ym ASC LIMIT 12");
+// Revenue Trend from real payments in passcode_upgrades supporting range (week/month/year)
+$range = strtolower(trim($_GET['range'] ?? 'month'));
+if (!in_array($range, ['week', 'month', 'year'])) {
+    $range = 'month';
+}
+
 $revenue_over_time = [];
+$range_total_revenue = 0.0;
+
+if ($range === 'week') {
+    $rev_query = "SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) GROUP BY dt ORDER BY dt ASC";
+} elseif ($range === 'month') {
+    $rev_query = "SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY dt ORDER BY dt ASC";
+} else {
+    $rev_query = "SELECT DATE_FORMAT(created_at, '%b %Y') as date_label, DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY ym ORDER BY ym ASC";
+}
+
+$rev_res = $db->query($rev_query);
 if ($rev_res) {
     while ($row = $rev_res->fetch_assoc()) {
+        $amt = floatval($row['total_rev']);
         $revenue_over_time[] = [
-            "label" => $row['month'],
-            "amount" => floatval($row['total_rev'])
+            "label" => $row['date_label'],
+            "amount" => $amt
         ];
+        $range_total_revenue += $amt;
     }
 }
 
@@ -262,6 +279,8 @@ echo json_encode([
     ],
     "results" => $results,
     "revenue_over_time" => $revenue_over_time,
+    "revenue_range" => $range,
+    "range_total_revenue" => $range_total_revenue,
     "news_rail" => $news_rail,
     "performance" => [
         "subject_performance" => $subject_performance,
