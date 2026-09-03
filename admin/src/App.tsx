@@ -118,7 +118,19 @@ export default function App() {
   const [updatesList, setUpdatesList] = useState<any[]>([]);
 
   // Search/Filters
+  const [dashboardSearch, setDashboardSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [passcodeSearch, setPasscodeSearch] = useState('');
+  const [resultSearch, setResultSearch] = useState('');
+  const [uploadLogSearch, setUploadLogSearch] = useState('');
+  const [promoSearch, setPromoSearch] = useState('');
+  const [newsSearch, setNewsSearch] = useState('');
+  const [updateSearch, setUpdateSearch] = useState('');
+  const [expandedEmails, setExpandedEmails] = useState<Record<string, boolean>>({});
+
+  const toggleEmailExpand = (emailKey: string) => {
+    setExpandedEmails(prev => ({ ...prev, [emailKey]: !prev[emailKey] }));
+  };
 
   // Notifications
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -766,6 +778,23 @@ export default function App() {
         {/* DASHBOARD TAB */}
         {activeTab === 'DASHBOARD' && (
           <div>
+            {/* Dashboard Overview Search Filter */}
+            <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <LayoutDashboard size={18} style={{ color: 'var(--accent)' }} /> Quick Overview Search
+                </span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Filter recent submissions or news..."
+                  value={dashboardSearch}
+                  onChange={(e) => setDashboardSearch(e.target.value)}
+                  style={{ width: '280px', padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+
             {/* Conditional Pending Upgrades CTA Card */}
             {stats.pending_upgrades > 0 && (
               <div className="cta-card">
@@ -1034,7 +1063,7 @@ export default function App() {
             {/* Recent Results Row List */}
             <div className="admin-card">
               <div className="card-title">
-                <span>Recent Exam Submissions</span>
+                <span>Recent Exam Submissions {dashboardSearch ? `(Filtered: "${dashboardSearch}")` : ''}</span>
                 <button className="btn btn-secondary" onClick={() => setActiveTab('RESULTS')} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
                   View All <ArrowRight size={14} />
                 </button>
@@ -1042,28 +1071,31 @@ export default function App() {
               {resultsList.length === 0 ? (
                 <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>No recent candidate exam submissions recorded.</div>
               ) : (
-                resultsList.slice(0, 5).map(r => (
-                  <div className="list-item-row" key={r.id}>
-                    <div className="list-item-left">
-                      <div className="avatar-circle">
-                        {(r.candidate_name || 'C').charAt(0).toUpperCase()}
+                resultsList
+                  .filter(r => !dashboardSearch || (r.candidate_name || '').toLowerCase().includes(dashboardSearch.toLowerCase()) || (r.email || '').toLowerCase().includes(dashboardSearch.toLowerCase()) || (r.exam_type || '').toLowerCase().includes(dashboardSearch.toLowerCase()))
+                  .slice(0, 5)
+                  .map(r => (
+                    <div className="list-item-row" key={r.id}>
+                      <div className="list-item-left">
+                        <div className="avatar-circle">
+                          {(r.candidate_name || 'C').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{r.candidate_name || 'Candidate'}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{r.email} • {r.exam_type}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{r.candidate_name || 'Candidate'}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{r.email} • {r.exam_type}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{r.score} / {r.total_questions}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(r.submitted_at).toLocaleDateString()}</div>
+                        </div>
+                        <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
+                          {r.percentage}%
+                        </span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{r.score} / {r.total_questions}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(r.submitted_at).toLocaleDateString()}</div>
-                      </div>
-                      <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
-                        {r.percentage}%
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </div>
@@ -1138,64 +1170,168 @@ export default function App() {
         )}
 
         {/* EXAM RESULTS & ANALYTICS TAB */}
-        {activeTab === 'RESULTS' && (
-          <div className="admin-card">
-            <h2 className="card-title">Candidate Exam Results &amp; Analytics</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Candidate</th>
-                  <th>Email</th>
-                  <th>Exam</th>
-                  <th>Score / Total</th>
-                  <th>Percentage</th>
-                  <th>Submitted At</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resultsList.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No submitted results found.</td></tr>
-                ) : (
-                  resultsList.map(r => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 700 }}>{r.candidate_name || 'Candidate'}</td>
-                      <td>{r.email}</td>
-                      <td><span className="badge badge-info">{r.exam_type}</span></td>
-                      <td><strong>{r.score}</strong> / {r.total_questions}</td>
-                      <td>
-                        <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
-                          {r.percentage}%
-                        </span>
-                      </td>
-                      <td>{new Date(r.submitted_at).toLocaleString()}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px' }}>
-                          <button
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 8px' }}
-                            title="View Exam Answer Details"
-                            onClick={() => setSelectedResultDetails(r)}
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            className="btn btn-danger"
-                            style={{ padding: '4px 8px' }}
-                            title="Delete Exam Submission"
-                            onClick={() => handleDeleteResult(r.id)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+        {activeTab === 'RESULTS' && (() => {
+          // Group exam results by candidate email
+          const groups: Record<string, { email: string; candidate_name: string; attempts: any[]; avg_percentage: number; total_exams: number }> = {};
+          resultsList.forEach(r => {
+            const emailKey = (r.email || 'unknown').toLowerCase();
+            if (!groups[emailKey]) {
+              groups[emailKey] = {
+                email: r.email || 'Unknown Email',
+                candidate_name: r.candidate_name || 'Candidate',
+                attempts: [],
+                avg_percentage: 0,
+                total_exams: 0
+              };
+            }
+            groups[emailKey].attempts.push(r);
+          });
+
+          const groupedList = Object.values(groups).map(g => {
+            const total_exams = g.attempts.length;
+            const avg_percentage = Math.round((g.attempts.reduce((acc, a) => acc + (a.percentage || 0), 0) / (total_exams || 1)) * 10) / 10;
+            return { ...g, total_exams, avg_percentage };
+          }).filter(g =>
+            !resultSearch ||
+            g.email.toLowerCase().includes(resultSearch.toLowerCase()) ||
+            g.candidate_name.toLowerCase().includes(resultSearch.toLowerCase()) ||
+            g.attempts.some(a => (a.exam_type || '').toLowerCase().includes(resultSearch.toLowerCase()))
+          );
+
+          return (
+            <div className="admin-card">
+              <div className="card-title">
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <BarChart3 size={20} /> Candidate Exam Results (Grouped by User Email)
+                </span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search candidates or emails..."
+                  value={resultSearch}
+                  onChange={(e) => setResultSearch(e.target.value)}
+                  style={{ width: '250px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              {groupedList.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                  No candidate examination results match your query.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                  {groupedList.map(group => {
+                    const emailKey = group.email.toLowerCase();
+                    const isExpanded = expandedEmails[emailKey] ?? true;
+
+                    return (
+                      <div
+                        key={emailKey}
+                        style={{
+                          borderRadius: '12px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--primary-light)',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {/* Group Header Row */}
+                        <div
+                          onClick={() => toggleEmailExpand(emailKey)}
+                          style={{
+                            padding: '1rem 1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justify: 'space-between',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            backgroundColor: 'var(--bg-card)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="avatar-circle">
+                              {group.candidate_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>
+                                {group.candidate_name}
+                              </div>
+                              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                {group.email}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span className="badge badge-info" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
+                              {group.total_exams} result{group.total_exams === 1 ? '' : 's'}
+                            </span>
+
+                            <span className={`badge ${group.avg_percentage >= 70 ? 'badge-success' : group.avg_percentage >= 50 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
+                              Avg Score: {group.avg_percentage}%
+                            </span>
+
+                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+
+                        {/* Group Collapsible Content Table */}
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px solid var(--border-color)', padding: '0.5rem 1rem 1rem 1rem' }}>
+                            <table style={{ margin: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th>Exam Type</th>
+                                  <th>Score / Total</th>
+                                  <th>Percentage</th>
+                                  <th>Submitted At</th>
+                                  <th style={{ textAlign: 'center' }}>Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.attempts.map(r => (
+                                  <tr key={r.id}>
+                                    <td><span className="badge badge-info">{r.exam_type}</span></td>
+                                    <td><strong>{r.score}</strong> / {r.total_questions}</td>
+                                    <td>
+                                      <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
+                                        {r.percentage}%
+                                      </span>
+                                    </td>
+                                    <td>{new Date(r.submitted_at).toLocaleString()}</td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                        <button
+                                          className="btn btn-secondary"
+                                          style={{ padding: '4px 8px' }}
+                                          title="View Exam Answer Details"
+                                          onClick={(e) => { e.stopPropagation(); setSelectedResultDetails(r); }}
+                                        >
+                                          <Eye size={14} />
+                                        </button>
+                                        <button
+                                          className="btn btn-danger"
+                                          style={{ padding: '4px 8px' }}
+                                          title="Delete Exam Submission"
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteResult(r.id); }}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* CANDIDATES TAB */}
         {activeTab === 'USERS' && (
@@ -1265,52 +1401,156 @@ export default function App() {
         )}
 
         {/* PASSCODES TAB */}
-        {activeTab === 'PASSCODES' && (
-          <div className="admin-card">
-            <h2 className="card-title">Passcode Licensing</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Passcode</th>
-                  <th>Email</th>
-                  <th>Exam Category</th>
-                  <th>Seats</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {passcodes.map(p => (
-                  <tr key={p.id}>
-                    <td style={{ fontFamily: 'monospace', fontWeight: 800 }}>{p.passcode}</td>
-                    <td>{p.email}</td>
-                    <td><span className="badge badge-info">{p.exam_category}</span></td>
-                    <td>{p.activated_devices} / {p.max_devices}</td>
-                    <td>
-                      <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {p.status === 'active' ? (
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                          title="Revoke / Suspend Passcode"
-                          onClick={() => handleRevokePasscode(p.passcode)}
+        {activeTab === 'PASSCODES' && (() => {
+          // Group passcodes by user email
+          const groups: Record<string, { email: string; items: any[]; active_count: number; total_paid: number }> = {};
+          passcodes.forEach(p => {
+            const emailKey = (p.email || 'unassigned').toLowerCase();
+            if (!groups[emailKey]) {
+              groups[emailKey] = {
+                email: p.email || 'Unassigned',
+                items: [],
+                active_count: 0,
+                total_paid: 0
+              };
+            }
+            groups[emailKey].items.push(p);
+            if (p.status === 'active') groups[emailKey].active_count += 1;
+            groups[emailKey].total_paid += parseFloat(p.amount_paid || 1400);
+          });
+
+          const groupedList = Object.values(groups).filter(g =>
+            !passcodeSearch ||
+            g.email.toLowerCase().includes(passcodeSearch.toLowerCase()) ||
+            g.items.some(p => (p.passcode || '').toLowerCase().includes(passcodeSearch.toLowerCase()) || (p.exam_category || '').toLowerCase().includes(passcodeSearch.toLowerCase()))
+          );
+
+          return (
+            <div className="admin-card">
+              <div className="card-title">
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Key size={20} /> Passcodes &amp; Licensing (Grouped by Candidate Email)
+                </span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search email or passcode..."
+                  value={passcodeSearch}
+                  onChange={(e) => setPasscodeSearch(e.target.value)}
+                  style={{ width: '250px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              {groupedList.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                  No passcodes match your search filter.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                  {groupedList.map(group => {
+                    const emailKey = 'passcode_grp_' + group.email.toLowerCase();
+                    const isExpanded = expandedEmails[emailKey] ?? true;
+
+                    return (
+                      <div
+                        key={emailKey}
+                        style={{
+                          borderRadius: '12px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--primary-light)',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {/* Group Header Row */}
+                        <div
+                          onClick={() => toggleEmailExpand(emailKey)}
+                          style={{
+                            padding: '1rem 1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justify: 'space-between',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            backgroundColor: 'var(--bg-card)'
+                          }}
                         >
-                          <Ban size={14} /> Revoke
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Suspended</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="avatar-circle">
+                              <Key size={18} />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>
+                                {group.email}
+                              </div>
+                              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                {group.items.length} passcode{group.items.length === 1 ? '' : 's'} ({group.active_count} active) • Total Paid: ₦{group.total_paid.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span className="badge badge-info" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
+                              {group.items.length} passcode{group.items.length === 1 ? '' : 's'}
+                            </span>
+
+                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                          </div>
+                        </div>
+
+                        {/* Group Collapsible Content Table */}
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px solid var(--border-color)', padding: '0.5rem 1rem 1rem 1rem' }}>
+                            <table style={{ margin: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th>Passcode</th>
+                                  <th>Exam Category</th>
+                                  <th>Seats / Devices</th>
+                                  <th>Price Paid</th>
+                                  <th>Status</th>
+                                  <th style={{ textAlign: 'center' }}>Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.items.map(p => (
+                                  <tr key={p.id}>
+                                    <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.passcode}</td>
+                                    <td><span className="badge badge-info">{p.exam_category}</span></td>
+                                    <td>{p.activated_devices || 0} / {p.max_devices || 1}</td>
+                                    <td style={{ fontWeight: 700 }}>₦{parseFloat(p.amount_paid || 1400).toLocaleString()}</td>
+                                    <td>
+                                      <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                                        {p.status}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      {p.status === 'active' ? (
+                                        <button
+                                          className="btn btn-danger"
+                                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                          title="Revoke / Suspend Passcode"
+                                          onClick={(e) => { e.stopPropagation(); handleRevokePasscode(p.passcode); }}
+                                        >
+                                          <Ban size={14} /> Revoke
+                                        </button>
+                                      ) : (
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Suspended</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       </main>
 
