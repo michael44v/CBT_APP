@@ -55,6 +55,23 @@ if ($method === 'POST') {
         exit();
     }
 
+    if ($action === 'update_user' || $action === 'edit_user') {
+        $user_id = intval($data['id'] ?? 0);
+        $name = trim($data['name'] ?? '');
+        $phone = trim($data['phone'] ?? '');
+        $school = trim($data['school'] ?? '');
+
+        if ($user_id > 0 && !empty($name)) {
+            $stmt = $db->prepare("UPDATE users SET name = ?, phone = ?, school = ? WHERE id = ?");
+            $stmt->bind_param("sssi", $name, $phone, $school, $user_id);
+            $stmt->execute();
+            echo json_encode(["success" => true, "message" => "Candidate details updated successfully."]);
+            exit();
+        }
+        echo json_encode(["success" => false, "message" => "Invalid parameters for candidate update."]);
+        exit();
+    }
+
     if ($action === 'admin_delete_user') {
         $user_id = intval($data['id'] ?? 0);
 

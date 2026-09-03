@@ -32,7 +32,11 @@ import {
   CheckCircle,
   AlertTriangle,
   TrendingUp,
-  Edit
+  Edit,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Ban
 } from 'lucide-react';
 import fillopIcon from './icon.png';
 import Login from './Login';
@@ -61,6 +65,19 @@ export default function App() {
     'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES'
   >('DASHBOARD');
 
+  // Collapsible Sidebar Category Groups
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    content: true,
+    users: true,
+    reports: true,
+    monetization: true,
+    system: true,
+  });
+
+  const toggleGroup = (groupKey: string) => {
+    setOpenGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+  };
+
   // Stats
   const [stats, setStats] = useState({
     total_users: 0,
@@ -79,6 +96,8 @@ export default function App() {
 
   // Results & Analytics
   const [resultsList, setResultsList] = useState<any[]>([]);
+  const [revenueOverTime, setRevenueOverTime] = useState<{ label: string; amount: number }[]>([]);
+  const [newsRailList, setNewsRailList] = useState<{ id: number; title: string; excerpt: string; published_at: string }[]>([]);
   const [performanceData, setPerformanceData] = useState<any>({
     subject_performance: [],
     topic_analysis: { strong_areas: [], improvement_areas: [], weak_areas: [] },
@@ -101,6 +120,114 @@ export default function App() {
 
   // Notifications
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Result details & editing candidate modals
+  const [selectedResultDetails, setSelectedResultDetails] = useState<any | null>(null);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editUserForm, setEditUserForm] = useState({ name: '', phone: '', school: '' });
+
+  // Action Handlers
+  const handleRevokePasscode = async (passcodeVal: string) => {
+    if (!window.confirm(`Are you sure you want to revoke passcode ${passcodeVal}?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ action: 'revoke', passcode: passcodeVal })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'Passcode revoked successfully.');
+        fetchPasscodes();
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to revoke passcode.', 'error');
+      }
+    } catch (e) {
+      showNotification('Error revoking passcode.', 'error');
+    }
+  };
+
+  const handleDeleteResult = async (resultId: number) => {
+    if (!window.confirm(`Are you sure you want to delete exam submission #${resultId}?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/analytics.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ action: 'delete_result', id: resultId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Exam result submission deleted successfully.');
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to delete exam result.', 'error');
+      }
+    } catch (e) {
+      showNotification('Error deleting result.', 'error');
+    }
+  };
+
+  const handleDeleteUser = async (userId: number, email: string) => {
+    if (!window.confirm(`Are you sure you want to delete candidate ${email}?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/users.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ action: 'admin_delete_user', id: userId, email })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Candidate deleted successfully.');
+        fetchUsers();
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to delete candidate.', 'error');
+      }
+    } catch (e) {
+      showNotification('Error deleting candidate.', 'error');
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/users.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'update_user',
+          id: editingUser.id,
+          name: editUserForm.name,
+          phone: editUserForm.phone,
+          school: editUserForm.school
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Candidate profile updated successfully!');
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        showNotification(data.message || 'Failed to update candidate.', 'error');
+      }
+    } catch (e) {
+      showNotification('Error updating candidate.', 'error');
+    }
+  };
 
   // Pricing settings state
   const [pricingForm, setPricingForm] = useState({
@@ -225,6 +352,8 @@ export default function App() {
       if (data.success) {
         setStats(prev => ({ ...prev, ...data.analytics }));
         if (data.results) setResultsList(data.results);
+        if (data.revenue_over_time) setRevenueOverTime(data.revenue_over_time);
+        if (data.news_rail) setNewsRailList(data.news_rail);
         if (data.performance) setPerformanceData(data.performance);
       }
     } catch (e) {
@@ -316,6 +445,83 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} apiBase={API_BASE} />;
   }
 
+  // Real Smooth Area / Line Chart SVG Helper for Revenue
+  const renderRevenueAreaChart = (data: { label: string; amount: number }[]) => {
+    if (!data || data.length === 0 || data.every(d => d.amount === 0)) {
+      return (
+        <div style={{
+          padding: '2.5rem 1.5rem',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+          backgroundColor: 'var(--primary-light)',
+          borderRadius: '12px',
+          fontSize: '0.88rem',
+          fontWeight: 600
+        }}>
+          No real revenue transaction data recorded yet in payment logs.
+        </div>
+      );
+    }
+
+    const width = 500;
+    const height = 180;
+    const padding = 30;
+    const maxVal = Math.max(...data.map(d => d.amount), 100);
+
+    const points = data.map((d, i) => {
+      const x = padding + (i / (data.length - 1 || 1)) * (width - padding * 2);
+      const y = height - padding - (d.amount / maxVal) * (height - padding * 2);
+      return { x, y, amount: d.amount, label: d.label };
+    });
+
+    let pathD = `M ${points[0].x},${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      const cpX = (curr.x + next.x) / 2;
+      pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+    }
+
+    const areaD = `${pathD} L ${points[points.length - 1].x},${height - padding} L ${points[0].x},${height - padding} Z`;
+    const peakPoint = [...points].sort((a, b) => b.amount - a.amount)[0];
+
+    return (
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+
+        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="var(--border-color)" strokeDasharray="3 3" />
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="var(--border-color)" strokeDasharray="3 3" />
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="var(--border-color)" />
+
+        <path d={areaD} fill="url(#revenueGradient)" />
+        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+
+        {points.map((pt, i) => (
+          <g key={i}>
+            <circle cx={pt.x} cy={pt.y} r="4" fill="var(--bg-card)" stroke="var(--accent)" strokeWidth="2" />
+            <text x={pt.x} y={height - 10} fontSize="10" textAnchor="middle" fill="var(--text-muted)" fontWeight="600">
+              {pt.label}
+            </text>
+          </g>
+        ))}
+
+        {peakPoint && (
+          <g transform={`translate(${peakPoint.x},${peakPoint.y - 32})`}>
+            <rect x="-42" y="0" width="84" height="22" rx="6" fill="var(--primary)" />
+            <text x="0" y="14" fontSize="10" fill="#ffffff" textAnchor="middle" fontWeight="800">
+              ₦{peakPoint.amount.toLocaleString()}
+            </text>
+          </g>
+        )}
+      </svg>
+    );
+  };
+
   // Real Question Count per Exam Category Bar Chart SVG Helper
   const renderQuestionDistributionChart = (questionsList: Question[], color: string) => {
     const counts: Record<string, number> = {};
@@ -344,8 +550,7 @@ export default function App() {
           const x = gap + i * (barWidth + gap);
           const barHeight = Math.max((d.count / maxCount) * 100, 6);
           const y = 130 - barHeight;
-          const r = 8; // Top border radius
-          // Path for bar with rounded top corners and flat bottom corners
+          const r = 8;
           const pathD = `
             M ${x},${y + r}
             A ${r},${r} 0 0,1 ${x + r},${y}
@@ -384,42 +589,103 @@ export default function App() {
           <span>Fillop Admin</span>
         </div>
         <nav className="sidebar-menu">
+          {/* Top Level Item */}
           <button className={`menu-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>
             <LayoutDashboard size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Dashboard
           </button>
-          <button className={`menu-btn ${activeTab === 'UPLOAD_WIZARD' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_WIZARD')}>
-            <Upload size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Upload Questions
-          </button>
-          <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>
-            <BookOpen size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Question Bank Browser
-          </button>
-          <button className={`menu-btn ${activeTab === 'TOPICS' ? 'active' : ''}`} onClick={() => setActiveTab('TOPICS')}>
-            <Layers size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Subjects &amp; Topics
-          </button>
-          <button className={`menu-btn ${activeTab === 'UPLOAD_LOGS' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_LOGS')}>
-            <History size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Upload History Log
-          </button>
-          <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
-            <BarChart3 size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Exam Results &amp; Analytics
-          </button>
-          <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>
-            <Users size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Candidates
-          </button>
-          <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
-            <Key size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Passcodes &amp; Licensing
-          </button>
-          <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>
-            <DollarSign size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Pricing Settings
-          </button>
-          <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>
-            <Tag size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Promo Codes
-          </button>
-          <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>
-            <Newspaper size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Admin News
-          </button>
-          <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>
-            <Settings size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Software Release
-          </button>
+
+          {/* Group 1: Content */}
+          <div className="sidebar-group">
+            <div className="sidebar-group-header" onClick={() => toggleGroup('content')}>
+              <span>Content</span>
+              {openGroups.content ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+            {openGroups.content && (
+              <div className="sidebar-group-items">
+                <button className={`menu-btn ${activeTab === 'UPLOAD_WIZARD' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_WIZARD')}>
+                  <Upload size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Upload Questions
+                </button>
+                <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>
+                  <BookOpen size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Question Bank Browser
+                </button>
+                <button className={`menu-btn ${activeTab === 'TOPICS' ? 'active' : ''}`} onClick={() => setActiveTab('TOPICS')}>
+                  <Layers size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Subjects &amp; Topics
+                </button>
+                <button className={`menu-btn ${activeTab === 'UPLOAD_LOGS' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_LOGS')}>
+                  <History size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Upload History Log
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Group 2: Users & Access */}
+          <div className="sidebar-group">
+            <div className="sidebar-group-header" onClick={() => toggleGroup('users')}>
+              <span>Users &amp; Access</span>
+              {openGroups.users ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+            {openGroups.users && (
+              <div className="sidebar-group-items">
+                <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>
+                  <Users size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Candidates
+                </button>
+                <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
+                  <Key size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Passcodes &amp; Licensing
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Group 3: Reports */}
+          <div className="sidebar-group">
+            <div className="sidebar-group-header" onClick={() => toggleGroup('reports')}>
+              <span>Reports</span>
+              {openGroups.reports ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+            {openGroups.reports && (
+              <div className="sidebar-group-items">
+                <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
+                  <BarChart3 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Exam Results &amp; Analytics
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Group 4: Monetization */}
+          <div className="sidebar-group">
+            <div className="sidebar-group-header" onClick={() => toggleGroup('monetization')}>
+              <span>Monetization</span>
+              {openGroups.monetization ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+            {openGroups.monetization && (
+              <div className="sidebar-group-items">
+                <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>
+                  <DollarSign size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Pricing Settings
+                </button>
+                <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>
+                  <Tag size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Promo Codes
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Group 5: System */}
+          <div className="sidebar-group">
+            <div className="sidebar-group-header" onClick={() => toggleGroup('system')}>
+              <span>System</span>
+              {openGroups.system ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+            {openGroups.system && (
+              <div className="sidebar-group-items">
+                <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>
+                  <Newspaper size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Admin News
+                </button>
+                <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>
+                  <Settings size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Software Release
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
       </aside>
 
@@ -553,110 +819,160 @@ export default function App() {
               </div>
             </div>
 
-            {/* Charts & At-A-Glance System Summary Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-              {/* Real Question Distribution per Category Bar Chart */}
-              <div className="admin-card">
-                <div className="card-title">
-                  <span>Questions per Exam Category</span>
-                  <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
+            {/* Main Overview Grid: Left Analytics + Right Admin News Rail */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '1.25rem', marginBottom: '2rem' }}>
+              {/* Left Column: Revenue Trend + Questions Bar + Donut Chart */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Revenue Trend Smooth Area/Line Chart */}
+                <div className="admin-card" style={{ marginBottom: 0 }}>
+                  <div className="card-title">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <TrendingUp size={18} style={{ color: 'var(--accent)' }} /> Revenue Trend (Completed Payments)
+                    </span>
+                    <span className="badge badge-info">Real Payment Data</span>
+                  </div>
+                  {renderRevenueAreaChart(revenueOverTime)}
                 </div>
-                {renderQuestionDistributionChart(questions, 'var(--primary)')}
+
+                {/* Sub-grid: Category Questions Bar + Passcodes Donut */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
+                  {/* Real Question Distribution per Category Bar Chart */}
+                  <div className="admin-card" style={{ marginBottom: 0 }}>
+                    <div className="card-title">
+                      <span>Questions per Category</span>
+                      <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
+                    </div>
+                    {renderQuestionDistributionChart(questions, 'var(--primary)')}
+                  </div>
+
+                  {/* Passcodes Activation Donut Ring Chart */}
+                  <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: 0 }}>
+                    <div className="card-title" style={{ width: '100%', marginBottom: '0.8rem' }}>
+                      <span>Passcode Activation Rate</span>
+                      <PieChart size={18} style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <div style={{ position: 'relative', width: '140px', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="140" height="140" viewBox="0 0 100 100">
+                        {/* Background Track Circle */}
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--primary-light)" strokeWidth="12" />
+                        {/* Active Arc Circle */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          fill="none"
+                          stroke="var(--accent)"
+                          strokeWidth="12"
+                          strokeDasharray={strokeDasharray}
+                          strokeLinecap="round"
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <div style={{ position: 'absolute', textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)' }}>{activePct}%</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>ACTIVATED</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.8rem' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 600 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'inline-block' }} /> Active ({stats.active_passcodes})
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 600 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--border-color)', display: 'inline-block' }} /> Inactive ({stats.suspended_passcodes})
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Passcodes Activation Donut Ring Chart */}
-              <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="card-title" style={{ width: '100%', marginBottom: '1rem' }}>
-                  <span>Passcode Activation Rate</span>
-                  <PieChart size={18} style={{ color: 'var(--accent)' }} />
-                </div>
-                <div style={{ position: 'relative', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="160" height="160" viewBox="0 0 100 100">
-                    {/* Background Track Circle */}
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--primary-light)" strokeWidth="12" />
-                    {/* Active Arc Circle */}
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="42"
-                      fill="none"
-                      stroke="var(--accent)"
-                      strokeWidth="12"
-                      strokeDasharray={strokeDasharray}
-                      strokeLinecap="round"
-                      transform="rotate(-90 50 50)"
-                    />
-                  </svg>
-                  <div style={{ position: 'absolute', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{activePct}%</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>ACTIVATED</div>
+              {/* Right Column: Admin News Rail + System At A Glance */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Admin News Rail Card */}
+                <div className="admin-card" style={{ marginBottom: 0 }}>
+                  <div className="card-title">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Newspaper size={18} style={{ color: 'var(--primary)' }} /> Admin News
+                    </span>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setActiveTab('NEWS')}
+                      style={{ padding: '0.25rem 0.6rem', fontSize: '0.78rem' }}
+                    >
+                      View All <ArrowRight size={12} />
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    {newsRailList.length === 0 ? (
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+                        No published news posts found.
+                      </div>
+                    ) : (
+                      newsRailList.map(item => (
+                        <div
+                          key={item.id}
+                          onClick={() => setActiveTab('NEWS')}
+                          style={{
+                            padding: '0.75rem',
+                            borderRadius: '10px',
+                            backgroundColor: 'var(--primary-light)',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.15s ease'
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
+                            {item.title}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.35', marginBottom: '0.4rem' }}>
+                            {item.excerpt}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {new Date(item.published_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '1.2rem', marginTop: '1.2rem', fontSize: '0.85rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 600 }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'inline-block' }} /> Active ({stats.active_passcodes})
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 600 }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--border-color)', display: 'inline-block' }} /> Inactive ({stats.suspended_passcodes})
-                  </span>
-                </div>
-              </div>
 
-              {/* At A Glance - All Sidebar Summary Card */}
-              <div className="admin-card">
-                <div className="card-title">
-                  <span>System At A Glance</span>
-                  <Zap size={18} style={{ color: 'var(--warning)' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPLOAD_LOGS')}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <History size={16} style={{ color: 'var(--text-secondary)' }} /> Latest Upload
-                    </span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                      {uploadLogs.length > 0 ? uploadLogs[0].filename : 'None'}
-                    </span>
+                {/* At A Glance - All Sidebar Summary Card */}
+                <div className="admin-card" style={{ marginBottom: 0 }}>
+                  <div className="card-title">
+                    <span>System At A Glance</span>
+                    <Zap size={18} style={{ color: 'var(--warning)' }} />
                   </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    <div className="list-item-row" style={{ padding: '0.35rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPLOAD_LOGS')}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                        <History size={15} style={{ color: 'var(--text-secondary)' }} /> Latest Upload
+                      </span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        {uploadLogs.length > 0 ? uploadLogs[0].filename : 'None'}
+                      </span>
+                    </div>
 
-                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('RESULTS')}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <BarChart3 size={16} style={{ color: 'var(--text-secondary)' }} /> Total Exam Submissions
-                    </span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                      {resultsList.length} exams
-                    </span>
-                  </div>
+                    <div className="list-item-row" style={{ padding: '0.35rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('RESULTS')}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                        <BarChart3 size={15} style={{ color: 'var(--text-secondary)' }} /> Exam Submissions
+                      </span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        {resultsList.length} exams
+                      </span>
+                    </div>
 
-                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('PROMOS')}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <Tag size={16} style={{ color: 'var(--text-secondary)' }} /> Active Promo Codes
-                    </span>
-                    <span className="badge badge-info">{stats.active_promos} active</span>
-                  </div>
+                    <div className="list-item-row" style={{ padding: '0.35rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('PROMOS')}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                        <Tag size={15} style={{ color: 'var(--text-secondary)' }} /> Active Promos
+                      </span>
+                      <span className="badge badge-info">{stats.active_promos} active</span>
+                    </div>
 
-                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('NEWS')}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <Newspaper size={16} style={{ color: 'var(--text-secondary)' }} /> Published News
-                    </span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                      {stats.news_count || news.length} articles
-                    </span>
-                  </div>
-
-                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPDATES')}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <Settings size={16} style={{ color: 'var(--text-secondary)' }} /> Software Release
-                    </span>
-                    <span className="badge badge-success">{stats.latest_update_version}</span>
-                  </div>
-
-                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('PRICING')}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <DollarSign size={16} style={{ color: 'var(--text-secondary)' }} /> Base Pricing Tier
-                    </span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                      ₦{pricingForm.single_passcode_price_6m.toLocaleString()} / 6m
-                    </span>
+                    <div className="list-item-row" style={{ padding: '0.35rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPDATES')}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                        <Settings size={15} style={{ color: 'var(--text-secondary)' }} /> Software Release
+                      </span>
+                      <span className="badge badge-success">{stats.latest_update_version}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -781,11 +1097,12 @@ export default function App() {
                   <th>Score / Total</th>
                   <th>Percentage</th>
                   <th>Submitted At</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {resultsList.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No submitted results found.</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No submitted results found.</td></tr>
                 ) : (
                   resultsList.map(r => (
                     <tr key={r.id}>
@@ -799,6 +1116,26 @@ export default function App() {
                         </span>
                       </td>
                       <td>{new Date(r.submitted_at).toLocaleString()}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 8px' }}
+                            title="View Exam Answer Details"
+                            onClick={() => setSelectedResultDetails(r)}
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '4px 8px' }}
+                            title="Delete Exam Submission"
+                            onClick={() => handleDeleteResult(r.id)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -810,26 +1147,62 @@ export default function App() {
         {/* CANDIDATES TAB */}
         {activeTab === 'USERS' && (
           <div className="admin-card">
-            <h2 className="card-title">Candidates Management</h2>
+            <div className="card-title">
+              <span>Candidates Management</span>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search candidates by name/email..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                style={{ width: '240px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+              />
+            </div>
             <table>
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
+                  <th>Institution / School</th>
                   <th>Joined Date</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No candidates registered.</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No candidates registered.</td></tr>
                 ) : (
                   users.map(u => (
                     <tr key={u.id}>
                       <td style={{ fontWeight: 700 }}>{u.name}</td>
                       <td>{u.email}</td>
                       <td>{u.phone || 'N/A'}</td>
+                      <td>{u.school || 'N/A'}</td>
                       <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 8px' }}
+                            title="Edit Candidate Profile"
+                            onClick={() => {
+                              setEditingUser(u);
+                              setEditUserForm({ name: u.name || '', phone: u.phone || '', school: u.school || '' });
+                            }}
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '4px 8px' }}
+                            title="Delete Candidate Account"
+                            onClick={() => handleDeleteUser(u.id, u.email)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -850,6 +1223,7 @@ export default function App() {
                   <th>Exam Category</th>
                   <th>Seats</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -859,7 +1233,25 @@ export default function App() {
                     <td>{p.email}</td>
                     <td><span className="badge badge-info">{p.exam_category}</span></td>
                     <td>{p.activated_devices} / {p.max_devices}</td>
-                    <td><span className="badge badge-success">{p.status}</span></td>
+                    <td>
+                      <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {p.status === 'active' ? (
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          title="Revoke / Suspend Passcode"
+                          onClick={() => handleRevokePasscode(p.passcode)}
+                        >
+                          <Ban size={14} /> Revoke
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Suspended</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -868,6 +1260,88 @@ export default function App() {
         )}
 
       </main>
+
+      {/* EXAM RESULT DETAILS MODAL */}
+      {selectedResultDetails && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem' }}>
+            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>
+              Submission Details — {selectedResultDetails.candidate_name || 'Candidate'}
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.85rem', marginBottom: '1rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '10px' }}>
+              <div><strong>Email:</strong> {selectedResultDetails.email}</div>
+              <div><strong>Exam Type:</strong> {selectedResultDetails.exam_type}</div>
+              <div><strong>Score:</strong> {selectedResultDetails.score} / {selectedResultDetails.total_questions} ({selectedResultDetails.percentage}%)</div>
+              <div><strong>Date:</strong> {new Date(selectedResultDetails.submitted_at).toLocaleString()}</div>
+            </div>
+
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem' }}>Full Response Data (JSON)</h4>
+            <pre style={{ background: '#09081e', color: '#38bdf8', padding: '1rem', borderRadius: '10px', fontSize: '0.78rem', overflowX: 'auto', maxHeight: '250px' }}>
+              {selectedResultDetails.details ? JSON.stringify(JSON.parse(selectedResultDetails.details || '{}'), null, 2) : 'No raw details logged.'}
+            </pre>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.2rem' }}>
+              <button className="btn btn-secondary" onClick={() => setSelectedResultDetails(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CANDIDATE MODAL */}
+      {editingUser && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="admin-card" style={{ maxWidth: '440px', width: '90%', padding: '1.5rem' }}>
+            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>
+              Edit Candidate Details
+            </h3>
+            <form onSubmit={handleUpdateUser}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Full Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editUserForm.name}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Phone Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editUserForm.phone}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.2rem' }}>
+                <label className="form-label">School / Institution</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editUserForm.school}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, school: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,12 +32,22 @@ export default function SubjectTopicManager({
   const [reassignTopicId, setReassignTopicId] = useState<number | ''>('');
   const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
 
-  // Exam Type Filter
+  // Exam Type Filter & Master-Detail Selection
   const [subjectFilterExam, setSubjectFilterExam] = useState<string>('ALL');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
 
   const filteredSubjects = subjectFilterExam === 'ALL'
     ? dbSubjects
     : dbSubjects.filter(s => s.exam_type === subjectFilterExam);
+
+  // Auto-select first subject if none selected
+  const activeSubject = dbSubjects.find(s => s.id === selectedSubjectId) || filteredSubjects[0] || null;
+  const currentSubjectId = activeSubject ? activeSubject.id : null;
+
+  // Topics scoped to currently selected subject
+  const scopedTopics = currentSubjectId
+    ? dbTopics.filter(t => t.subject_id === currentSubjectId)
+    : [];
 
   // Handle Add Subject (Immutable name rule enforced)
   const handleCreateSubject = async (e: React.FormEvent) => {
@@ -141,49 +151,49 @@ export default function SubjectTopicManager({
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-      {/* Subject Management Section */}
+      {/* Left Column: Subjects (Master) */}
       <div className="admin-card">
         <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BookOpen size={20} /> Subjects (Read-Only Names)
+          <BookOpen size={20} /> Subjects (Select to view topics)
         </h2>
 
         {/* Create Subject Form */}
-        <form onSubmit={handleCreateSubject} style={{ background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
-          <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 800 }}>Add New Subject</h4>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <form onSubmit={handleCreateSubject} style={{ background: 'var(--primary-light)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1.25rem' }}>
+          <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '0.85rem', fontWeight: 800 }}>Add New Subject</h4>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <input
               type="text"
               className="form-input"
               placeholder="e.g. Further Mathematics"
               value={newSubName}
               onChange={(e) => setNewSubName(e.target.value)}
-              style={{ flex: 1, minWidth: '150px' }}
+              style={{ flex: 1, minWidth: '130px', padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
               required
             />
             <select
               className="form-input"
               value={newSubExamType}
               onChange={(e) => setNewSubExamType(e.target.value)}
-              style={{ width: '110px' }}
+              style={{ width: '95px', padding: '0.5rem 0.6rem', fontSize: '0.85rem' }}
             >
               <option value="JAMB">JAMB</option>
               <option value="WAEC">WAEC</option>
               <option value="NECO">NECO</option>
             </select>
-            <button type="submit" className="btn btn-primary" disabled={creatingSub} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Plus size={16} /> {creatingSub ? 'Saving...' : 'Add'}
+            <button type="submit" className="btn btn-primary" disabled={creatingSub} style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <Plus size={15} /> {creatingSub ? 'Saving...' : 'Add'}
             </button>
           </div>
         </form>
 
         {/* Filter Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Filter Category:</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Filter Category:</span>
           <select
             className="form-input"
             value={subjectFilterExam}
             onChange={(e) => setSubjectFilterExam(e.target.value)}
-            style={{ width: '130px', padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+            style={{ width: '130px', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
           >
             <option value="ALL">All Categories</option>
             <option value="JAMB">JAMB</option>
@@ -193,7 +203,7 @@ export default function SubjectTopicManager({
         </div>
 
         {/* Subject Table */}
-        <div style={{ maxHeight: '450px', overflowY: 'auto' }}>
+        <div style={{ maxHeight: '480px', overflowY: 'auto' }}>
           <table style={{ fontSize: '0.85rem', width: '100%' }}>
             <thead>
               <tr>
@@ -204,80 +214,101 @@ export default function SubjectTopicManager({
               </tr>
             </thead>
             <tbody>
-              {filteredSubjects.map(sub => (
-                <tr key={sub.id}>
-                  <td><span className="badge badge-info">{sub.exam_type}</span></td>
-                  <td style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {sub.name} <Lock size={12} title="Subject names are immutable" style={{ color: 'var(--text-muted)' }} />
-                  </td>
-                  <td>{sub.topic_count ?? 0}</td>
-                  <td>{sub.question_count ?? 0}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Topic Management Section */}
-      <div className="admin-card">
-        <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Layers size={20} /> Topic Browser &amp; Management
-        </h2>
-
-        <div style={{ maxHeight: '550px', overflowY: 'auto' }}>
-          <table style={{ fontSize: '0.85rem', width: '100%' }}>
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Topic Name</th>
-                <th>Questions</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dbTopics.map(top => {
-                const parentSub = dbSubjects.find(s => s.id === top.subject_id);
+              {filteredSubjects.map(sub => {
+                const isSelected = activeSubject && activeSubject.id === sub.id;
                 return (
-                  <tr key={top.id}>
-                    <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      [{parentSub?.exam_type || 'CBT'}] {parentSub?.name || `Sub #${top.subject_id}`}
+                  <tr
+                    key={sub.id}
+                    onClick={() => setSelectedSubjectId(sub.id)}
+                    style={{
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? 'var(--accent-light)' : undefined,
+                      borderLeft: isSelected ? '4px solid var(--accent)' : '4px solid transparent'
+                    }}
+                  >
+                    <td><span className="badge badge-info">{sub.exam_type}</span></td>
+                    <td style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? 'var(--accent)' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {sub.name} <Lock size={12} title="Subject names are immutable" style={{ color: 'var(--text-muted)' }} />
                     </td>
-                    <td style={{ fontWeight: 700 }}>{top.name}</td>
-                    <td>{top.question_count ?? 0}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => {
-                            setEditingTopic(top);
-                            setEditTopicName(top.name);
-                          }}
-                          style={{ padding: '4px 8px' }}
-                          title="Edit Topic Name"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          onClick={() => {
-                            setDeletingTopic(top);
-                            setReassignTopicId('');
-                            setDeleteErrorMsg(null);
-                          }}
-                          style={{ padding: '4px 8px' }}
-                          title="Delete Topic"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    <td>{sub.topic_count ?? dbTopics.filter(t => t.subject_id === sub.id).length}</td>
+                    <td>{sub.question_count ?? 0}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Right Column: Topics scoped to selected subject (Detail) */}
+      <div className="admin-card">
+        <div className="card-title">
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Layers size={20} /> Topics for {activeSubject ? `"${activeSubject.name}" (${activeSubject.exam_type})` : 'Selected Subject'}
+          </span>
+          <span className="badge badge-info">{scopedTopics.length} Topics</span>
+        </div>
+
+        {!activeSubject ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Select a subject on the left to view and manage its topics.
+          </div>
+        ) : (
+          <div style={{ maxHeight: '550px', overflowY: 'auto' }}>
+            <table style={{ fontSize: '0.85rem', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Topic Name</th>
+                  <th>Questions</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scopedTopics.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                      No topics found for {activeSubject.name}. Upload questions to auto-create topics or add a topic.
+                    </td>
+                  </tr>
+                ) : (
+                  scopedTopics.map(top => (
+                    <tr key={top.id}>
+                      <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>{top.name}</td>
+                      <td>{top.question_count ?? 0}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => {
+                              setEditingTopic(top);
+                              setEditTopicName(top.name);
+                            }}
+                            style={{ padding: '4px 8px' }}
+                            title="Edit Topic Name"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => {
+                              setDeletingTopic(top);
+                              setReassignTopicId('');
+                              setDeleteErrorMsg(null);
+                            }}
+                            style={{ padding: '4px 8px' }}
+                            title="Delete Topic"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* EDIT TOPIC MODAL */}
