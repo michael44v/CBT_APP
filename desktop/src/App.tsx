@@ -24,6 +24,7 @@ export default function App() {
   // Upgrade / Buy Passcode Modal
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [upgradeModalMessage, setUpgradeModalMessage] = useState<string>('');
+  const [showExamTrickModal, setShowExamTrickModal] = useState<boolean>(false);
 
   // First Activation Welcome Modal
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
@@ -1191,6 +1192,7 @@ export default function App() {
     { id: 'DASHBOARD', label: 'Dashboard', icon: 'D' },
     { id: 'PROFILE', label: 'Profile', icon: 'P' },
     { id: 'ANALYTICS', label: 'Analytics', icon: 'A' },
+    { id: 'EXAM_TRICK', label: 'Exam Tricks', icon: '💡' },
   ];
 
   const isSidebarActive = (id: string) => {
@@ -1216,6 +1218,9 @@ export default function App() {
       }
       setDashboardMode('ANALYTICS');
       setScreen('DASHBOARD');
+    }
+    if (id === 'EXAM_TRICK') {
+      setShowExamTrickModal(true);
     }
   };
 
@@ -3373,6 +3378,49 @@ export default function App() {
       )}
 
       {/* ================= UPGRADE / SUBSCRIBE MODAL ================= */}
+      {/* Exam Trick Modal */}
+      {showExamTrickModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '32px',
+            textAlign: 'center',
+            border: `1px solid ${colors.border}`
+          }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: colors.primaryLight, color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', fontSize: '28px', fontWeight: 800 }}>
+              💡
+            </div>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
+              Exam Tricks & Strategies
+            </h2>
+            <p style={{ fontSize: '15px', color: colors.textSecondary, lineHeight: '1.6', marginBottom: '24px', fontWeight: 500 }}>
+              This feature isn't yet available for your plan.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                style={{ ...styles.btn, ...styles.btnSecondary, minWidth: '120px' }}
+                onClick={() => setShowExamTrickModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showUpgradeModal && (
         <div style={{
           position: 'fixed',
