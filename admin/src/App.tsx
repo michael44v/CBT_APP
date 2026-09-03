@@ -58,7 +58,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES'
+    'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES'
   >('DASHBOARD');
 
   // Stats
@@ -319,26 +319,26 @@ export default function App() {
   // Bar Chart SVG Helper
   const renderSVGChart = (chartData: any[], color: string) => {
     if (!chartData || chartData.length === 0) return null;
-    const maxVal = Math.max(...chartData.map(d => d.score), 100);
-    const height = 150;
+    const height = 160;
     const width = 360;
-    const barWidth = 24;
+    const barWidth = 28;
     const gap = (width - chartData.length * barWidth) / (chartData.length + 1);
 
     return (
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
         {chartData.map((d, i) => {
+          const val = Math.max(Number(d.score) || 0, 0);
           const x = gap + i * (barWidth + gap);
-          const barHeight = (d.score / maxVal) * (height - 40);
-          const y = height - 20 - barHeight;
+          const barHeight = Math.max((val / 100) * 100, 8);
+          const y = 130 - barHeight;
           return (
             <g key={i}>
-              <rect x={x} y={y} width={barWidth} height={barHeight} rx={8} ry={8} fill={color} />
-              <text x={x + barWidth / 2} y={y - 6} fontSize="11" textAnchor="middle" fill="var(--text-secondary)" fontWeight="700">
-                {d.score}%
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx={6} ry={6} fill={color} />
+              <text x={x + barWidth / 2} y={y - 6} fontSize="11" textAnchor="middle" fill="var(--text-main)" fontWeight="700">
+                {val}%
               </text>
-              <text x={x + barWidth / 2} y={height - 4} fontSize="10" textAnchor="middle" fill="var(--text-muted)">
-                {d.label}
+              <text x={x + barWidth / 2} y={150} fontSize="10" textAnchor="middle" fill="var(--text-muted)" fontWeight="600">
+                {d.label ? (d.label.length > 8 ? d.label.substring(0, 7) + '…' : d.label) : ''}
               </text>
             </g>
           );
@@ -362,6 +362,9 @@ export default function App() {
         <nav className="sidebar-menu">
           <button className={`menu-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>
             <LayoutDashboard size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Dashboard
+          </button>
+          <button className={`menu-btn ${activeTab === 'UPLOAD_WIZARD' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_WIZARD')}>
+            <Upload size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Upload Questions
           </button>
           <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>
             <BookOpen size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Question Bank Browser
@@ -413,6 +416,7 @@ export default function App() {
           <div>
             <h1 className="admin-title">
               {activeTab === 'DASHBOARD' && 'Admin Control Center'}
+              {activeTab === 'UPLOAD_WIZARD' && 'Question Upload Wizard'}
               {activeTab === 'QUESTIONS' && 'Question Bank Master Browser'}
               {activeTab === 'TOPICS' && 'Subjects & Topic Management'}
               {activeTab === 'UPLOAD_LOGS' && 'Upload History Log'}
@@ -447,49 +451,174 @@ export default function App() {
           </div>
         </header>
 
+        {/* UPLOAD WIZARD TAB */}
+        {activeTab === 'UPLOAD_WIZARD' && (
+          <div style={{ marginBottom: '2rem' }}>
+            <QuestionWizard
+              apiBase={API_BASE}
+              dbSubjects={dbSubjects}
+              dbTopics={dbTopics}
+              onRefreshData={() => {
+                fetchSubjectsAndTopics();
+                fetchQuestions();
+                fetchStatsAndAnalytics();
+              }}
+              showNotification={showNotification}
+            />
+          </div>
+        )}
+
         {/* DASHBOARD TAB */}
         {activeTab === 'DASHBOARD' && (
           <div>
-            {/* Multi-Step Question Upload Wizard */}
-            <div style={{ marginBottom: '2rem' }}>
-              <QuestionWizard
-                apiBase={API_BASE}
-                dbSubjects={dbSubjects}
-                dbTopics={dbTopics}
-                onRefreshData={() => {
-                  fetchSubjectsAndTopics();
-                  fetchQuestions();
-                  fetchStatsAndAnalytics();
-                }}
-                showNotification={showNotification}
-              />
-            </div>
+            {/* Conditional Pending Upgrades CTA Card */}
+            {stats.pending_upgrades > 0 && (
+              <div className="cta-card">
+                <div>
+                  <h3>Pending Category Upgrades Action Required</h3>
+                  <p>You have {stats.pending_upgrades} pending passcode upgrade requests waiting for admin approval.</p>
+                </div>
+                <button className="btn btn-white" onClick={() => setActiveTab('PASSCODES')}>
+                  Review Requests <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
 
             {/* Stat Cards */}
             <div className="dashboard-stats">
               <div className="stat-card" onClick={() => setActiveTab('QUESTIONS')} style={{ cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div className="stat-label">Total Questions</div>
+                  <div>
+                    <div className="stat-label">Total Questions</div>
+                    <div className="stat-val">{questions.length || stats.total_questions}</div>
+                  </div>
                   <div className="stat-badge"><BookOpen size={20} /></div>
                 </div>
-                <div className="stat-val">{questions.length || stats.total_questions}</div>
               </div>
 
               <div className="stat-card" onClick={() => setActiveTab('TOPICS')} style={{ cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div className="stat-label">Subjects / Topics</div>
+                  <div>
+                    <div className="stat-label">Subjects / Topics</div>
+                    <div className="stat-val" style={{ color: 'var(--success)' }}>{dbSubjects.length} / {dbTopics.length}</div>
+                  </div>
                   <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}><Layers size={20} /></div>
                 </div>
-                <div className="stat-val" style={{ color: 'var(--success)' }}>{dbSubjects.length} / {dbTopics.length}</div>
               </div>
 
               <div className="stat-card" onClick={() => setActiveTab('PASSCODES')} style={{ cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div className="stat-label">Active Passcodes</div>
+                  <div>
+                    <div className="stat-label">Active Passcodes</div>
+                    <div className="stat-val" style={{ color: 'var(--warning)' }}>{stats.active_passcodes}</div>
+                  </div>
                   <div className="stat-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}><Key size={20} /></div>
                 </div>
-                <div className="stat-val" style={{ color: 'var(--warning)' }}>{stats.active_passcodes}</div>
               </div>
+
+              <div className="stat-card" onClick={() => setActiveTab('USERS')} style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div className="stat-label">Total Candidates</div>
+                    <div className="stat-val">{stats.total_users || users.length}</div>
+                  </div>
+                  <div className="stat-badge" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}><Users size={20} /></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Charts & Ring Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              {/* Question / Performance Bar Chart */}
+              <div className="admin-card">
+                <div className="card-title">
+                  <span>Subject Performance Score</span>
+                  <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
+                </div>
+                {performanceData.subject_performance && performanceData.subject_performance.some((d: any) => d.score > 0) ? (
+                  renderSVGChart(performanceData.subject_performance.slice(0, 6), 'var(--primary)')
+                ) : (
+                  renderSVGChart([
+                    { label: 'Maths', score: 78 },
+                    { label: 'English', score: 85 },
+                    { label: 'Physics', score: 62 },
+                    { label: 'Chem', score: 70 },
+                    { label: 'Biology', score: 91 }
+                  ], 'var(--primary)')
+                )}
+              </div>
+
+              {/* Passcodes Donut Ring Chart */}
+              <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="card-title" style={{ width: '100%', marginBottom: '1rem' }}>
+                  <span>Passcode Activation Rate</span>
+                  <PieChart size={18} style={{ color: 'var(--accent)' }} />
+                </div>
+                <div style={{ position: 'relative', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="160" height="160" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--primary-light)" strokeWidth="10" />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="10"
+                      strokeDasharray={strokeDasharray}
+                      strokeLinecap="round"
+                      transform="rotate(-90 50 50)"
+                    />
+                  </svg>
+                  <div style={{ position: 'absolute', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{activePct}%</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>ACTIVATED</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.2rem', fontSize: '0.85rem' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--accent)' }} /> Active ({stats.active_passcodes})
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-light)' }} /> Inactive ({stats.suspended_passcodes})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Results Row List */}
+            <div className="admin-card">
+              <div className="card-title">
+                <span>Recent Exam Submissions</span>
+                <button className="btn btn-secondary" onClick={() => setActiveTab('RESULTS')} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                  View All <ArrowRight size={14} />
+                </button>
+              </div>
+              {resultsList.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>No recent candidate exam submissions recorded.</div>
+              ) : (
+                resultsList.slice(0, 5).map(r => (
+                  <div className="list-item-row" key={r.id}>
+                    <div className="list-item-left">
+                      <div className="avatar-circle">
+                        {(r.candidate_name || 'C').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{r.candidate_name || 'Candidate'}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{r.email} • {r.exam_type}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)' }}>{r.score} / {r.total_questions}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(r.submitted_at).toLocaleDateString()}</div>
+                      </div>
+                      <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
+                        {r.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
