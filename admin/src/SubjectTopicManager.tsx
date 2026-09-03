@@ -36,6 +36,10 @@ export default function SubjectTopicManager({
   const [subjectFilterExam, setSubjectFilterExam] = useState<string>('ALL');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
 
+  const jambCount = dbSubjects.filter(s => s.exam_type === 'JAMB').length;
+  const waecCount = dbSubjects.filter(s => s.exam_type === 'WAEC').length;
+  const necoCount = dbSubjects.filter(s => s.exam_type === 'NECO').length;
+
   const filteredSubjects = subjectFilterExam === 'ALL'
     ? dbSubjects
     : dbSubjects.filter(s => s.exam_type === subjectFilterExam);
@@ -150,7 +154,28 @@ export default function SubjectTopicManager({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Total Subjects Count Summary Cards Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+        <div className="stat-card" onClick={() => setSubjectFilterExam('ALL')} style={{ cursor: 'pointer', borderLeft: subjectFilterExam === 'ALL' ? '4px solid var(--accent)' : 'none' }}>
+          <div className="stat-label">Total All Subjects</div>
+          <div className="stat-val">{dbSubjects.length}</div>
+        </div>
+        <div className="stat-card" onClick={() => setSubjectFilterExam('JAMB')} style={{ cursor: 'pointer', borderLeft: subjectFilterExam === 'JAMB' ? '4px solid var(--accent)' : 'none' }}>
+          <div className="stat-label">JAMB Subjects</div>
+          <div className="stat-val" style={{ color: 'var(--primary)' }}>{jambCount}</div>
+        </div>
+        <div className="stat-card" onClick={() => setSubjectFilterExam('WAEC')} style={{ cursor: 'pointer', borderLeft: subjectFilterExam === 'WAEC' ? '4px solid var(--accent)' : 'none' }}>
+          <div className="stat-label">WAEC Subjects</div>
+          <div className="stat-val" style={{ color: 'var(--success)' }}>{waecCount}</div>
+        </div>
+        <div className="stat-card" onClick={() => setSubjectFilterExam('NECO')} style={{ cursor: 'pointer', borderLeft: subjectFilterExam === 'NECO' ? '4px solid var(--accent)' : 'none' }}>
+          <div className="stat-label">NECO Subjects</div>
+          <div className="stat-val" style={{ color: 'var(--warning)' }}>{necoCount}</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
       {/* Left Column: Subjects (Master) */}
       <div className="admin-card">
         <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -193,7 +218,7 @@ export default function SubjectTopicManager({
             className="form-input"
             value={subjectFilterExam}
             onChange={(e) => setSubjectFilterExam(e.target.value)}
-            style={{ width: '130px', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+            style={{ width: '160px', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
           >
             <option value="ALL">All Categories</option>
             <option value="JAMB">JAMB</option>
@@ -390,6 +415,7 @@ export default function SubjectTopicManager({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

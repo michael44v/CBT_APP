@@ -42,11 +42,11 @@ $active_passcodes = $res ? $res->fetch_assoc()['count'] : 0;
 $res = $db->query("SELECT COUNT(*) as count FROM passcodes WHERE status = 'suspended'");
 $suspended_passcodes = $res ? $res->fetch_assoc()['count'] : 0;
 
-// Estimated Revenue & Real Revenue Data from passcode_upgrades
-$res = $db->query("SELECT SUM(max_devices * 1200) as rev FROM passcodes");
+// Estimated Revenue & Real Revenue Data from passcodes & upgrades
+$res = $db->query("SELECT SUM(1400 * max_devices) as rev FROM passcodes");
 $estimated_revenue = $res ? floatval($res->fetch_assoc()['rev'] ?? 0) : 0;
 
-// Revenue Trend from real payments in passcode_upgrades supporting range (week/month/year)
+// Revenue Trend from passcodes table directly (and passcode_upgrades if any extra) supporting range (week/month/year)
 $range = strtolower(trim($_GET['range'] ?? 'month'));
 if (!in_array($range, ['week', 'month', 'year'])) {
     $range = 'month';
@@ -56,11 +56,26 @@ $revenue_over_time = [];
 $range_total_revenue = 0.0;
 
 if ($range === 'week') {
-    $rev_query = "SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) GROUP BY dt ORDER BY dt ASC";
+    $rev_query = "
+        SELECT date_label, dt, SUM(amt) as total_rev FROM (
+            SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, 1400.00 as amt FROM passcodes WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            UNION ALL
+            SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, amount_paid as amt FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ) combined GROUP BY dt ORDER BY dt ASC";
 } elseif ($range === 'month') {
-    $rev_query = "SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY dt ORDER BY dt ASC";
+    $rev_query = "
+        SELECT date_label, dt, SUM(amt) as total_rev FROM (
+            SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, 1400.00 as amt FROM passcodes WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            UNION ALL
+            SELECT DATE_FORMAT(created_at, '%b %d') as date_label, DATE(created_at) as dt, amount_paid as amt FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ) combined GROUP BY dt ORDER BY dt ASC";
 } else {
-    $rev_query = "SELECT DATE_FORMAT(created_at, '%b %Y') as date_label, DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(amount_paid) as total_rev FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY ym ORDER BY ym ASC";
+    $rev_query = "
+        SELECT date_label, ym, SUM(amt) as total_rev FROM (
+            SELECT DATE_FORMAT(created_at, '%b %Y') as date_label, DATE_FORMAT(created_at, '%Y-%m') as ym, 1400.00 as amt FROM passcodes WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            UNION ALL
+            SELECT DATE_FORMAT(created_at, '%b %Y') as date_label, DATE_FORMAT(created_at, '%Y-%m') as ym, amount_paid as amt FROM passcode_upgrades WHERE (payment_status IN ('paid', 'completed') OR status IN ('paid', 'completed')) AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        ) combined GROUP BY ym ORDER BY ym ASC";
 }
 
 $rev_res = $db->query($rev_query);

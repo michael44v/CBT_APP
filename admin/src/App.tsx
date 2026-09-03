@@ -142,6 +142,11 @@ export default function App() {
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editUserForm, setEditUserForm] = useState({ name: '', phone: '', school: '' });
 
+  // Passcode category & subject editing modal state
+  const [editingPasscode, setEditingPasscode] = useState<any | null>(null);
+  const [editPasscodeCategories, setEditPasscodeCategories] = useState<string[]>([]);
+  const [editPasscodeSubjects, setEditPasscodeSubjects] = useState<string[]>([]);
+
   // Action Handlers
   const handleRevokePasscode = async (passcodeVal: string) => {
     if (!window.confirm(`Are you sure you want to revoke passcode ${passcodeVal}?`)) return;
@@ -245,12 +250,220 @@ export default function App() {
     }
   };
 
+  const handleSavePasscodeSubjects = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPasscode) return;
+    try {
+      const catStr = editPasscodeCategories.join(',');
+      const res = await fetch(`${API_BASE}/admin/passcodes.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'update_subjects',
+          passcode: editingPasscode.passcode,
+          exam_category: catStr,
+          allowed_subjects: editPasscodeSubjects
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Passcode categories & subjects updated successfully!');
+        setEditingPasscode(null);
+        fetchPasscodes();
+      } else {
+        showNotification(data.message || 'Failed to update passcode.', 'error');
+      }
+    } catch (e) {
+      showNotification('Error updating passcode.', 'error');
+    }
+  };
+
   // Pricing settings state
   const [pricingForm, setPricingForm] = useState({
     single_passcode_price_6m: 1400,
     small_bulk_price_6m: 1100,
     large_bulk_price_6m: 1000
   });
+
+  // Promo Code Form State
+  const [newPromoForm, setNewPromoForm] = useState({
+    code: '',
+    discount_type: 'percentage',
+    discount_value: 10,
+    max_uses: 100,
+    expires_at: ''
+  });
+
+  // Software Update Form State
+  const [newUpdateForm, setNewUpdateForm] = useState({
+    version: '',
+    firmware: 'FW-2026.09',
+    improvements: '',
+    size: '45.0 MB',
+    url: ''
+  });
+
+  // Action handlers for Pricing, Promo Codes, News, and Software Updates
+  const handleSavePricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/pricing.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pricingForm)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Pricing settings updated successfully.');
+        fetchPricing();
+      } else {
+        showNotification(data.message || 'Failed to update pricing.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error saving pricing settings.', 'error');
+    }
+  };
+
+  const handleCreatePromo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/promo_codes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPromoForm)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Promo code created successfully.');
+        setNewPromoForm({ code: '', discount_type: 'percentage', discount_value: 10, max_uses: 100, expires_at: '' });
+        fetchPromos();
+      } else {
+        showNotification(data.message || 'Failed to create promo code.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error creating promo code.', 'error');
+    }
+  };
+
+  const handleTogglePromo = async (id: number, active: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/promo_codes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle', id, active: active ? 0 : 1 })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Promo code status updated.');
+        fetchPromos();
+      }
+    } catch (err) {
+      showNotification('Error toggling promo status.', 'error');
+    }
+  };
+
+  const handleDeletePromo = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this promo code?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/promo_codes.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Promo code deleted.');
+        fetchPromos();
+      }
+    } catch (err) {
+      showNotification('Error deleting promo code.', 'error');
+    }
+  };
+
+  const handleCreateNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/news.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', ...newNewsForm })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Admin news published successfully.');
+        setNewNewsForm({ title: '', content: '', icon_name: 'newspaper', thumbnail_url: '', published_at: new Date().toISOString().slice(0, 16) });
+        fetchNews();
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to publish news.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error publishing news.', 'error');
+    }
+  };
+
+  const handleDeleteNews = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this news article?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/news.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('News article deleted.');
+        fetchNews();
+        fetchStatsAndAnalytics();
+      }
+    } catch (err) {
+      showNotification('Error deleting news.', 'error');
+    }
+  };
+
+  const handleCreateUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/admin/updates.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', ...newUpdateForm })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Software release published successfully.');
+        setNewUpdateForm({ version: '', firmware: 'FW-2026.09', improvements: '', size: '45.0 MB', url: '' });
+        fetchUpdates();
+        fetchStatsAndAnalytics();
+      } else {
+        showNotification(data.message || 'Failed to publish update.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error publishing software update.', 'error');
+    }
+  };
+
+  const handleDeleteUpdate = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this release update?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/updates.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Software update deleted.');
+        fetchUpdates();
+        fetchStatsAndAnalytics();
+      }
+    } catch (err) {
+      showNotification('Error deleting software update.', 'error');
+    }
+  };
 
   // New Passcode Form
   const [newPasscodeForm, setNewPasscodeForm] = useState({
@@ -1508,6 +1721,7 @@ export default function App() {
                                 <tr>
                                   <th>Passcode</th>
                                   <th>Exam Category</th>
+                                  <th>Allowed Subjects</th>
                                   <th>Seats / Devices</th>
                                   <th>Price Paid</th>
                                   <th>Status</th>
@@ -1515,33 +1729,57 @@ export default function App() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {group.items.map(p => (
-                                  <tr key={p.id}>
-                                    <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.passcode}</td>
-                                    <td><span className="badge badge-info">{p.exam_category}</span></td>
-                                    <td>{p.activated_devices || 0} / {p.max_devices || 1}</td>
-                                    <td style={{ fontWeight: 700 }}>₦{parseFloat(p.amount_paid || 1400).toLocaleString()}</td>
-                                    <td>
-                                      <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                                        {p.status}
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      {p.status === 'active' ? (
-                                        <button
-                                          className="btn btn-danger"
-                                          style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                                          title="Revoke / Suspend Passcode"
-                                          onClick={(e) => { e.stopPropagation(); handleRevokePasscode(p.passcode); }}
-                                        >
-                                          <Ban size={14} /> Revoke
-                                        </button>
-                                      ) : (
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Suspended</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
+                                {group.items.map(p => {
+                                  const subjectsDisplay = p.allowed_subjects
+                                    ? p.allowed_subjects.split(',').filter(Boolean).join(', ')
+                                    : 'All Subjects Unlocked';
+
+                                  return (
+                                    <tr key={p.id}>
+                                      <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.passcode}</td>
+                                      <td><span className="badge badge-info">{p.exam_category}</span></td>
+                                      <td style={{ maxWidth: '220px', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={subjectsDisplay}>
+                                        {subjectsDisplay}
+                                      </td>
+                                      <td>{p.activated_devices || 0} / {p.max_devices || 1}</td>
+                                      <td style={{ fontWeight: 700 }}>₦{parseFloat(p.amount_paid || 1400).toLocaleString()}</td>
+                                      <td>
+                                        <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                                          {p.status}
+                                        </span>
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                          <button
+                                            className="btn btn-secondary"
+                                            style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                            title="Edit Passcode Categories & Subjects"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingPasscode(p);
+                                              setEditPasscodeCategories(p.exam_category ? p.exam_category.split(',').filter(Boolean) : ['JAMB']);
+                                              setEditPasscodeSubjects(p.allowed_subjects ? p.allowed_subjects.split(',').filter(Boolean) : []);
+                                            }}
+                                          >
+                                            <Edit size={14} /> Manage Access
+                                          </button>
+                                          {p.status === 'active' ? (
+                                            <button
+                                              className="btn btn-danger"
+                                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                              title="Revoke / Suspend Passcode"
+                                              onClick={(e) => { e.stopPropagation(); handleRevokePasscode(p.passcode); }}
+                                            >
+                                              <Ban size={14} /> Revoke
+                                            </button>
+                                          ) : (
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', alignSelf: 'center' }}>Suspended</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -1554,6 +1792,415 @@ export default function App() {
             </div>
           );
         })()}
+
+        {/* PRICING SETTINGS TAB */}
+        {activeTab === 'PRICING' && (
+          <div className="admin-card" style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <DollarSign size={20} /> Pricing Settings Configuration
+            </h2>
+            <form onSubmit={handleSavePricing}>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">Single Passcode Price (6 Months)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={pricingForm.single_passcode_price_6m}
+                  onChange={(e) => setPricingForm({ ...pricingForm, single_passcode_price_6m: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">Small Bulk Unit Price (2-9 Passcodes, 6 Months)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={pricingForm.small_bulk_price_6m}
+                  onChange={(e) => setPricingForm({ ...pricingForm, small_bulk_price_6m: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label className="form-label">Large Bulk Unit Price (10+ Passcodes, 6 Months)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={pricingForm.large_bulk_price_6m}
+                  onChange={(e) => setPricingForm({ ...pricingForm, large_bulk_price_6m: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                Save Pricing Changes
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* PROMO CODES TAB */}
+        {activeTab === 'PROMOS' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="admin-card">
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Tag size={20} /> Create New Promo Code
+              </h2>
+              <form onSubmit={handleCreatePromo} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Code String</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. SAVE20"
+                    value={newPromoForm.code}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, code: e.target.value.toUpperCase() })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Discount Type</label>
+                  <select
+                    className="form-input"
+                    value={newPromoForm.discount_type}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, discount_type: e.target.value })}
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed Amount (₦)</option>
+                    <option value="free">100% Free</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Discount Value</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newPromoForm.discount_value}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, discount_value: parseFloat(e.target.value) || 0 })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Max Usage</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newPromoForm.max_uses}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, max_uses: parseInt(e.target.value) || 1 })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Expiration Date (Optional)</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={newPromoForm.expires_at}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, expires_at: e.target.value })}
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ height: '42px' }}>
+                  Create Code
+                </button>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <div className="card-title">
+                <span>Active &amp; Historical Promo Codes</span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Filter promo codes..."
+                  value={promoSearch}
+                  onChange={(e) => setPromoSearch(e.target.value)}
+                  style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Type</th>
+                    <th>Value</th>
+                    <th>Uses / Max</th>
+                    <th>Expires At</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promos.length === 0 ? (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No promo codes created yet.</td></tr>
+                  ) : (
+                    promos
+                      .filter(p => !promoSearch || p.code.toLowerCase().includes(promoSearch.toLowerCase()))
+                      .map(p => (
+                        <tr key={p.id}>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.code}</td>
+                          <td><span className="badge badge-info">{p.discount_type}</span></td>
+                          <td>{p.discount_type === 'percentage' ? `${p.discount_value}%` : p.discount_type === 'fixed' ? `₦${p.discount_value}` : 'Free'}</td>
+                          <td>{p.uses_count || 0} / {p.max_uses || '∞'}</td>
+                          <td>{p.expires_at ? new Date(p.expires_at).toLocaleDateString() : 'Never'}</td>
+                          <td>
+                            <span className={`badge ${p.active ? 'badge-success' : 'badge-danger'}`}>
+                              {p.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                                onClick={() => handleTogglePromo(p.id, p.active)}
+                              >
+                                {p.active ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                className="btn btn-danger"
+                                style={{ padding: '4px 8px' }}
+                                onClick={() => handleDeletePromo(p.id)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ADMIN NEWS TAB */}
+        {activeTab === 'NEWS' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="admin-card">
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Newspaper size={20} /> Publish Admin News Announcement
+              </h2>
+              <form onSubmit={handleCreateNews}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Article Title</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. CBT Software Version 3.0 Release Notes"
+                      value={newNewsForm.title}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, title: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Publication Date &amp; Time</label>
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={newNewsForm.published_at}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, published_at: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '1.2rem' }}>
+                  <label className="form-label">Article Content</label>
+                  <textarea
+                    className="form-input"
+                    rows={4}
+                    placeholder="Enter the full announcement news content here..."
+                    value={newNewsForm.content}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, content: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Newspaper size={18} /> Publish News Post
+                </button>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <div className="card-title">
+                <span>Published Admin News Articles</span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search news posts..."
+                  value={newsSearch}
+                  onChange={(e) => setNewsSearch(e.target.value)}
+                  style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                {news.length === 0 ? (
+                  <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No news articles published.</div>
+                ) : (
+                  news
+                    .filter(n => !newsSearch || n.title.toLowerCase().includes(newsSearch.toLowerCase()) || n.content.toLowerCase().includes(newsSearch.toLowerCase()))
+                    .map(n => (
+                      <div key={n.id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.2rem', backgroundColor: 'var(--primary-light)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>{n.title}</h3>
+                          <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => handleDeleteNews(n.id)}>
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '0 0 0.8rem 0' }}>{n.content}</p>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          Published: {new Date(n.published_at || n.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SOFTWARE RELEASE TAB */}
+        {activeTab === 'UPDATES' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="admin-card">
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={20} /> Publish Desktop Software Release
+              </h2>
+              <form onSubmit={handleCreateUpdate}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Version Tag</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. v3.0.2"
+                      value={newUpdateForm.version}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, version: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Firmware Code</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={newUpdateForm.firmware}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, firmware: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Installer Size</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={newUpdateForm.size}
+                      onChange={(e) => setNewUpdateForm({ ...newUpdateForm, size: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="form-label">Download Package URL</label>
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://filloptech.com/downloads/fillop-cbt-v3.0.2.exe"
+                    value={newUpdateForm.url}
+                    onChange={(e) => setNewUpdateForm({ ...newUpdateForm, url: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '1.2rem' }}>
+                  <label className="form-label">Changelog &amp; Release Notes</label>
+                  <textarea
+                    className="form-input"
+                    rows={3}
+                    placeholder="Describe new features, bug fixes, performance improvements..."
+                    value={newUpdateForm.improvements}
+                    onChange={(e) => setNewUpdateForm({ ...newUpdateForm, improvements: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Settings size={18} /> Publish Software Update
+                </button>
+              </form>
+            </div>
+
+            <div className="admin-card">
+              <div className="card-title">
+                <span>Published Release History</span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Filter releases..."
+                  value={updateSearch}
+                  onChange={(e) => setUpdateSearch(e.target.value)}
+                  style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Firmware</th>
+                    <th>Size</th>
+                    <th>Changelog</th>
+                    <th>Download Link</th>
+                    <th>Release Date</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {updatesList.length === 0 ? (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No software releases published yet.</td></tr>
+                  ) : (
+                    updatesList
+                      .filter(u => !updateSearch || u.version.toLowerCase().includes(updateSearch.toLowerCase()) || u.improvements.toLowerCase().includes(updateSearch.toLowerCase()))
+                      .map(u => (
+                        <tr key={u.id}>
+                          <td><span className="badge badge-success">{u.version}</span></td>
+                          <td style={{ fontFamily: 'monospace' }}>{u.firmware}</td>
+                          <td>{u.size}</td>
+                          <td style={{ maxWidth: '280px', fontSize: '0.82rem' }}>{u.improvements}</td>
+                          <td>
+                            <a href={u.url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                              Download URL
+                            </a>
+                          </td>
+                          <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => handleDeleteUpdate(u.id)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
       </main>
 
@@ -1633,6 +2280,120 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGE PASSCODE CATEGORIES & SUBJECTS MODAL */}
+      {editingPasscode && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem' }}>
+            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+              Manage Passcode Access — <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{editingPasscode.passcode}</span>
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+              Candidate: <strong>{editingPasscode.email}</strong>
+            </p>
+
+            <form onSubmit={handleSavePasscodeSubjects}>
+              {/* Exam Categories Checkboxes */}
+              <div style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
+                <label className="form-label" style={{ fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>
+                  Exam Categories (Add / Remove)
+                </label>
+                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                  {['JAMB', 'WAEC', 'NECO'].map(cat => {
+                    const isChecked = editPasscodeCategories.includes(cat);
+                    return (
+                      <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditPasscodeCategories([...editPasscodeCategories, cat]);
+                            } else {
+                              setEditPasscodeCategories(editPasscodeCategories.filter(c => c !== cat));
+                            }
+                          }}
+                          style={{ width: '16px', height: '16px' }}
+                        />
+                        {cat}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Subject Selection Multi-Select Checkboxes */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label className="form-label" style={{ fontWeight: 800, margin: 0 }}>
+                    Allowed Subjects (Grouped by Category)
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                    onClick={() => setEditPasscodeSubjects([])}
+                  >
+                    Clear Restrictions (Unlock All Subjects)
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                  Leave all unchecked to give candidate access to <strong>all subjects</strong> under their enabled categories.
+                </p>
+
+                {editPasscodeCategories.length === 0 ? (
+                  <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600 }}>
+                    Please select at least one exam category above.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '320px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                    {editPasscodeCategories.map(cat => {
+                      const catSubjects = dbSubjects.filter(s => s.exam_type === cat);
+                      return (
+                        <div key={cat} style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '0.85rem', backgroundColor: 'var(--bg-card)' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--primary)', marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
+                            {cat} Category ({catSubjects.length} Subjects)
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                            {catSubjects.map(sub => {
+                              const isChecked = editPasscodeSubjects.includes(sub.name);
+                              return (
+                                <label key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: isChecked ? 700 : 500, cursor: 'pointer' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setEditPasscodeSubjects([...editPasscodeSubjects, sub.name]);
+                                      } else {
+                                        setEditPasscodeSubjects(editPasscodeSubjects.filter(sName => sName !== sub.name));
+                                      }
+                                    }}
+                                  />
+                                  <span>{sub.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingPasscode(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Access Settings</button>
               </div>
             </form>
           </div>
