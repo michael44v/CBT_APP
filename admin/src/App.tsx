@@ -1730,16 +1730,24 @@ export default function App() {
                               </thead>
                               <tbody>
                                 {group.items.map(p => {
-                                  const subjectsDisplay = p.allowed_subjects
-                                    ? p.allowed_subjects.split(',').filter(Boolean).join(', ')
-                                    : 'All Subjects Unlocked';
+                                  const cats = p.exam_category ? p.exam_category.split(',').filter(Boolean) : ['JAMB'];
+                                  const totalAvailableForCats = dbSubjects.filter(s => cats.includes(s.exam_type)).length;
+                                  const rawSubList = p.allowed_subjects ? p.allowed_subjects.split(',').filter(Boolean) : [];
+
+                                  const countDisplay = rawSubList.length > 0
+                                    ? `${rawSubList.length} Subject${rawSubList.length === 1 ? '' : 's'}`
+                                    : `All Subjects (${totalAvailableForCats || 'Full'})`;
+
+                                  const subjectsTooltip = rawSubList.length > 0
+                                    ? rawSubList.join(', ')
+                                    : 'All subjects in category unlocked';
 
                                   return (
                                     <tr key={p.id}>
                                       <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.passcode}</td>
                                       <td><span className="badge badge-info">{p.exam_category}</span></td>
-                                      <td style={{ maxWidth: '220px', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={subjectsDisplay}>
-                                        {subjectsDisplay}
+                                      <td style={{ fontSize: '0.82rem', fontWeight: 700 }} title={subjectsTooltip}>
+                                        <span className="badge badge-warning">{countDisplay}</span>
                                       </td>
                                       <td>{p.activated_devices || 0} / {p.max_devices || 1}</td>
                                       <td style={{ fontWeight: 700 }}>₦{parseFloat(p.amount_paid || 1400).toLocaleString()}</td>
@@ -1757,8 +1765,15 @@ export default function App() {
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setEditingPasscode(p);
-                                              setEditPasscodeCategories(p.exam_category ? p.exam_category.split(',').filter(Boolean) : ['JAMB']);
-                                              setEditPasscodeSubjects(p.allowed_subjects ? p.allowed_subjects.split(',').filter(Boolean) : []);
+                                              setEditPasscodeCategories(cats);
+
+                                              // Pre-select subjects: if allowed_subjects is empty, pre-check all available subjects for enabled categories
+                                              if (rawSubList.length > 0) {
+                                                setEditPasscodeSubjects(rawSubList);
+                                              } else {
+                                                const allSubNames = dbSubjects.filter(s => cats.includes(s.exam_type)).map(s => s.name);
+                                                setEditPasscodeSubjects(Array.from(new Set(allSubNames)));
+                                              }
                                             }}
                                           >
                                             <Edit size={14} /> Manage Access
