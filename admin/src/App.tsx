@@ -316,29 +316,53 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} apiBase={API_BASE} />;
   }
 
-  // Bar Chart SVG Helper
-  const renderSVGChart = (chartData: any[], color: string) => {
-    if (!chartData || chartData.length === 0) return null;
+  // Real Question Count per Exam Category Bar Chart SVG Helper
+  const renderQuestionDistributionChart = (questionsList: Question[], color: string) => {
+    const counts: Record<string, number> = {};
+    questionsList.forEach(q => {
+      const type = (q.exam_type || 'JAMB').toUpperCase();
+      counts[type] = (counts[type] || 0) + 1;
+    });
+
+    const chartData = Object.keys(counts).length > 0
+      ? Object.keys(counts).map(k => ({ label: k, count: counts[k] }))
+      : [
+          { label: 'JAMB', count: questionsList.filter(q => q.subject_id <= 35).length || 0 },
+          { label: 'WAEC', count: questionsList.filter(q => q.subject_id >= 36 && q.subject_id <= 70).length || 0 },
+          { label: 'NECO', count: questionsList.filter(q => q.subject_id >= 71).length || 0 }
+        ];
+
+    const maxCount = Math.max(...chartData.map(d => d.count), 1);
     const height = 160;
     const width = 360;
-    const barWidth = 28;
+    const barWidth = 36;
     const gap = (width - chartData.length * barWidth) / (chartData.length + 1);
 
     return (
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
         {chartData.map((d, i) => {
-          const val = Math.max(Number(d.score) || 0, 0);
           const x = gap + i * (barWidth + gap);
-          const barHeight = Math.max((val / 100) * 100, 8);
+          const barHeight = Math.max((d.count / maxCount) * 100, 6);
           const y = 130 - barHeight;
+          const r = 8; // Top border radius
+          // Path for bar with rounded top corners and flat bottom corners
+          const pathD = `
+            M ${x},${y + r}
+            A ${r},${r} 0 0,1 ${x + r},${y}
+            L ${x + barWidth - r},${y}
+            A ${r},${r} 0 0,1 ${x + barWidth},${y + r}
+            L ${x + barWidth},${130}
+            L ${x},${130}
+            Z
+          `;
           return (
             <g key={i}>
-              <rect x={x} y={y} width={barWidth} height={barHeight} rx={6} ry={6} fill={color} />
-              <text x={x + barWidth / 2} y={y - 6} fontSize="11" textAnchor="middle" fill="var(--text-main)" fontWeight="700">
-                {val}%
+              <path d={pathD} fill={color} />
+              <text x={x + barWidth / 2} y={y - 6} fontSize="11" textAnchor="middle" fill="var(--text-main)" fontWeight="800">
+                {d.count}
               </text>
-              <text x={x + barWidth / 2} y={150} fontSize="10" textAnchor="middle" fill="var(--text-muted)" fontWeight="600">
-                {d.label ? (d.label.length > 8 ? d.label.substring(0, 7) + '…' : d.label) : ''}
+              <text x={x + barWidth / 2} y={150} fontSize="11" textAnchor="middle" fill="var(--text-muted)" fontWeight="700">
+                {d.label}
               </text>
             </g>
           );
@@ -402,12 +426,14 @@ export default function App() {
       <main className="admin-body">
         {notification && (
           <div style={{
-            position: 'fixed', top: '20px', right: '20px',
+            position: 'fixed', bottom: '24px', right: '24px',
             backgroundColor: notification.type === 'success' ? 'var(--success)' : 'var(--danger)',
-            color: 'white', padding: '1rem 1.5rem', borderRadius: '12px', zIndex: 1000,
-            fontWeight: 700, boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
+            color: 'white', padding: '0.85rem 1.4rem', borderRadius: '12px', zIndex: 1000,
+            fontWeight: 700, boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+            display: 'flex', alignItems: 'center', gap: '8px'
           }}>
-            {notification.text}
+            {notification.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+            <span>{notification.text}</span>
           </div>
         )}
 
@@ -484,8 +510,8 @@ export default function App() {
               </div>
             )}
 
-            {/* Stat Cards */}
-            <div className="dashboard-stats">
+            {/* Auto-filling Dense Stat Cards Grid */}
+            <div className="dashboard-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
               <div className="stat-card" onClick={() => setActiveTab('QUESTIONS')} style={{ cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
@@ -510,7 +536,7 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div className="stat-label">Active Passcodes</div>
-                    <div className="stat-val" style={{ color: 'var(--warning)' }}>{stats.active_passcodes}</div>
+                    <div className="stat-val" style={{ color: 'var(--warning)' }}>{stats.active_passcodes} / {totalPasscodesCount}</div>
                   </div>
                   <div className="stat-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}><Key size={20} /></div>
                 </div>
@@ -527,28 +553,18 @@ export default function App() {
               </div>
             </div>
 
-            {/* Charts & Ring Row */}
+            {/* Charts & At-A-Glance System Summary Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-              {/* Question / Performance Bar Chart */}
+              {/* Real Question Distribution per Category Bar Chart */}
               <div className="admin-card">
                 <div className="card-title">
-                  <span>Subject Performance Score</span>
+                  <span>Questions per Exam Category</span>
                   <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
                 </div>
-                {performanceData.subject_performance && performanceData.subject_performance.some((d: any) => d.score > 0) ? (
-                  renderSVGChart(performanceData.subject_performance.slice(0, 6), 'var(--primary)')
-                ) : (
-                  renderSVGChart([
-                    { label: 'Maths', score: 78 },
-                    { label: 'English', score: 85 },
-                    { label: 'Physics', score: 62 },
-                    { label: 'Chem', score: 70 },
-                    { label: 'Biology', score: 91 }
-                  ], 'var(--primary)')
-                )}
+                {renderQuestionDistributionChart(questions, 'var(--primary)')}
               </div>
 
-              {/* Passcodes Donut Ring Chart */}
+              {/* Passcodes Activation Donut Ring Chart */}
               <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <div className="card-title" style={{ width: '100%', marginBottom: '1rem' }}>
                   <span>Passcode Activation Rate</span>
@@ -556,14 +572,16 @@ export default function App() {
                 </div>
                 <div style={{ position: 'relative', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="160" height="160" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--primary-light)" strokeWidth="10" />
+                    {/* Background Track Circle */}
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--primary-light)" strokeWidth="12" />
+                    {/* Active Arc Circle */}
                     <circle
                       cx="50"
                       cy="50"
-                      r="45"
+                      r="42"
                       fill="none"
                       stroke="var(--accent)"
-                      strokeWidth="10"
+                      strokeWidth="12"
                       strokeDasharray={strokeDasharray}
                       strokeLinecap="round"
                       transform="rotate(-90 50 50)"
@@ -571,16 +589,75 @@ export default function App() {
                   </svg>
                   <div style={{ position: 'absolute', textAlign: 'center' }}>
                     <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{activePct}%</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>ACTIVATED</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>ACTIVATED</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.2rem', fontSize: '0.85rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--accent)' }} /> Active ({stats.active_passcodes})
+                <div style={{ display: 'flex', gap: '1.2rem', marginTop: '1.2rem', fontSize: '0.85rem' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 600 }}>
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'inline-block' }} /> Active ({stats.active_passcodes})
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-light)' }} /> Inactive ({stats.suspended_passcodes})
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 600 }}>
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--border-color)', display: 'inline-block' }} /> Inactive ({stats.suspended_passcodes})
                   </span>
+                </div>
+              </div>
+
+              {/* At A Glance - All Sidebar Summary Card */}
+              <div className="admin-card">
+                <div className="card-title">
+                  <span>System At A Glance</span>
+                  <Zap size={18} style={{ color: 'var(--warning)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPLOAD_LOGS')}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <History size={16} style={{ color: 'var(--text-secondary)' }} /> Latest Upload
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      {uploadLogs.length > 0 ? uploadLogs[0].filename : 'None'}
+                    </span>
+                  </div>
+
+                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('RESULTS')}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <BarChart3 size={16} style={{ color: 'var(--text-secondary)' }} /> Total Exam Submissions
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      {resultsList.length} exams
+                    </span>
+                  </div>
+
+                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('PROMOS')}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <Tag size={16} style={{ color: 'var(--text-secondary)' }} /> Active Promo Codes
+                    </span>
+                    <span className="badge badge-info">{stats.active_promos} active</span>
+                  </div>
+
+                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('NEWS')}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <Newspaper size={16} style={{ color: 'var(--text-secondary)' }} /> Published News
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      {stats.news_count || news.length} articles
+                    </span>
+                  </div>
+
+                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPDATES')}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <Settings size={16} style={{ color: 'var(--text-secondary)' }} /> Software Release
+                    </span>
+                    <span className="badge badge-success">{stats.latest_update_version}</span>
+                  </div>
+
+                  <div className="list-item-row" style={{ padding: '0.4rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('PRICING')}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <DollarSign size={16} style={{ color: 'var(--text-secondary)' }} /> Base Pricing Tier
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      ₦{pricingForm.single_passcode_price_6m.toLocaleString()} / 6m
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
