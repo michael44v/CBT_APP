@@ -132,7 +132,10 @@ export default function QuestionBankBrowser({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({ action: 'update', ...editingQuestion }),
       });
       const data = await res.json();
@@ -156,7 +159,10 @@ export default function QuestionBankBrowser({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({ action: 'bulk_delete', ids: selectedQuestionIds }),
       });
       const data = await res.json();
@@ -180,7 +186,10 @@ export default function QuestionBankBrowser({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({
           action: 'bulk_move',
           ids: selectedQuestionIds,
@@ -208,7 +217,10 @@ export default function QuestionBankBrowser({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({
           action: 'bulk_change_difficulty',
           ids: selectedQuestionIds,

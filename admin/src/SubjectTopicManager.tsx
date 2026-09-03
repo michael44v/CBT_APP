@@ -82,7 +82,10 @@ export default function SubjectTopicManager({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({
           action: 'edit_topic',
           topic_id: editingTopic.id,
@@ -112,7 +115,10 @@ export default function SubjectTopicManager({
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
         body: JSON.stringify({
           action: 'delete_topic',
           topic_id: deletingTopic.id,
