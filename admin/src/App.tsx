@@ -46,7 +46,7 @@ import QuestionBankBrowser from './QuestionBankBrowser';
 import { Subject, Topic, Question, UploadLog } from './types';
 
 const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? 'http://localhost:8000/api/v1'
+  ? 'https://cbt.filloptech.com/api/v1'
   : 'https://cbt.filloptech.com/api/v1';
 
 export default function App() {
@@ -734,7 +734,7 @@ export default function App() {
             </button>
 
             <button
-              className="btn btn-danger"
+             
               onClick={handleLogout}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
             >
@@ -792,9 +792,9 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div className="stat-label">Subjects / Topics</div>
-                    <div className="stat-val" style={{ color: 'var(--success)' }}>{dbSubjects.length} / {dbTopics.length}</div>
+                    <div className="stat-val" >{dbSubjects.length} / {dbTopics.length}</div>
                   </div>
-                  <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}><Layers size={20} /></div>
+                  <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)' }}><Layers size={20} /></div>
                 </div>
               </div>
 
@@ -802,9 +802,9 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div className="stat-label">Active Passcodes</div>
-                    <div className="stat-val" style={{ color: 'var(--warning)' }}>{stats.active_passcodes} / {totalPasscodesCount}</div>
+                    <div className="stat-val" >{stats.active_passcodes} / {totalPasscodesCount}</div>
                   </div>
-                  <div className="stat-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}><Key size={20} /></div>
+                  <div className="stat-badge" style={{ }}><Key size={20} /></div>
                 </div>
               </div>
 
@@ -814,7 +814,7 @@ export default function App() {
                     <div className="stat-label">Total Candidates</div>
                     <div className="stat-val">{stats.total_users || users.length}</div>
                   </div>
-                  <div className="stat-badge" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}><Users size={20} /></div>
+                  <div className="stat-badge" style={{ backgroundColor: 'var(--accent-light)',}}><Users size={20} /></div>
                 </div>
               </div>
             </div>
@@ -891,7 +891,7 @@ export default function App() {
                 <div className="admin-card" style={{ marginBottom: 0 }}>
                   <div className="card-title">
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Newspaper size={18} style={{ color: 'var(--primary)' }} /> Admin News
+                      <Newspaper size={18}  /> Admin News
                     </span>
                     <button
                       className="btn btn-secondary"
@@ -939,7 +939,7 @@ export default function App() {
                 <div className="admin-card" style={{ marginBottom: 0 }}>
                   <div className="card-title">
                     <span>System At A Glance</span>
-                    <Zap size={18} style={{ color: 'var(--warning)' }} />
+                    <Zap size={18} style={{ }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     <div className="list-item-row" style={{ padding: '0.35rem 0', cursor: 'pointer' }} onClick={() => setActiveTab('UPLOAD_LOGS')}>
