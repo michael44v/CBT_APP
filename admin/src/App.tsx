@@ -1871,11 +1871,11 @@ export default function App() {
                                               setEditingPasscode(p);
                                               setEditPasscodeCategories(cats);
 
-                                              // Pre-select subjects: if allowed_subjects is empty, pre-check all available subjects for enabled categories
+                                              // Pre-select subjects: tick all available subjects for enabled categories by default
+                                              const allSubNames = dbSubjects.filter(s => cats.includes(s.exam_type)).map(s => s.name);
                                               if (rawSubList.length > 0) {
-                                                setEditPasscodeSubjects(rawSubList);
+                                                setEditPasscodeSubjects(Array.from(new Set([...allSubNames, ...rawSubList])));
                                               } else {
-                                                const allSubNames = dbSubjects.filter(s => cats.includes(s.exam_type)).map(s => s.name);
                                                 setEditPasscodeSubjects(Array.from(new Set(allSubNames)));
                                               }
                                             }}
@@ -2435,11 +2435,15 @@ export default function App() {
                           type="checkbox"
                           checked={isChecked}
                           onChange={(e) => {
+                            let newCats: string[];
                             if (e.target.checked) {
-                              setEditPasscodeCategories([...editPasscodeCategories, cat]);
+                              newCats = [...editPasscodeCategories, cat];
                             } else {
-                              setEditPasscodeCategories(editPasscodeCategories.filter(c => c !== cat));
+                              newCats = editPasscodeCategories.filter(c => c !== cat);
                             }
+                            setEditPasscodeCategories(newCats);
+                            const updatedSubNames = dbSubjects.filter(s => newCats.includes(s.exam_type)).map(s => s.name);
+                            setEditPasscodeSubjects(Array.from(new Set(updatedSubNames)));
                           }}
                           style={{ width: '16px', height: '16px' }}
                         />

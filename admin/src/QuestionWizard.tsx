@@ -696,25 +696,27 @@ export default function QuestionWizard({
           {/* Column Mapping Section if headers differ */}
           <details style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
             <summary style={{ fontWeight: 700, cursor: 'pointer' }}>Adjust Detected Column Mapping</summary>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-              {['question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
-                <div key={field} className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '11px' }}>{field}</label>
-                  <select
-                    className="form-input"
-                    value={columnMapping[field] || ''}
-                    onChange={(e) => {
-                      const newM = { ...columnMapping, [field]: e.target.value };
-                      setColumnMapping(newM);
-                    }}
-                  >
-                    <option value="">-- Ignore / Unmapped --</option>
-                    {rawHeaders.map(h => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+            <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', minWidth: '600px' }}>
+                {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
+                  <div key={field} className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px' }}>{field}</label>
+                    <select
+                      className="form-input"
+                      value={columnMapping[field] || ''}
+                      onChange={(e) => {
+                        const newM = { ...columnMapping, [field]: e.target.value };
+                        setColumnMapping(newM);
+                      }}
+                    >
+                      <option value="">-- Ignore / Unmapped --</option>
+                      {rawHeaders.map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
             <button className="btn btn-secondary" onClick={handleRunValidation} style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
               Re-run Validation with New Mapping
@@ -812,7 +814,10 @@ export default function QuestionWizard({
             </table>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{
+            position: 'sticky', bottom: '0', backgroundColor: 'var(--bg-card)', padding: '1rem 0 0 0',
+            borderTop: '1px solid var(--border-color)', zIndex: 10, display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap'
+          }}>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button className="btn btn-secondary" onClick={() => setStep(4)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <ArrowLeft size={16} /> Back
