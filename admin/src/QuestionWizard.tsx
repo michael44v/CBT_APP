@@ -82,12 +82,12 @@ export default function QuestionWizard({
   // Filtered subjects for selected exam type
   const filteredSubjects = dbSubjects.filter(s => s.exam_type === selectedExamType);
 
-  // Filtered topics for selected subject
-  const filteredTopics = dbTopics.filter(t => t.subject_id === (selectedSubject?.id || 0));
+  // Filtered topics for selected subject (using Number conversion for ID safety)
+  const filteredTopics = dbTopics.filter(t => Number(t.subject_id) === Number(selectedSubject?.id || 0));
 
   useEffect(() => {
     if (filteredSubjects.length > 0) {
-      const match = filteredSubjects.find(s => s.id === selectedSubject?.id);
+      const match = filteredSubjects.find(s => Number(s.id) === Number(selectedSubject?.id));
       if (!match) {
         setSelectedSubject(filteredSubjects[0]);
       }
@@ -98,12 +98,10 @@ export default function QuestionWizard({
 
   useEffect(() => {
     if (filteredTopics.length > 0) {
-      const match = filteredTopics.find(t => t.id === selectedTopic?.id);
-      if (!match) {
+      const match = filteredTopics.find(t => Number(t.id) === Number(selectedTopic?.id));
+      if (!match && !selectedTopic) {
         setSelectedTopic(filteredTopics[0]);
       }
-    } else {
-      setSelectedTopic(null);
     }
   }, [selectedSubject, dbTopics]);
 
@@ -130,14 +128,14 @@ export default function QuestionWizard({
       if (data.success) {
         showNotification(data.message || 'Topic created successfully!');
         const createdTopic: Topic = {
-          id: data.topic_id,
-          subject_id: selectedSubject.id,
+          id: Number(data.topic_id),
+          subject_id: Number(selectedSubject.id),
           name: newTopicName.trim()
         };
-        onRefreshData();
         setSelectedTopic(createdTopic);
         setNewTopicName('');
         setShowAddTopicModal(false);
+        onRefreshData();
       } else {
         showNotification(data.message || 'Failed to create topic.', 'error');
       }
@@ -428,7 +426,7 @@ export default function QuestionWizard({
               className="form-input"
               value={selectedSubject?.id || ''}
               onChange={(e) => {
-                const sub = dbSubjects.find(s => s.id === Number(e.target.value));
+                const sub = dbSubjects.find(s => Number(s.id) === Number(e.target.value));
                 setSelectedSubject(sub || null);
               }}
             >
@@ -479,10 +477,13 @@ export default function QuestionWizard({
                 className="form-input"
                 value={selectedTopic?.id || ''}
                 onChange={(e) => {
-                  const top = dbTopics.find(t => t.id === Number(e.target.value));
+                  const top = dbTopics.find(t => Number(t.id) === Number(e.target.value));
                   setSelectedTopic(top || null);
                 }}
               >
+                {!filteredTopics.some(t => Number(t.id) === Number(selectedTopic?.id)) && selectedTopic && (
+                  <option key={selectedTopic.id} value={selectedTopic.id}>{selectedTopic.name}</option>
+                )}
                 {filteredTopics.map(top => (
                   <option key={top.id} value={top.id}>{top.name}</option>
                 ))}
@@ -539,14 +540,14 @@ export default function QuestionWizard({
             </button>
             <button
               className="btn btn-primary"
-              disabled={filteredTopics.length > 0 && !selectedTopic}
+              disabled={!selectedTopic && filteredTopics.length === 0}
               onClick={() => {
                 let activeTop = selectedTopic;
                 if (!activeTop && filteredTopics.length > 0) {
                   activeTop = filteredTopics[0];
                   setSelectedTopic(filteredTopics[0]);
                 }
-                if (activeTop || filteredTopics.length === 0) {
+                if (activeTop) {
                   setStep(4);
                 } else {
                   showNotification('Please select or add a topic first.', 'error');
