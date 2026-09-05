@@ -15,7 +15,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { Subject, Topic, ParsedRow } from './types';
-import { parseFileToRawRows, validateAndMapRows, isCellBlank } from './utils/parser';
+import { parseFileToRawRows, parseCSVTextToRawRows, validateAndMapRows, isCellBlank } from './utils/parser';
 
 interface QuestionWizardProps {
   apiBase: string;
@@ -47,6 +47,8 @@ export default function QuestionWizard({
 
   // File & Raw Data
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [rawCsvText, setRawCsvText] = useState<string>('');
+  const [inputMode, setInputMode] = useState<'file' | 'text'>('file');
   const [rawHeaders, setRawHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
   const [fileFormat, setFileFormat] = useState<'csv' | 'xlsx'>('csv');
@@ -146,6 +148,28 @@ export default function QuestionWizard({
     }
   };
 
+  // Helper to process headers & rows into mapping state
+  const processParsedData = (headers: string[], rows: Record<string, string>[]) => {
+    setRawHeaders(headers);
+    setRawRows(rows);
+
+    const mapping: Record<string, string> = {};
+    const targetFields = [
+      'id', 'exam_type', 'subject_id', 'topic_id', 'question_text',
+      'option_a', 'option_b', 'option_c', 'option_d',
+      'correct_answer', 'year', 'difficulty', 'topic_explanation',
+      'correct_explanation', 'wrong_explanations'
+    ];
+
+    targetFields.forEach(tf => {
+      const match = headers.find(h => h.toLowerCase().replace(/[^a-z0-9]/g, '_') === tf || h.toLowerCase() === tf);
+      if (match) mapping[tf] = match;
+    });
+
+    setColumnMapping(prev => ({ ...prev, ...mapping }));
+    showNotification(`Data loaded (${rows.length} rows parsed)`);
+  };
+
   // Handle File Selection
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -157,26 +181,25 @@ export default function QuestionWizard({
 
     try {
       const { headers, rows } = await parseFileToRawRows(file);
-      setRawHeaders(headers);
-      setRawRows(rows);
-
-      // Auto-detect header mapping
-      const mapping: Record<string, string> = {};
-      const targetFields = [
-        'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
-        'correct_answer', 'year', 'difficulty', 'topic_explanation',
-        'correct_explanation', 'wrong_explanations'
-      ];
-
-      targetFields.forEach(tf => {
-        const match = headers.find(h => h.toLowerCase().replace(/[^a-z0-9]/g, '_') === tf || h.toLowerCase() === tf);
-        if (match) mapping[tf] = match;
-      });
-
-      setColumnMapping(prev => ({ ...prev, ...mapping }));
-      showNotification(`File loaded (${rows.length} rows parsed)`);
+      processParsedData(headers, rows);
     } catch (err) {
       showNotification('Error reading uploaded file.', 'error');
+    }
+  };
+
+  // Handle Raw CSV Text Change
+  const handleRawCsvTextChange = async (text: string) => {
+    setRawCsvText(text);
+    if (!text.trim()) {
+      setRawHeaders([]);
+      setRawRows([]);
+      return;
+    }
+    try {
+      const { headers, rows } = await parseCSVTextToRawRows(text);
+      processParsedData(headers, rows);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -561,15 +584,29 @@ export default function QuestionWizard({
         </div>
       )}
 
-      {/* STEP 4: Upload File & Template Download */}
+      {/* STEP 4: Upload File or Type Raw CSV */}
       {step === 4 && (
         <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 4: Upload File (.csv / .xlsx)</h3>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 4: Upload File or Paste Raw CSV</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
             Target: <strong>{selectedExamType}</strong> → <strong>{selectedSubject?.name}</strong> → <strong>{selectedTopic?.name}</strong>
           </p>
 
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn ${inputMode === 'file' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setInputMode('file')}
+            >
+              <Upload size={16} /> Upload File (.csv / .xlsx)
+            </button>
+            <button
+              type="button"
+              className={`btn ${inputMode === 'text' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setInputMode('text')}
+            >
+              <FileText size={16} /> Type / Paste Raw CSV Text
+            </button>
             <button
               type="button"
               className="btn btn-secondary"
@@ -580,15 +617,28 @@ export default function QuestionWizard({
             </button>
           </div>
 
-          <div className="form-group" style={{ maxWidth: '500px', marginBottom: '2rem' }}>
-            <label className="form-label">Select File (.csv or .xlsx)</label>
-            <input
-              type="file"
-              accept=".csv, .xlsx, .xls"
-              className="form-input"
-              onChange={handleFileChange}
-            />
-          </div>
+          {inputMode === 'file' ? (
+            <div className="form-group" style={{ maxWidth: '500px', marginBottom: '2rem' }}>
+              <label className="form-label">Select File (.csv or .xlsx)</label>
+              <input
+                type="file"
+                accept=".csv, .xlsx, .xls"
+                className="form-input"
+                onChange={handleFileChange}
+              />
+            </div>
+          ) : (
+            <div className="form-group" style={{ marginBottom: '2rem' }}>
+              <label className="form-label">Type / Paste Raw CSV Content</label>
+              <textarea
+                className="textarea-csv"
+                placeholder={`id,exam_type,subject_id,year,topic_id,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations\n1,JAMB,1,2024,5,medium,"What is 2+2?",2,3,4,5,C,"Addition explanation","2+2=4","Common miscalculation"`}
+                value={rawCsvText}
+                onChange={(e) => handleRawCsvTextChange(e.target.value)}
+                style={{ height: '220px' }}
+              />
+            </div>
+          )}
 
           {rawRows.length > 0 && (
             <div style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
@@ -690,49 +740,74 @@ export default function QuestionWizard({
             </div>
           )}
 
-          {/* Validation Results Table */}
-          <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '2rem', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-            <table style={{ fontSize: '0.8rem', width: '100%' }}>
+          {/* Validation Results Table with Full Texts for All Fields */}
+          <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', marginBottom: '2rem', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <table style={{ fontSize: '0.8rem', width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th>Row</th>
-                  <th>Status</th>
-                  <th>Question Content</th>
-                  <th>Ans</th>
-                  <th>Year</th>
-                  <th>Issues / Warnings</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Row</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Status</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>id</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>exam_type</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>subject_id</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>year</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>topic_id</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>difficulty</th>
+                  <th style={{ minWidth: '220px' }}>question_text</th>
+                  <th style={{ minWidth: '120px' }}>option_a</th>
+                  <th style={{ minWidth: '120px' }}>option_b</th>
+                  <th style={{ minWidth: '120px' }}>option_c</th>
+                  <th style={{ minWidth: '120px' }}>option_d</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>correct_answer</th>
+                  <th style={{ minWidth: '180px' }}>topic_explanation</th>
+                  <th style={{ minWidth: '180px' }}>correct_explanation</th>
+                  <th style={{ minWidth: '180px' }}>wrong_explanations</th>
+                  <th style={{ minWidth: '180px' }}>Issues / Warnings</th>
                 </tr>
               </thead>
               <tbody>
-                {parsedRows.map((r) => (
-                  <tr key={r.row_number} style={{ backgroundColor: r.isValid ? 'transparent' : 'rgba(239, 68, 68, 0.05)' }}>
-                    <td><strong>Row {r.row_number}</strong></td>
-                    <td>
-                      {r.isValid ? (
-                        <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <CheckCircle size={12} /> Ready
-                        </span>
-                      ) : (
-                        <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <XCircle size={12} /> Invalid
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {r.question_text || <span style={{ color: 'var(--danger)', italic: 'true' }}>Blank</span>}
-                    </td>
-                    <td><strong>{r.correct_answer}</strong></td>
-                    <td>{r.year}</td>
-                    <td style={{ maxWidth: '250px' }}>
-                      {r.errors.length > 0 && (
-                        <div style={{ color: 'var(--danger)', fontWeight: 600 }}>{r.errors.join('; ')}</div>
-                      )}
-                      {r.warnings.length > 0 && (
-                        <div style={{ color: 'var(--warning)', fontSize: '11px' }}>{r.warnings.join('; ')}</div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {parsedRows.map((r, idx) => {
+                  const rawObj = rawRows[idx] || {};
+                  return (
+                    <tr key={r.row_number}>
+                      <td style={{ whiteSpace: 'nowrap' }}><strong>Row {r.row_number}</strong></td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {r.isValid ? (
+                          <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <CheckCircle size={12} /> Ready
+                          </span>
+                        ) : (
+                          <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <XCircle size={12} /> Invalid
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{rawObj[columnMapping['id'] || 'id'] || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{r.exam_type}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{r.subject_id}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{r.year}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{r.topic_id}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{r.difficulty}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.question_text || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_a || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_b || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_c || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_d || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}><strong>{r.correct_answer}</strong></td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.topic_explanation || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.correct_explanation || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.wrong_explanations || '-'}</td>
+                      <td style={{ minWidth: '180px' }}>
+                        {r.errors.length > 0 && (
+                          <div style={{ fontWeight: 600 }}>{r.errors.join('; ')}</div>
+                        )}
+                        {r.warnings.length > 0 && (
+                          <div style={{ fontSize: '11px' }}>{r.warnings.join('; ')}</div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

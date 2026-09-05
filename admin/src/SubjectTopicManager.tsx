@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, BookOpen, AlertTriangle, Layers, Lock } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, AlertTriangle, Layers, Lock, Search, Eye, ArrowLeft } from 'lucide-react';
 import { Subject, Topic } from './types';
 
 interface SubjectTopicManagerProps {
@@ -32,6 +32,14 @@ export default function SubjectTopicManager({
   const [reassignTopicId, setReassignTopicId] = useState<number | ''>('');
   const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
 
+  // Search bar state for topics
+  const [topicSearch, setTopicSearch] = useState<string>('');
+
+  // In-Page Subject Questions View State (Page Content)
+  const [viewingSubjectQuestions, setViewingSubjectQuestions] = useState<Subject | null>(null);
+  const [subjectQuestions, setSubjectQuestions] = useState<any[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
+
   // Exam Type Filter & Master-Detail Selection
   const [subjectFilterExam, setSubjectFilterExam] = useState<string>('ALL');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
@@ -48,10 +56,30 @@ export default function SubjectTopicManager({
   const activeSubject = dbSubjects.find(s => s.id === selectedSubjectId) || filteredSubjects[0] || null;
   const currentSubjectId = activeSubject ? activeSubject.id : null;
 
-  // Topics scoped to currently selected subject
-  const scopedTopics = currentSubjectId
+  // Topics scoped to currently selected subject with search filter applied
+  const scopedTopics = (currentSubjectId
     ? dbTopics.filter(t => t.subject_id === currentSubjectId)
-    : [];
+    : []
+  ).filter(t => !topicSearch || t.name.toLowerCase().includes(topicSearch.toLowerCase()));
+
+  // Fetch subject questions for in-page view
+  const handleViewSubjectQuestions = async (sub: Subject) => {
+    setViewingSubjectQuestions(sub);
+    setLoadingQuestions(true);
+    try {
+      const res = await fetch(`${apiBase}/admin/questions.php?subject_id=${sub.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setSubjectQuestions(data.questions || []);
+      } else {
+        setSubjectQuestions([]);
+      }
+    } catch (err) {
+      showNotification('Failed to fetch questions for subject', 'error');
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
 
   // Handle Add Subject (Immutable name rule enforced)
   const handleCreateSubject = async (e: React.FormEvent) => {
@@ -153,6 +181,73 @@ export default function SubjectTopicManager({
     }
   };
 
+  if (viewingSubjectQuestions) {
+    return (
+      <div className="admin-card" style={{ padding: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setViewingSubjectQuestions(null)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ArrowLeft size={16} /> Back to Subject &amp; Topic Management
+          </button>
+
+          <span className="badge badge-info" style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
+            {viewingSubjectQuestions.exam_type} — {viewingSubjectQuestions.name}
+          </span>
+        </div>
+
+        <h2 className="card-title" style={{ marginBottom: '1rem' }}>
+          Available Questions for {viewingSubjectQuestions.name} ({subjectQuestions.length} Questions)
+        </h2>
+
+        {loadingQuestions ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+            Loading questions for {viewingSubjectQuestions.name}...
+          </div>
+        ) : subjectQuestions.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+            No questions available for {viewingSubjectQuestions.name} yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {subjectQuestions.map((q, idx) => (
+              <div key={q.id || idx} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.2rem', backgroundColor: 'var(--bg-card)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  <span>Question #{q.id || idx + 1} • Year: {q.year || 'N/A'} • Difficulty: {q.difficulty || 'medium'}</span>
+                  <span className="badge badge-info">{q.topic_name || `Topic ID: ${q.topic_id}`}</span>
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '0.8rem', whiteSpace: 'pre-wrap' }}>
+                  {q.question_text}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+                  <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'A' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'A' ? 700 : 400 }}>
+                    A. {q.option_a}
+                  </div>
+                  <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'B' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'B' ? 700 : 400 }}>
+                    B. {q.option_b}
+                  </div>
+                  <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'C' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'C' ? 700 : 400 }}>
+                    C. {q.option_c}
+                  </div>
+                  <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'D' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'D' ? 700 : 400 }}>
+                    D. {q.option_d}
+                  </div>
+                </div>
+                {(q.correct_explanation || q.topic_explanation) && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+                    <strong>Explanation:</strong> {q.correct_explanation || q.topic_explanation}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Total Subjects Count Summary Cards Row */}
@@ -236,6 +331,7 @@ export default function SubjectTopicManager({
                 <th>Subject Name</th>
                 <th>Topics</th>
                 <th>Questions</th>
+                <th style={{ textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -257,6 +353,20 @@ export default function SubjectTopicManager({
                     </td>
                     <td>{sub.topic_count ?? dbTopics.filter(t => t.subject_id === sub.id).length}</td>
                     <td>{sub.question_count ?? 0}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewSubjectQuestions(sub);
+                        }}
+                        title={`View all available questions for ${sub.name}`}
+                      >
+                        <Eye size={12} /> Questions
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -267,11 +377,24 @@ export default function SubjectTopicManager({
 
       {/* Right Column: Topics scoped to selected subject (Detail) */}
       <div className="admin-card">
-        <div className="card-title">
+        <div className="card-title" style={{ flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Layers size={20} /> Topics for {activeSubject ? `"${activeSubject.name}" (${activeSubject.exam_type})` : 'Selected Subject'}
           </span>
-          <span className="badge badge-info">{scopedTopics.length} Topics</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search topics..."
+                value={topicSearch}
+                onChange={(e) => setTopicSearch(e.target.value)}
+                style={{ paddingLeft: '28px', width: '160px', padding: '0.25rem 0.5rem 0.25rem 28px', fontSize: '0.8rem' }}
+              />
+            </div>
+            <span className="badge badge-info">{scopedTopics.length} Topics</span>
+          </div>
         </div>
 
         {!activeSubject ? (

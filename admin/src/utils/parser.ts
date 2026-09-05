@@ -14,6 +14,23 @@ export function cleanValue(value: any): string {
   return String(value).trim();
 }
 
+export function parseCSVTextToRawRows(csvText: string): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
+  return new Promise((resolve, reject) => {
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: 'greedy',
+      complete: (results) => {
+        const headers = results.meta.fields ? results.meta.fields.map(h => h.trim()) : [];
+        const rows = (results.data as Record<string, string>[]).filter(r => {
+          return Object.values(r).some(v => !isCellBlank(v));
+        });
+        resolve({ headers, rows });
+      },
+      error: (err) => reject(err)
+    });
+  });
+}
+
 export function parseFileToRawRows(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
   return new Promise((resolve, reject) => {
     const fileName = file.name.toLowerCase();
