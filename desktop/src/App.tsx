@@ -2006,7 +2006,7 @@ export default function App() {
                         <div style={styles.statCard}>
                           <div style={styles.statLabel}>Top Score</div>
                           <div style={{ ...styles.statValue, color: colors.primary }}>
-                            {historyResults.length > 0 ? Math.max(...historyResults.map(r => r.percentage)).toFixed(0) : '0'}%
+                            {historyResults.length > 0 ? Math.max(...historyResults.map(r => r.percentage)).toFixed(1) : '0'}%
                           </div>
                         </div>
                       </div>
@@ -2094,7 +2094,7 @@ export default function App() {
                                       return (
                                         <g key={idx}>
                                           <circle cx={px} cy={py} r="5" fill={h.percentage >= 50 ? colors.success : colors.danger} />
-                                          <text x={px} y={py - 10} fontSize="10" fontWeight="700" fill={colors.text} textAnchor="middle">{h.percentage.toFixed(0)}%</text>
+                                          <text x={px} y={py - 10} fontSize="10" fontWeight="700" fill={colors.text} textAnchor="middle">{h.percentage.toFixed(1)}%</text>
                                         </g>
                                       );
                                     })}
@@ -2127,7 +2127,7 @@ export default function App() {
 
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <span style={{ fontWeight: 800, fontSize: '16px', color: r.percentage >= 50 ? colors.success : colors.danger }}>
-                                          {r.percentage.toFixed(0)}%
+                                          {r.percentage.toFixed(1)}%
                                         </span>
                                         <button
                                           style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontSize: '12px', fontWeight: 700 }}
@@ -2839,7 +2839,7 @@ export default function App() {
                 </div>
 
                 <div style={{ ...styles.resultCircle, borderColor: colors.success }}>
-                  <span style={{ fontSize: '36px', fontWeight: 800 }}>{activeResult.percentage.toFixed(0)}%</span>
+                  <span style={{ fontSize: '36px', fontWeight: 800 }}>{activeResult.percentage.toFixed(1)}%</span>
                   <span style={{ fontSize: '12px', color: colors.textMuted }}>Score</span>
                 </div>
 
@@ -2862,7 +2862,7 @@ export default function App() {
                       style={{ ...styles.btn, backgroundColor: '#25D366', color: 'white' }}
                       onClick={() => {
                         const shareUrl = `https://cbt.filloptech.com/results.php?result=${activeResult.id}`;
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru! View full result online: ${shareUrl}`;
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(1)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru! View full result online: ${shareUrl}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -2872,7 +2872,7 @@ export default function App() {
                       style={{ ...styles.btn, ...styles.btnSecondary }}
                       onClick={() => {
                         const shareUrl = `https://cbt.filloptech.com/results.php?result=${activeResult.id}`;
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!\n\nView full result online: ${shareUrl}`;
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(1)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!\n\nView full result online: ${shareUrl}`;
                         window.open(`mailto:?subject=Fillop CBT Result&body=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -2881,7 +2881,7 @@ export default function App() {
                     <button
                       style={{ ...styles.btn, ...styles.btnSecondary }}
                       onClick={() => {
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(0)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(1)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
                         navigator.clipboard.writeText(text);
                         alert("Result summary copied to clipboard!");
                       }}
@@ -2901,7 +2901,7 @@ export default function App() {
                 <div>
                   <h1 style={{ fontSize: '24px', fontWeight: 800 }}>Detailed Question &amp; Answer Review</h1>
                   <p style={{ color: colors.textSecondary, fontSize: '14px' }}>
-                    Score: <strong style={{ color: colors.primary }}>{activeResult.percentage.toFixed(0)}%</strong> ({activeResult.score} / {activeResult.total_questions} Correct)
+                    Score: <strong style={{ color: colors.primary }}>{activeResult.percentage.toFixed(1)}%</strong> ({activeResult.score} / {activeResult.total_questions} Correct)
                   </p>
                 </div>
                 <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => setScreen('DASHBOARD')}>
@@ -3099,7 +3099,7 @@ export default function App() {
                 Today's Quiz Score Summary
               </div>
               <div style={{ fontSize: '32px', fontWeight: 900, color: dailyQuizResultToday.percentage >= 50 ? colors.success : colors.danger, marginBottom: '4px' }}>
-                {dailyQuizResultToday.percentage ? Number(dailyQuizResultToday.percentage).toFixed(0) : '0'}%
+                {dailyQuizResultToday.percentage ? Number(dailyQuizResultToday.percentage).toFixed(1) : '0'}%
               </div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: colors.text }}>
                 {dailyQuizResultToday.score} / {dailyQuizResultToday.total_questions} Questions Correct
@@ -3229,7 +3229,7 @@ export default function App() {
                     const isFirst = rankNum === 1;
                     const crownBg = isFirst ? '#f59e0b' : rankNum === 2 ? '#94a3b8' : '#cd7f32';
                     const name = candidate.email ? candidate.email.split('@')[0] : 'Candidate';
-                    const avgPct = candidate.average_percentage ? Number(candidate.average_percentage).toFixed(0) : '0';
+                    const avgPct = candidate.average_percentage ? Number(candidate.average_percentage).toFixed(1) : '0';
 
                     return (
                       <div
@@ -3317,7 +3317,7 @@ export default function App() {
                       {leaderboardData.slice(3).map((candidate, idx) => {
                         const rankNum = idx + 4;
                         const name = candidate.email ? candidate.email.split('@')[0] : 'Candidate';
-                        const avgPct = candidate.average_percentage ? Number(candidate.average_percentage).toFixed(0) : '0';
+                        const avgPct = candidate.average_percentage ? Number(candidate.average_percentage).toFixed(1) : '0';
 
                         return (
                           <div

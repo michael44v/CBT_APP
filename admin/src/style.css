@@ -54,6 +54,7 @@ body {
   background-color: var(--bg-main);
   color: var(--text-main);
   overflow-x: hidden;
+  font-weight: 400;
 }
 
 .admin-layout {
@@ -86,7 +87,7 @@ body {
   margin-bottom: 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
   letter-spacing: -0.3px;
 }
@@ -111,7 +112,7 @@ body {
   padding: 8px 12px 4px;
   color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   cursor: pointer;
@@ -140,7 +141,7 @@ body {
   color: #ffffff;
   opacity: 0.82;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -155,7 +156,7 @@ body {
   background: #ffffff;
   color: var(--primary);
   opacity: 1;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -182,7 +183,7 @@ body {
 
 .admin-title {
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-main);
   letter-spacing: -0.3px;
 }
@@ -234,13 +235,13 @@ body {
 .stat-label {
   color: var(--text-secondary);
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.1px;
 }
 
 .stat-val {
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-main);
   margin-top: 0.2rem;
   letter-spacing: -0.4px;
@@ -257,7 +258,7 @@ body {
 
 .card-title {
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 1.1rem;
   display: flex;
   justify-content: space-between;
@@ -281,7 +282,7 @@ body {
 
 .cta-card h3 {
   font-size: 1.25rem;
-  font-weight: 800;
+  font-weight: 600;
   margin-bottom: 0.4rem;
 }
 
@@ -297,7 +298,7 @@ body {
   border: none;
   padding: 0.65rem 1.3rem;
   border-radius: 10px;
-  font-weight: 700;
+  font-weight: 500;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -342,7 +343,7 @@ body {
 .btn-white {
   background-color: #ffffff;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .btn-white:hover {
@@ -359,7 +360,7 @@ body {
 
 .form-label {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -394,7 +395,7 @@ th, td {
 
 th {
   color: var(--text-secondary);
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   font-size: 0.78rem;
   letter-spacing: 0.05em;
@@ -428,7 +429,7 @@ tr:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.9rem;
   flex-shrink: 0;
 }
@@ -439,7 +440,7 @@ tr:hover {
   padding: 0.35rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -492,7 +493,7 @@ tr:hover {
 
 .errors-title {
   color: var(--danger);
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 0.5rem;
 }
 

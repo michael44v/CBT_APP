@@ -130,6 +130,11 @@ export default function App() {
   const [updateSearch, setUpdateSearch] = useState('');
   const [expandedEmails, setExpandedEmails] = useState<Record<string, boolean>>({});
 
+  // In-Page Upload History Log Questions View State
+  const [viewingLogQuestions, setViewingLogQuestions] = useState<UploadLog | null>(null);
+  const [logQuestionsList, setLogQuestionsList] = useState<any[]>([]);
+  const [loadingLogQuestions, setLoadingLogQuestions] = useState<boolean>(false);
+
   const toggleEmailExpand = (emailKey: string) => {
     setExpandedEmails(prev => ({ ...prev, [emailKey]: !prev[emailKey] }));
   };
@@ -1307,7 +1312,7 @@ export default function App() {
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(r.submitted_at).toLocaleDateString()}</div>
                         </div>
                         <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
-                          {r.percentage}%
+                          {Number(r.percentage).toFixed(1)}%
                         </span>
                       </div>
                     </div>
@@ -1348,41 +1353,140 @@ export default function App() {
 
         {/* UPLOAD HISTORY LOG TAB */}
         {activeTab === 'UPLOAD_LOGS' && (
-          <div className="admin-card">
-            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <History size={20} /> Bulk Upload History Log
-            </h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Log ID</th>
-                  <th>Filename</th>
-                  <th>Target Subject</th>
-                  <th>Target Topic</th>
-                  <th>Imported Rows</th>
-                  <th>Skipped Rows</th>
-                  <th>Date &amp; Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {uploadLogs.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No upload history recorded yet.</td></tr>
-                ) : (
-                  uploadLogs.map(log => (
-                    <tr key={log.id}>
-                      <td>#{log.id}</td>
-                      <td style={{ fontWeight: 700 }}>{log.filename}</td>
-                      <td>{log.subject_name || `Sub #${log.subject_id}`}</td>
-                      <td>{log.topic_name || `Topic #${log.topic_id}`}</td>
-                      <td><span className="badge badge-success">{log.rows_imported}</span></td>
-                      <td><span className="badge badge-warning">{log.rows_skipped}</span></td>
-                      <td>{new Date(log.created_at).toLocaleString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          viewingLogQuestions ? (
+            <div className="admin-card" style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setViewingLogQuestions(null)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} /> Back to Upload Logs
+                </button>
+
+                <span className="badge badge-info" style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
+                  Log #{viewingLogQuestions.id} — {viewingLogQuestions.filename}
+                </span>
+              </div>
+
+              <h2 className="card-title" style={{ marginBottom: '1rem' }}>
+                Questions Added in Upload File "{viewingLogQuestions.filename}" ({logQuestionsList.length} Questions)
+              </h2>
+
+              <div style={{ marginBottom: '1rem', background: 'var(--primary-light)', padding: '0.85rem 1.2rem', borderRadius: '10px', fontSize: '0.85rem' }}>
+                Subject: <strong>{viewingLogQuestions.subject_name || `ID ${viewingLogQuestions.subject_id}`}</strong> • Topic: <strong>{viewingLogQuestions.topic_name || `ID ${viewingLogQuestions.topic_id}`}</strong> • Imported: <strong>{viewingLogQuestions.rows_imported}</strong> rows on {new Date(viewingLogQuestions.created_at).toLocaleString()}
+              </div>
+
+              {loadingLogQuestions ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  Loading questions added for this log file...
+                </div>
+              ) : logQuestionsList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  No questions found for this specific subject/topic log.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {logQuestionsList.map((q, idx) => (
+                    <div key={q.id || idx} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.2rem', backgroundColor: 'var(--bg-card)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        <span>Question #{q.id || idx + 1} • Year: {q.year || 'N/A'} • Difficulty: {q.difficulty || 'medium'}</span>
+                        <span className="badge badge-info">{q.topic_name || `Topic ID: ${q.topic_id}`}</span>
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '0.8rem', whiteSpace: 'pre-wrap' }}>
+                        {q.question_text}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+                        <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'A' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'A' ? 700 : 400 }}>
+                          A. {q.option_a}
+                        </div>
+                        <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'B' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'B' ? 700 : 400 }}>
+                          B. {q.option_b}
+                        </div>
+                        <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'C' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'C' ? 700 : 400 }}>
+                          C. {q.option_c}
+                        </div>
+                        <div style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: q.correct_answer === 'D' ? 'var(--accent-light)' : 'transparent', fontWeight: q.correct_answer === 'D' ? 700 : 400 }}>
+                          D. {q.option_d}
+                        </div>
+                      </div>
+                      {(q.correct_explanation || q.topic_explanation) && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+                          <strong>Explanation:</strong> {q.correct_explanation || q.topic_explanation}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="admin-card">
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <History size={20} /> Bulk Upload History Log
+              </h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Log ID</th>
+                    <th>Filename</th>
+                    <th>Target Subject</th>
+                    <th>Target Topic</th>
+                    <th>Imported Rows</th>
+                    <th>Skipped Rows</th>
+                    <th>Date &amp; Time</th>
+                    <th style={{ textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadLogs.length === 0 ? (
+                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No upload history recorded yet.</td></tr>
+                  ) : (
+                    uploadLogs.map(log => (
+                      <tr
+                        key={log.id}
+                        onClick={async () => {
+                          setViewingLogQuestions(log);
+                          setLoadingLogQuestions(true);
+                          try {
+                            const res = await fetch(`${API_BASE}/admin/questions.php?subject_id=${log.subject_id}&topic_id=${log.topic_id}`);
+                            const data = await res.json();
+                            if (data.success) {
+                              setLogQuestionsList(data.questions || []);
+                            } else {
+                              setLogQuestionsList([]);
+                            }
+                          } catch (e) {
+                            showNotification('Failed to load questions for log file', 'error');
+                          } finally {
+                            setLoadingLogQuestions(false);
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td>#{log.id}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{log.filename}</td>
+                        <td>{log.subject_name || `Sub #${log.subject_id}`}</td>
+                        <td>{log.topic_name || `Topic #${log.topic_id}`}</td>
+                        <td><span className="badge badge-success">{log.rows_imported}</span></td>
+                        <td><span className="badge badge-warning">{log.rows_skipped}</span></td>
+                        <td>{new Date(log.created_at).toLocaleString()}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                          >
+                            <Eye size={12} /> View Questions
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
 
         {/* EXAM RESULTS & ANALYTICS TAB */}
@@ -1405,7 +1509,7 @@ export default function App() {
 
           const groupedList = Object.values(groups).map(g => {
             const total_exams = g.attempts.length;
-            const avg_percentage = Math.round((g.attempts.reduce((acc, a) => acc + (a.percentage || 0), 0) / (total_exams || 1)) * 10) / 10;
+            const avg_percentage = g.attempts.reduce((acc, a) => acc + (a.percentage || 0), 0) / (total_exams || 1);
             return { ...g, total_exams, avg_percentage };
           }).filter(g =>
             !resultSearch ||
@@ -1483,7 +1587,7 @@ export default function App() {
                             </span>
 
                             <span className={`badge ${group.avg_percentage >= 70 ? 'badge-success' : group.avg_percentage >= 50 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
-                              Avg Score: {group.avg_percentage}%
+                              Avg Score: {Number(group.avg_percentage).toFixed(2)}%
                             </span>
 
                             {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
@@ -1510,7 +1614,7 @@ export default function App() {
                                     <td><strong>{r.score}</strong> / {r.total_questions}</td>
                                     <td>
                                       <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
-                                        {r.percentage}%
+                                        {Number(r.percentage).toFixed(2)}%
                                       </span>
                                     </td>
                                     <td>{new Date(r.submitted_at).toLocaleString()}</td>
@@ -2233,7 +2337,7 @@ export default function App() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.85rem', marginBottom: '1rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '10px' }}>
               <div><strong>Email:</strong> {selectedResultDetails.email}</div>
               <div><strong>Exam Type:</strong> {selectedResultDetails.exam_type}</div>
-              <div><strong>Score:</strong> {selectedResultDetails.score} / {selectedResultDetails.total_questions} ({selectedResultDetails.percentage}%)</div>
+              <div><strong>Score:</strong> {selectedResultDetails.score} / {selectedResultDetails.total_questions} ({Number(selectedResultDetails.percentage).toFixed(2)}%)</div>
               <div><strong>Date:</strong> {new Date(selectedResultDetails.submitted_at).toLocaleString()}</div>
             </div>
 
