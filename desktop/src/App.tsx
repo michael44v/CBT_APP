@@ -3400,9 +3400,7 @@ export default function App() {
             textAlign: 'center',
             border: `1px solid ${colors.border}`
           }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: colors.primaryLight, color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', fontSize: '28px', fontWeight: 800 }}>
-              💡
-            </div>
+            
             <h2 style={{ fontSize: '22px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
               Exam Tricks & Strategies
             </h2>
