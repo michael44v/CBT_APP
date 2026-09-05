@@ -445,8 +445,15 @@ export default function QuestionWizard({
             </button>
             <button
               className="btn btn-primary"
-              disabled={!selectedSubject}
-              onClick={() => setStep(3)}
+              disabled={filteredSubjects.length > 0 && !selectedSubject}
+              onClick={() => {
+                let activeSub = selectedSubject;
+                if (!activeSub && filteredSubjects.length > 0) {
+                  activeSub = filteredSubjects[0];
+                  setSelectedSubject(filteredSubjects[0]);
+                }
+                setStep(3);
+              }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
             >
               Next: Select/Create Topic <ArrowRight size={18} />
@@ -532,8 +539,19 @@ export default function QuestionWizard({
             </button>
             <button
               className="btn btn-primary"
-              disabled={!selectedTopic}
-              onClick={() => setStep(4)}
+              disabled={filteredTopics.length > 0 && !selectedTopic}
+              onClick={() => {
+                let activeTop = selectedTopic;
+                if (!activeTop && filteredTopics.length > 0) {
+                  activeTop = filteredTopics[0];
+                  setSelectedTopic(filteredTopics[0]);
+                }
+                if (activeTop || filteredTopics.length === 0) {
+                  setStep(4);
+                } else {
+                  showNotification('Please select or add a topic first.', 'error');
+                }
+              }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
             >
               Next: Upload File <ArrowRight size={18} />
