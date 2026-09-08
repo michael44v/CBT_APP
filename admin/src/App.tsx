@@ -156,26 +156,55 @@ export default function App() {
   // Loading States
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [loadingTabData, setLoadingTabData] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Notifications
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const LoadingSkeleton = ({ message = 'Loading...' }: { message?: string }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
-      <div className="admin-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="skeleton-box" style={{ width: '35%', height: '24px', borderRadius: '6px' }} />
-          <div className="skeleton-box" style={{ width: '15%', height: '20px', borderRadius: '6px' }} />
-        </div>
-        <div className="skeleton-box" style={{ width: '100%', height: '140px', borderRadius: '10px' }} />
+  const DashboardSkeleton = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+      {/* Stat Cards Skeleton Grid */}
+      <div className="dashboard-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
+        {[1, 2, 3, 4].map(i => (
+          <div className="stat-card" key={i} style={{ padding: '1.2rem', gap: '0.8rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="skeleton-box" style={{ width: '60%', height: '16px', borderRadius: '4px' }} />
+              <div className="skeleton-box" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+            </div>
+            <div className="skeleton-box" style={{ width: '40%', height: '28px', borderRadius: '6px' }} />
+          </div>
+        ))}
       </div>
 
-      <div className="admin-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div className="skeleton-box" style={{ width: '25%', height: '20px', borderRadius: '6px' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div className="skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
-          <div className="skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
-          <div className="skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
+      {/* Main Charts & Overview Skeleton Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="admin-card" style={{ padding: '1.5rem', height: '260px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="skeleton-box" style={{ width: '40%', height: '20px', borderRadius: '4px' }} />
+              <div className="skeleton-box" style={{ width: '20%', height: '20px', borderRadius: '4px' }} />
+            </div>
+            <div className="skeleton-box" style={{ width: '100%', height: '170px', borderRadius: '10px' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
+            <div className="admin-card" style={{ padding: '1.2rem', height: '180px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="skeleton-box" style={{ width: '50%', height: '18px', borderRadius: '4px' }} />
+              <div className="skeleton-box" style={{ width: '100%', height: '120px', borderRadius: '8px' }} />
+            </div>
+            <div className="admin-card" style={{ padding: '1.2rem', height: '180px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+              <div className="skeleton-box" style={{ width: '110px', height: '110px', borderRadius: '50%' }} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="admin-card" style={{ padding: '1.2rem', height: '260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="skeleton-box" style={{ width: '60%', height: '20px', borderRadius: '4px' }} />
+            <div className="skeleton-box" style={{ width: '100%', height: '50px', borderRadius: '8px' }} />
+            <div className="skeleton-box" style={{ width: '100%', height: '50px', borderRadius: '8px' }} />
+            <div className="skeleton-box" style={{ width: '100%', height: '50px', borderRadius: '8px' }} />
+          </div>
         </div>
       </div>
     </div>
@@ -713,36 +742,35 @@ export default function App() {
     }
   }, [isWorker, activeTab]);
 
+  const handleRefreshAll = async () => {
+    if (!authToken) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchSubjectsAndTopics(),
+        fetchQuestions(),
+        fetchStatsAndAnalytics(revenueRange),
+        fetchUploadLogs(),
+        !isWorker ? fetchPricing() : Promise.resolve(),
+        !isWorker ? fetchUsers() : Promise.resolve(),
+        !isWorker ? fetchPasscodes() : Promise.resolve(),
+        !isWorker ? fetchPromos() : Promise.resolve(),
+        !isWorker ? fetchNews() : Promise.resolve(),
+        !isWorker ? fetchUpdates() : Promise.resolve()
+      ]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsRefreshing(false);
+      setLoadingStats(false);
+      setLoadingTabData(false);
+    }
+  };
+
   useEffect(() => {
     if (!authToken) return;
-    setLoadingTabData(true);
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        await Promise.all([
-          fetchSubjectsAndTopics(),
-          fetchQuestions(),
-          fetchStatsAndAnalytics(revenueRange),
-          !isWorker ? fetchPricing() : Promise.resolve(),
-          activeTab === 'USERS' && !isWorker ? fetchUsers() : Promise.resolve(),
-          (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS' || activeTab === 'UPGRADES') && !isWorker ? fetchPasscodes() : Promise.resolve(),
-          activeTab === 'PROMOS' && !isWorker ? fetchPromos() : Promise.resolve(),
-          activeTab === 'UPLOAD_LOGS' ? fetchUploadLogs() : Promise.resolve(),
-          activeTab === 'NEWS' && !isWorker ? fetchNews() : Promise.resolve(),
-          activeTab === 'UPDATES' && !isWorker ? fetchUpdates() : Promise.resolve()
-        ]);
-      } finally {
-        if (isMounted) {
-          setLoadingStats(false);
-          setLoadingTabData(false);
-        }
-      }
-    };
-
-    loadData();
-    return () => { isMounted = false; };
-  }, [authToken, activeTab, revenueRange, isWorker]);
+    handleRefreshAll();
+  }, [authToken, revenueRange, isWorker]);
 
   if (!authToken) {
     return <Login onLoginSuccess={handleLoginSuccess} apiBase={API_BASE} />;
@@ -981,7 +1009,18 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={handleRefreshAll}
+              disabled={isRefreshing}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
+              title="Refresh all admin panel data"
+            >
+              <RefreshCw size={18} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+
             <button
               className="btn btn-secondary"
               onClick={toggleTheme}
@@ -992,7 +1031,7 @@ export default function App() {
             </button>
 
             <button
-             
+              className="btn btn-secondary"
               onClick={handleLogout}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
             >
@@ -1020,6 +1059,7 @@ export default function App() {
 
         {/* DASHBOARD TAB */}
         {activeTab === 'DASHBOARD' && (
+          loadingStats ? <DashboardSkeleton /> : (
           <div>
             {isWorker ? (
               <div>
@@ -1449,6 +1489,7 @@ export default function App() {
           </div>
             )}
           </div>
+          )
         )}
 
         {/* QUESTION BANK BROWSER TAB */}
@@ -1798,7 +1839,6 @@ export default function App() {
 
         {/* CANDIDATES TAB */}
         {activeTab === 'USERS' && (
-          loadingTabData ? <LoadingSkeleton message="Loading candidates..." /> : (
           <div className="admin-card">
             <div className="card-title">
               <span>Candidates Management</span>
@@ -1870,11 +1910,10 @@ export default function App() {
               </tbody>
             </table>
           </div>
-          )
         )}
 
         {/* PASSCODES TAB */}
-        {activeTab === 'PASSCODES' && (loadingTabData ? <LoadingSkeleton message="Loading passcodes..." /> : (() => {
+        {activeTab === 'PASSCODES' && (() => {
           // Group passcodes by user email
           const groups: Record<string, { email: string; items: any[]; active_count: number; total_paid: number }> = {};
           passcodes.forEach(p => {
@@ -2063,7 +2102,7 @@ export default function App() {
               )}
             </div>
           );
-        })())}
+        })()}
 
         {/* PRICING SETTINGS TAB */}
         {activeTab === 'PRICING' && (
@@ -2114,7 +2153,6 @@ export default function App() {
 
         {/* PROMO CODES TAB */}
         {activeTab === 'PROMOS' && (
-          loadingTabData ? <LoadingSkeleton message="Loading promo codes..." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2252,12 +2290,10 @@ export default function App() {
               </table>
             </div>
           </div>
-          )
         )}
 
         {/* ADMIN NEWS TAB */}
         {activeTab === 'NEWS' && (
-          loadingTabData ? <LoadingSkeleton message="Loading admin news..." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2344,12 +2380,10 @@ export default function App() {
               </div>
             </div>
           </div>
-          )
         )}
 
         {/* SOFTWARE RELEASE TAB */}
         {activeTab === 'UPDATES' && (
-          loadingTabData ? <LoadingSkeleton message="Loading software updates..." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2477,7 +2511,6 @@ export default function App() {
               </table>
             </div>
           </div>
-          )
         )}
 
       </main>
