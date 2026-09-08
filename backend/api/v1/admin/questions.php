@@ -140,9 +140,12 @@ if ($method === 'GET') {
     }
 
     if (!empty($search)) {
-        $conditions[] = "q.question_text LIKE ?";
-        $params[] = "%" . $search . "%";
-        $types .= "s";
+        $conditions[] = "(q.question_text LIKE ? OR s.name LIKE ? OR t.name LIKE ? OR q.formula LIKE ? OR q.option_a LIKE ? OR q.option_b LIKE ? OR q.option_c LIKE ? OR q.option_d LIKE ?)";
+        $searchPattern = "%" . $search . "%";
+        for ($i = 0; $i < 8; $i++) {
+            $params[] = $searchPattern;
+            $types .= "s";
+        }
     }
 
     if (count($conditions) > 0) {

@@ -554,12 +554,22 @@ export default function QuestionWizard({
 
           {/* Modal for adding new topic inline */}
           {showAddTopicModal && (
-            <div className="modal-overlay" style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem' }}>
+            <div
+              className="modal-overlay"
+              onClick={(e) => { if (e.target === e.currentTarget) setShowAddTopicModal(false); }}
+              style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+                <button
+                  onClick={() => setShowAddTopicModal(false)}
+                  style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+                >
+                  ✕
+                </button>
                 <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Topic</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Subject: {selectedSubject?.name}</p>
                 <form onSubmit={handleAddTopic}>

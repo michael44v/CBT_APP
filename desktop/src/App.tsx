@@ -246,8 +246,72 @@ export default function App() {
   const [actError, setActError] = useState('');
   const [actLoading, setActLoading] = useState(false);
 
-  // Sync / Online state
+  // Sync / Online state & Top-Right Notifications
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ isOnline: true, logs: [] });
+
+  interface SyncToast {
+    id: number;
+    title: string;
+    message: string;
+  }
+
+  const [syncToasts, setSyncToasts] = useState<SyncToast[]>([]);
+  const lastProcessedLogIdRef = useRef<number | null>(null);
+
+  const playSyncNotificationSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(659.25, now);
+      gain1.gain.setValueAtTime(0.2, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(987.77, now + 0.12);
+      gain2.gain.setValueAtTime(0.2, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.5);
+    } catch (e) {
+      console.warn('Audio playback error:', e);
+    }
+  };
+
+  const showSyncToastNotification = (title: string, message: string) => {
+    playSyncNotificationSound();
+    const id = Date.now();
+    setSyncToasts(prev => [...prev, { id, title, message }]);
+    setTimeout(() => {
+      setSyncToasts(prev => prev.filter(t => t.id !== id));
+    }, 6000);
+  };
+
+  const checkNewSyncNotification = (logs: any[]) => {
+    if (!logs || logs.length === 0) return;
+    const latestLog = logs[0];
+    if (latestLog && latestLog.id !== lastProcessedLogIdRef.current) {
+      const isFirst = lastProcessedLogIdRef.current === null;
+      lastProcessedLogIdRef.current = latestLog.id;
+
+      if (!isFirst && latestLog.event_type === 'PULL_QUESTIONS' && latestLog.status === 'SUCCESS') {
+        showSyncToastNotification('Question Bank Updated', latestLog.message);
+      }
+    }
+  };
 
   // Mode Selection State
   const [examType, setExamType] = useState<'JAMB' | 'WAEC' | 'NECO'>('JAMB');
@@ -525,10 +589,12 @@ export default function App() {
     if (window.api && window.api.getSyncStatus) {
       try {
         const status = await window.api.getSyncStatus();
+        const logsList = Array.isArray(status?.logs) ? status.logs : [];
         setSyncStatus({
           isOnline: Boolean(status?.isOnline),
-          logs: Array.isArray(status?.logs) ? status.logs : []
+          logs: logsList
         });
+        checkNewSyncNotification(logsList);
       } catch (error) {
         console.error('Failed to load sync status:', error);
         setSyncStatus({ isOnline: false, logs: [] });
@@ -2654,7 +2720,7 @@ export default function App() {
                     backgroundColor: isSelected ? '#1e4620' : 'transparent',
                     display: 'inline-block', flexShrink: 0,
                   }} />
-                  <span>{opt.text}</span>
+                  <span><MathRenderer text={opt.text} inline={true} /></span>
                 </div>
               );
             })}
@@ -2704,13 +2770,13 @@ export default function App() {
 
                   {curQ.correct_explanation && (
                     <div style={{ marginBottom: '8px' }}>
-                      <strong>Explanation:</strong> {curQ.correct_explanation}
+                      <strong>Explanation:</strong> <MathRenderer text={curQ.correct_explanation} />
                     </div>
                   )}
 
                   {curQ.topic_explanation && (
                     <div style={{ color: '#4b5563' }}>
-                      <strong>Topic Insight:</strong> {curQ.topic_explanation}
+                      <strong>Topic Insight:</strong> <MathRenderer text={curQ.topic_explanation} />
                     </div>
                   )}
 
@@ -3167,7 +3233,7 @@ export default function App() {
                                       fontWeight: (isRightChoice || isUserChoice) ? 700 : 400
                                     }}
                                   >
-                                    <strong>{opt.key}.</strong> {opt.text}
+                                    <strong>{opt.key}.</strong> <MathRenderer text={opt.text} inline={true} />
                                     {labelText && <span style={{ fontSize: '12px', marginLeft: '6px' }}>{labelText}</span>}
                                   </div>
                                 );
@@ -3178,12 +3244,12 @@ export default function App() {
                               <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
                                 {q.correct_explanation && (
                                   <div style={{ marginBottom: '6px' }}>
-                                    <strong>Explanation:</strong> {q.correct_explanation}
+                                    <strong>Explanation:</strong> <MathRenderer text={q.correct_explanation} />
                                   </div>
                                 )}
                                 {q.topic_explanation && (
                                   <div style={{ fontSize: '13px', color: colors.textSecondary }}>
-                                    <strong>Topic Detail:</strong> {q.topic_explanation}
+                                    <strong>Topic Detail:</strong> <MathRenderer text={q.topic_explanation} />
                                   </div>
                                 )}
                                 {q.external_link && (
@@ -3221,8 +3287,21 @@ export default function App() {
 
       {/* First Activation Welcome Modal */}
       {showWelcomeModal && (
-        <div style={styles.modalBackdrop}>
-          <div style={{ ...styles.modal, maxWidth: '520px', padding: '32px' }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowWelcomeModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, padding: '20px'
+          }}
+        >
+          <div style={{ backgroundColor: colors.surface, borderRadius: '20px', maxWidth: '520px', width: '100%', padding: '32px', position: 'relative', border: `1px solid ${colors.border}` }}>
+            <button
+              onClick={() => setShowWelcomeModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: colors.primaryLight, color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <Trophy size={28} />
@@ -3257,17 +3336,20 @@ export default function App() {
 
       {/* ================= DAILY QUIZ PREVIOUS SUMMARY MODAL ================= */}
       {showDailyQuizSummaryModal && dailyQuizResultToday && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '20px'
-        }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDailyQuizSummaryModal(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            padding: '20px'
+          }}
+        >
           <div style={{
             backgroundColor: colors.surface,
             borderRadius: '20px',
@@ -3275,9 +3357,16 @@ export default function App() {
             width: '100%',
             padding: '32px',
             textAlign: 'center',
+            position: 'relative',
             border: `1px solid ${colors.border}`,
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
           }}>
+            <button
+              onClick={() => setShowDailyQuizSummaryModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
             <div style={{
               width: '56px', height: '56px', borderRadius: '50%', backgroundColor: colors.primaryLight,
               color: colors.primary, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
@@ -3334,17 +3423,20 @@ export default function App() {
 
       {/* ================= LEADERBOARD MODAL ================= */}
       {showLeaderboard && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '20px'
-        }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowLeaderboard(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            padding: '20px'
+          }}
+        >
           <div style={{
             backgroundColor: colors.surface,
             borderRadius: '24px',
@@ -3353,6 +3445,7 @@ export default function App() {
             maxHeight: '90vh',
             overflowY: 'auto',
             padding: '28px 32px',
+            position: 'relative',
             border: `1px solid ${colors.border}`,
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
           }}>
@@ -3581,17 +3674,20 @@ export default function App() {
       {/* ================= UPGRADE / SUBSCRIBE MODAL ================= */}
       {/* Exam Trick Modal */}
       {showExamTrickModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '20px'
-        }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowExamTrickModal(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            padding: '20px'
+          }}
+        >
           <div style={{
             backgroundColor: colors.surface,
             borderRadius: '16px',
@@ -3599,8 +3695,15 @@ export default function App() {
             width: '100%',
             padding: '32px',
             textAlign: 'center',
+            position: 'relative',
             border: `1px solid ${colors.border}`
           }}>
+            <button
+              onClick={() => setShowExamTrickModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
             
             <h2 style={{ fontSize: '22px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>
               Exam Tricks & Strategies
@@ -3621,17 +3724,20 @@ export default function App() {
       )}
 
       {showUpgradeModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '20px'
-        }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            padding: '20px'
+          }}
+        >
           <div style={{
             backgroundColor: colors.surface,
             borderRadius: '16px',
@@ -3639,8 +3745,15 @@ export default function App() {
             width: '100%',
             padding: '32px',
             textAlign: 'center',
+            position: 'relative',
             border: `1px solid ${colors.border}`
           }}>
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
               
             </div>
@@ -3673,16 +3786,25 @@ export default function App() {
 
       {/* ================= SUBMIT CONFIRM OVERLAY ================= */}
       {showSubmitConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000
-        }}>
-          <div style={{ backgroundColor: colors.surface, padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px' }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSubmitConfirm(false); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000
+          }}
+        >
+          <div style={{ backgroundColor: colors.surface, padding: '32px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px', position: 'relative' }}>
+            <button
+              onClick={() => setShowSubmitConfirm(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
             <h2>{isPracticeMode ? 'Complete Study?' : isQuizMode ? 'Submit Quiz?' : 'Submit Exam?'}</h2>
             <p style={{ margin: '16px 0', fontSize: '14px', color: colors.textSecondary }}>
               Press 'Y' or click Confirm to {isPracticeMode ? 'complete your study session' : isQuizMode ? 'submit your quiz' : 'submit your exam'}. Press 'ESC' key or click Cancel to close this box.
@@ -3814,28 +3936,85 @@ export default function App() {
         </div>
       )}
 
+      {/* TOP-RIGHT SYNC TOAST NOTIFICATIONS WITH SOUND */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 999999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        maxWidth: '360px',
+        width: '90%',
+        pointerEvents: 'none'
+      }}>
+        {syncToasts.map(toast => (
+          <div
+            key={toast.id}
+            style={{
+              pointerEvents: 'auto',
+              backgroundColor: colors.primary,
+              color: '#ffffff',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+              border: '2px solid #60a5fa',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ fontSize: '14px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Zap size={16} color="#60a5fa" /> {toast.title}
+              </strong>
+              <button
+                onClick={() => setSyncToasts(prev => prev.filter(t => t.id !== toast.id))}
+                style={{ background: 'none', border: 'none', color: '#93c5fd', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: '12px', color: '#e0f2fe', margin: 0, lineHeight: 1.4 }}>
+              {toast.message}
+            </p>
+          </div>
+        ))}
+      </div>
+
       {/* ================= QUESTION INFO MODAL ================= */}
       {infoModalData && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          padding: '20px'
-        }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setInfoModalData(null); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            padding: '20px'
+          }}
+        >
           <div style={{
             backgroundColor: colors.surface,
             borderRadius: '16px',
             maxWidth: '500px',
             width: '100%',
             padding: '28px',
+            position: 'relative',
             border: `1px solid ${colors.border}`,
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
           }}>
+            <button
+              onClick={() => setInfoModalData(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: colors.text, marginBottom: '16px', marginTop: 0 }}>
               Question Details &amp; Metadata
             </h3>

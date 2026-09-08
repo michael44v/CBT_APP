@@ -82,10 +82,17 @@ if ($since_version <= 0) {
 // Pull deleted question IDs since $since_version
 $deleted_question_ids = [];
 if ($since_version > 0) {
-    $stmtDel = $db->prepare("SELECT question_id FROM deleted_questions WHERE sync_version > ?");
+    $stmtDel = $db->prepare("SELECT DISTINCT question_id FROM deleted_questions WHERE sync_version > ?");
     $stmtDel->bind_param("i", $since_version);
     $stmtDel->execute();
     $resDel = $stmtDel->get_result();
+    if ($resDel) {
+        while ($rowDel = $resDel->fetch_assoc()) {
+            $deleted_question_ids[] = intval($rowDel['question_id']);
+        }
+    }
+} else {
+    $resDel = $db->query("SELECT DISTINCT question_id FROM deleted_questions");
     if ($resDel) {
         while ($rowDel = $resDel->fetch_assoc()) {
             $deleted_question_ids[] = intval($rowDel['question_id']);
