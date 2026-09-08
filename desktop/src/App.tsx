@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus, SavedLogin } from './global';
 import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2 } from 'lucide-react';
+import { MathRenderer } from './MathRenderer';
 
 type Screen = 'ACTIVATION' | 'DASHBOARD' | 'PROFILE' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
@@ -2589,9 +2590,9 @@ export default function App() {
 
         {/* Question + options */}
         <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
-          <p style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: curQ.formula ? '12px' : '32px' }}>
-            {curQ.question_text}
-          </p>
+          <div style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: curQ.formula || curQ.image_url ? '12px' : '32px' }}>
+            <MathRenderer text={curQ.question_text} />
+          </div>
 
           {curQ.formula && (
             <div style={{
@@ -2604,13 +2605,23 @@ export default function App() {
               fontFamily: 'Courier New, monospace, serif',
               fontWeight: 600,
               color: isDarkMode ? '#60a5fa' : '#1d4ed8',
-              marginBottom: '28px',
+              marginBottom: curQ.image_url ? '16px' : '28px',
               whiteSpace: 'pre-wrap'
             }}>
               <span style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
                 Formula
               </span>
-              {curQ.formula}
+              <MathRenderer text={curQ.formula} />
+            </div>
+          )}
+
+          {curQ.image_url && (
+            <div style={{ marginBottom: '28px', textAlign: 'center' }}>
+              <img
+                src={curQ.image_url.startsWith('http') ? curQ.image_url : `https://cbt.filloptech.com/${curQ.image_url}`}
+                alt="Question Attachment"
+                style={{ maxHeight: '250px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', border: `1px solid ${colors.border}` }}
+              />
             </div>
           )}
 
@@ -3085,9 +3096,9 @@ export default function App() {
                               </div>
                             </div>
 
-                            <p style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: q.formula ? '12px' : '20px' }}>
-                              {q.question_text}
-                            </p>
+                            <div style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: q.formula || q.image_url ? '12px' : '20px' }}>
+                              <MathRenderer text={q.question_text} />
+                            </div>
 
                             {q.formula && (
                               <div style={{
@@ -3100,13 +3111,23 @@ export default function App() {
                                 fontFamily: 'Courier New, monospace, serif',
                                 fontWeight: 600,
                                 color: isDarkMode ? '#60a5fa' : '#1d4ed8',
-                                marginBottom: '20px',
+                                marginBottom: q.image_url ? '12px' : '20px',
                                 whiteSpace: 'pre-wrap'
                               }}>
                                 <span style={{ fontSize: '10px', color: colors.textMuted, display: 'block', marginBottom: '2px', textTransform: 'uppercase' }}>
                                   Formula
                                 </span>
-                                {q.formula}
+                                <MathRenderer text={q.formula} />
+                              </div>
+                            )}
+
+                            {q.image_url && (
+                              <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                                <img
+                                  src={q.image_url.startsWith('http') ? q.image_url : `https://cbt.filloptech.com/${q.image_url}`}
+                                  alt="Question Attachment"
+                                  style={{ maxHeight: '200px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', border: `1px solid ${colors.border}` }}
+                                />
                               </div>
                             )}
 

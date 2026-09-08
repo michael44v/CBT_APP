@@ -260,58 +260,78 @@ if ($method === 'POST') {
 
     if ($action === 'delete_topic') {
         $topic_id = intval($data['topic_id'] ?? 0);
-        $reassign_topic_id = intval($data['reassign_topic_id'] ?? 0);
 
         if ($topic_id <= 0) {
             echo json_encode(["success" => false, "message" => "Valid topic_id is required."]);
             exit();
         }
 
-        // Check if questions reference this topic
-        $stmtQ = $db->prepare("SELECT COUNT(*) as cnt FROM questions WHERE topic_id = ?");
-        $stmtQ->bind_param("i", $topic_id);
-        $stmtQ->execute();
-        $qCount = $stmtQ->get_result()->fetch_assoc()['cnt'] ?? 0;
+        $sync_version = bumpSyncVersion($db);
 
-        if ($qCount > 0) {
-            if ($reassign_topic_id <= 0 || $reassign_topic_id === $topic_id) {
-                echo json_encode([
-                    "success" => false,
-                    "has_questions" => true,
-                    "question_count" => $qCount,
-                    "message" => "Cannot delete topic because {$qCount} questions are associated with it. Select a target topic to reassign questions first."
-                ]);
-                exit();
+        // Record soft delete entries in deleted_questions for all questions under this topic
+        $stmtSel = $db->prepare("SELECT id FROM questions WHERE topic_id = ?");
+        $stmtSel->bind_param("i", $topic_id);
+        $stmtSel->execute();
+        $resSel = $stmtSel->get_result();
+
+        $stmtDelLog = $db->prepare("INSERT INTO deleted_questions (question_id, sync_version) VALUES (?, ?)");
+        $qCount = 0;
+        if ($resSel) {
+            while ($qRow = $resSel->fetch_assoc()) {
+                $qId = intval($qRow['id']);
+                $stmtDelLog->bind_param("ii", $qId, $sync_version);
+                $stmtDelLog->execute();
+                $qCount++;
             }
-
-            // Verify reassign topic belongs to same subject
-            $stmtSub1 = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
-            $stmtSub1->bind_param("i", $topic_id);
-            $stmtSub1->execute();
-            $sub1 = $stmtSub1->get_result()->fetch_assoc()['subject_id'] ?? 0;
-
-            $stmtSub2 = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
-            $stmtSub2->bind_param("i", $reassign_topic_id);
-            $stmtSub2->execute();
-            $sub2 = $stmtSub2->get_result()->fetch_assoc()['subject_id'] ?? 0;
-
-            if ($sub1 <= 0 || $sub1 !== $sub2) {
-                echo json_encode(["success" => false, "message" => "Target reassign topic must belong to the same subject."]);
-                exit();
-            }
-
-            // Reassign questions
-            $sync_version = bumpSyncVersion($db);
-            $stmtRe = $db->prepare("UPDATE questions SET topic_id = ?, sync_version = ? WHERE topic_id = ?");
-            $stmtRe->bind_param("iii", $reassign_topic_id, $sync_version, $topic_id);
-            $stmtRe->execute();
         }
+
+        // Cleanly delete questions and the topic itself
+        $stmtQDel = $db->prepare("DELETE FROM questions WHERE topic_id = ?");
+        $stmtQDel->bind_param("i", $topic_id);
+        $stmtQDel->execute();
 
         $stmtDel = $db->prepare("DELETE FROM topics WHERE id = ?");
         $stmtDel->bind_param("i", $topic_id);
         $stmtDel->execute();
 
-        echo json_encode(["success" => true, "message" => "Topic deleted successfully."]);
+        echo json_encode([
+            "success" => true,
+            "questions_deleted" => $qCount,
+            "message" => "Topic and {$qCount} questions deleted cleanly."
+        ]);
+        exit();
+    }
+
+    if ($action === 'upload_image') {
+        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(["success" => false, "message" => "No valid image file uploaded."]);
+            exit();
+        }
+
+        $file = $_FILES['image'];
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+
+        if (!in_array($ext, $allowedExts)) {
+            echo json_encode(["success" => false, "message" => "Invalid file extension. Allowed: jpg, jpeg, png, gif, webp, svg."]);
+            exit();
+        }
+
+        $uploadDir = __DIR__ . '/../../../uploads/questions/';
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $newFileName = 'q_' . time() . '_' . uniqid() . '.' . $ext;
+        $targetFile = $uploadDir . $newFileName;
+
+        if (move_uploaded_file($file['tmp_name'], $targetFile)) {
+            $relativeUrl = 'uploads/questions/' . $newFileName;
+            echo json_encode(["success" => true, "image_url" => $relativeUrl, "message" => "Image uploaded successfully."]);
+        } else {
+            echo json_encode(["success" => false, "message" => "Failed to save uploaded image."]);
+        }
         exit();
     }
 
@@ -326,6 +346,7 @@ if ($method === 'POST') {
         $question_text = trim($data['question_text'] ?? '');
         $formula = trim($data['formula'] ?? '');
         $external_link = trim($data['external_link'] ?? '');
+        $image_url = trim($data['image_url'] ?? '');
         $option_a = trim($data['option_a'] ?? '');
         $option_b = trim($data['option_b'] ?? '');
         $option_c = trim($data['option_c'] ?? '');
@@ -365,8 +386,8 @@ if ($method === 'POST') {
         }
 
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, formula, external_link, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiissssssssssssi", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version);
+        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, formula, external_link, image_url, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("siiisssssssssssssi", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $image_url, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version);
         $stmt->execute();
 
         echo json_encode(["success" => true, "id" => $db->insert_id, "message" => "Question added successfully."]);
@@ -383,6 +404,7 @@ if ($method === 'POST') {
         $question_text = trim($data['question_text'] ?? '');
         $formula = trim($data['formula'] ?? '');
         $external_link = trim($data['external_link'] ?? '');
+        $image_url = trim($data['image_url'] ?? '');
         $option_a = trim($data['option_a'] ?? '');
         $option_b = trim($data['option_b'] ?? '');
         $option_c = trim($data['option_c'] ?? '');
@@ -408,8 +430,8 @@ if ($method === 'POST') {
         }
 
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("UPDATE questions SET exam_type=?, subject_id=?, year=?, topic_id=?, difficulty=?, question_text=?, formula=?, external_link=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_answer=?, topic_explanation=?, correct_explanation=?, wrong_explanations=?, sync_version=? WHERE id=?");
-        $stmt->bind_param("siiissssssssssssii", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version, $id);
+        $stmt = $db->prepare("UPDATE questions SET exam_type=?, subject_id=?, year=?, topic_id=?, difficulty=?, question_text=?, formula=?, external_link=?, image_url=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_answer=?, topic_explanation=?, correct_explanation=?, wrong_explanations=?, sync_version=? WHERE id=?");
+        $stmt->bind_param("siiisssssssssssssii", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $image_url, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version, $id);
         $stmt->execute();
 
         echo json_encode(["success" => true, "message" => "Question updated successfully."]);
@@ -547,14 +569,15 @@ if ($method === 'POST') {
         $stmtCheck = $db->prepare("SELECT id FROM questions WHERE subject_id = ? AND question_text = ? LIMIT 1");
         $stmtIns = $db->prepare("INSERT INTO questions (
             exam_type, subject_id, year, topic_id, difficulty,
-            question_text, formula, external_link, option_a, option_b, option_c, option_d, correct_answer,
+            question_text, formula, external_link, image_url, option_a, option_b, option_c, option_d, correct_answer,
             topic_explanation, correct_explanation, wrong_explanations, sync_version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         foreach ($rows as $pRow) {
             $qText = trim($pRow['question_text'] ?? '');
             $formula = trim($pRow['formula'] ?? '');
             $extLink = trim($pRow['external_link'] ?? '');
+            $imgUrl = trim($pRow['image_url'] ?? '');
             $subId = intval($pRow['subject_id'] ?? $subject_id);
             $topId = intval($pRow['topic_id'] ?? $topic_id);
             $examType = strtoupper(trim($pRow['exam_type'] ?? 'JAMB'));
@@ -577,9 +600,9 @@ if ($method === 'POST') {
                 continue;
             }
 
-            $stmtIns->bind_param("siiissssssssssssi",
+            $stmtIns->bind_param("siiisssssssssssssi",
                 $examType, $subId, $yr, $topId, $diff,
-                $qText, $formula, $extLink, $optA, $optB, $optC, $optD, $corrAns,
+                $qText, $formula, $extLink, $imgUrl, $optA, $optB, $optC, $optD, $corrAns,
                 $topExp, $corrExp, $wrongExp, $sync_version
             );
             $stmtIns->execute();

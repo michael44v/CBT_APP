@@ -109,6 +109,7 @@ function createTables() {
         question_text TEXT NOT NULL,
         formula TEXT,
         external_link TEXT,
+        image_url TEXT,
         option_a TEXT NOT NULL,
         option_b TEXT NOT NULL,
         option_c TEXT NOT NULL,
@@ -239,6 +240,10 @@ function createTables() {
 
     try {
       exec(`ALTER TABLE questions ADD COLUMN external_link TEXT`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE questions ADD COLUMN image_url TEXT`);
     } catch (e) { /* Column already exists */ }
 
     try {

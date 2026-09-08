@@ -191,6 +191,7 @@ async function downloadQuestions() {
             question_text,
             formula,
             external_link,
+            image_url,
             option_a,
             option_b,
             option_c,
@@ -200,7 +201,7 @@ async function downloadQuestions() {
             correct_explanation,
             wrong_explanations,
             sync_version
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             q.id,
             q.exam_type,
@@ -211,6 +212,7 @@ async function downloadQuestions() {
             q.question_text,
             q.formula || null,
             q.external_link || null,
+            q.image_url || null,
             q.option_a,
             q.option_b,
             q.option_c,

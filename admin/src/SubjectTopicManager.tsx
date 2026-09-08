@@ -29,8 +29,8 @@ export default function SubjectTopicManager({
 
   // Topic Delete Modal
   const [deletingTopic, setDeletingTopic] = useState<Topic | null>(null);
-  const [reassignTopicId, setReassignTopicId] = useState<number | ''>('');
   const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
+  const [deletingProgress, setDeletingProgress] = useState<number | null>(null);
 
   // Search bar state for topics
   const [topicSearch, setTopicSearch] = useState<string>('');
@@ -149,12 +149,16 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Delete Topic (with optional Question Reassignment)
+  // Delete Topic (Clean question deletion with progress bar)
   const handleDeleteTopic = async () => {
     if (!deletingTopic) return;
     setDeleteErrorMsg(null);
+    setDeletingProgress(25);
 
     try {
+      const timer1 = setTimeout(() => setDeletingProgress(60), 200);
+      const timer2 = setTimeout(() => setDeletingProgress(85), 400);
+
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
         headers: {
@@ -163,20 +167,28 @@ export default function SubjectTopicManager({
         },
         body: JSON.stringify({
           action: 'delete_topic',
-          topic_id: deletingTopic.id,
-          reassign_topic_id: reassignTopicId ? Number(reassignTopicId) : 0
+          topic_id: deletingTopic.id
         }),
       });
+
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+
       const data = await res.json();
       if (data.success) {
-        showNotification('Topic deleted successfully!');
-        setDeletingTopic(null);
-        setReassignTopicId('');
-        onRefreshData();
+        setDeletingProgress(100);
+        setTimeout(() => {
+          showNotification(data.message || 'Topic and associated questions deleted cleanly!');
+          setDeletingTopic(null);
+          setDeletingProgress(null);
+          onRefreshData();
+        }, 400);
       } else {
+        setDeletingProgress(null);
         setDeleteErrorMsg(data.message || 'Failed to delete topic.');
       }
     } catch (err) {
+      setDeletingProgress(null);
       setDeleteErrorMsg('Network error deleting topic.');
     }
   };
@@ -461,9 +473,9 @@ export default function SubjectTopicManager({
 
       {/* EDIT TOPIC MODAL */}
       {editingTopic && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem' }}>
@@ -491,11 +503,11 @@ export default function SubjectTopicManager({
         </div>
       )}
 
-      {/* DELETE TOPIC MODAL (WITH REASSIGNMENT) */}
+      {/* DELETE TOPIC MODAL (CLEAN QUESTION DELETION WITH PROGRESS BAR) */}
       {deletingTopic && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '460px', width: '90%', padding: '1.5rem' }}>
@@ -509,30 +521,38 @@ export default function SubjectTopicManager({
               </div>
             )}
 
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '1rem' }}>
-              If questions already reference this topic, select another topic under the same subject to reassign those questions to before deleting.
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-main)', marginBottom: '1.2rem', lineHeight: 1.5 }}>
+              Are you sure you want to delete topic <strong>"{deletingTopic.name}"</strong>? Deleting this topic will cleanly remove it along with all its associated questions ({deletingTopic.question_count ?? 0} questions).
             </p>
 
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label className="form-label">Reassign Questions To (Target Topic)</label>
-              <select
-                className="form-input"
-                value={reassignTopicId}
-                onChange={(e) => setReassignTopicId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">-- No Reassignment (Delete Directly if 0 Questions) --</option>
-                {dbTopics
-                  .filter(t => t.subject_id === deletingTopic.subject_id && t.id !== deletingTopic.id)
-                  .map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-              </select>
-            </div>
+            {deletingProgress !== null && (
+              <div style={{ marginBottom: '1.2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px', color: 'var(--danger)' }}>
+                  <span>Deleting topic and removing associated questions...</span>
+                  <span>{deletingProgress}%</span>
+                </div>
+                <div style={{ width: '100%', height: '10px', backgroundColor: 'var(--border-color)', borderRadius: '5px', overflow: 'hidden' }}>
+                  <div style={{ width: `${deletingProgress}%`, height: '100%', backgroundColor: 'var(--danger)', transition: 'width 0.2s ease' }} />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setDeletingTopic(null)}>Cancel</button>
-              <button type="button" className="btn btn-danger" onClick={handleDeleteTopic}>
-                Confirm Delete
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={deletingProgress !== null}
+                onClick={() => setDeletingTopic(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={deletingProgress !== null}
+                onClick={handleDeleteTopic}
+              >
+                {deletingProgress !== null ? 'Deleting...' : 'Confirm Delete Topic'}
               </button>
             </div>
           </div>
