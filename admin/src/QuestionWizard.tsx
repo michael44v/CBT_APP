@@ -696,7 +696,7 @@ export default function QuestionWizard({
       {/* STEP 5: Preview & Validate */}
       {step === 5 && (
         <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 5: Validation Preview &amp; Header Mapping</h3>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 5: Validation Preview &amp; Header Mapping (Editable)</h3>
 
           {/* Blank Cell Count Summary Banner */}
           <div style={{

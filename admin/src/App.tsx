@@ -983,62 +983,63 @@ export default function App() {
           </div>
         )}
 
-        {/* Header Control */}
-        <header className="admin-header">
-          <div>
-            <h1 className="admin-title">
-              {activeTab === 'DASHBOARD' && 'Admin Control Center'}
-              {activeTab === 'UPLOAD_WIZARD' && 'Question Upload Wizard'}
-              {activeTab === 'QUESTIONS' && 'Question Bank Master Browser'}
-              {activeTab === 'TOPICS' && 'Subjects & Topic Management'}
-              {activeTab === 'UPLOAD_LOGS' && 'Upload History Log'}
-              {activeTab === 'RESULTS' && 'Exam Results & Analytics'}
-              {activeTab === 'USERS' && 'Candidate Management'}
-              {activeTab === 'PASSCODES' && 'Passcodes & Licensing'}
-              {activeTab === 'PRICING' && 'Pricing Settings'}
-              {activeTab === 'PROMOS' && 'Promo Codes'}
-              {activeTab === 'NEWS' && 'Admin News'}
-              {activeTab === 'UPDATES' && 'Software Release'}
-            </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-              <span className="admin-subtitle" style={{ margin: 0 }}>Welcome, {adminUser?.username || 'Admin'}</span>
-              <span className={`badge ${isWorker ? 'badge-info' : 'badge-success'}`} style={{ textTransform: 'uppercase', fontSize: '0.72rem', padding: '2px 8px' }}>
-                {adminUser?.role || 'super_admin'}
-              </span>
-              <span className="admin-subtitle" style={{ margin: 0 }}>• CBT Guru Central Cloud</span>
-            </div>
-          </div>
+       <header className="admin-header">
+  <div className="admin-header-left">
+    <h1 className="admin-title">
+      {activeTab === 'DASHBOARD' && 'Admin Control Center'}
+      {activeTab === 'UPLOAD_WIZARD' && 'Question Upload Wizard'}
+      {activeTab === 'QUESTIONS' && 'Question Bank Master Browser'}
+      {activeTab === 'TOPICS' && 'Subjects & Topic Management'}
+      {activeTab === 'UPLOAD_LOGS' && 'Upload History Log'}
+      {activeTab === 'RESULTS' && 'Exam Results & Analytics'}
+      {activeTab === 'USERS' && 'Candidate Management'}
+      {activeTab === 'PASSCODES' && 'Passcodes & Licensing'}
+      {activeTab === 'PRICING' && 'Pricing Settings'}
+      {activeTab === 'PROMOS' && 'Promo Codes'}
+      {activeTab === 'NEWS' && 'Admin News'}
+      {activeTab === 'UPDATES' && 'Software Release'}
+    </h1>
+    <div className="admin-header-meta">
+      <span className="meta-dot" />
+      <span>CBT Guru Central Cloud</span>
+    </div>
+  </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={handleRefreshAll}
-              disabled={isRefreshing}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
-              title="Refresh all admin panel data"
-            >
-              <RefreshCw size={18} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
-              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-            </button>
+  <div className="admin-header-right">
+    <div className="admin-user-chip">
+      <div className="user-avatar">
+        {(adminUser?.username || 'A').charAt(0).toUpperCase()}
+      </div>
+      <div className="user-info">
+        <span className="user-name">{adminUser?.username || 'Admin'}</span>
+        <span className={`user-role role-${isWorker ? 'worker' : 'super'}`}>
+          {adminUser?.role || 'super_admin'}
+        </span>
+      </div>
+    </div>
 
-            <button
-              className="btn btn-secondary"
-              onClick={toggleTheme}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
-            >
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-              <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
-            </button>
+    <div className="header-actions">
+      <button
+        className="icon-btn"
+        onClick={handleRefreshAll}
+        disabled={isRefreshing}
+        title="Refresh all admin panel data"
+      >
+        <RefreshCw size={17} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+      </button>
 
-            <button
-              className="btn btn-secondary"
-              onClick={handleLogout}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1rem' }}
-            >
-              <LogOut size={18} /> Sign Out
-            </button>
-          </div>
-        </header>
+      <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
+        {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
+      </button>
+
+      <div className="header-divider" />
+
+      <button className="icon-btn icon-btn-danger" onClick={handleLogout} title="Sign out">
+        <LogOut size={17} />
+      </button>
+    </div>
+  </div>
+</header>
 
         {/* UPLOAD WIZARD TAB */}
         {activeTab === 'UPLOAD_WIZARD' && (

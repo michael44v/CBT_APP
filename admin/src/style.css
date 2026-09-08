@@ -169,7 +169,7 @@ body {
 }
 
 .admin-header {
-  position: sticky;
+  
   top: 0;
   z-index: 90;
   background-color: rgba(226, 232, 240, 0.92);
@@ -541,4 +541,194 @@ tr:hover {
 @keyframes skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+.admin-header {
+  position: fixed;
+  top: 0;
+  left: 260px;           /* match sidebar width */
+  right: 0;
+  z-index: 90;
+  background-color: rgba(226, 232, 240, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.4rem 1.75rem 0.5rem;   /* add horizontal padding since it's no longer inside .admin-body's padding */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .admin-header {
+  background-color: rgba(9, 13, 22, 0.92);
+}
+
+/* push page content down so it doesn't hide under the now-fixed header */
+.admin-body {
+  flex: 1;
+  margin-left: 260px;
+  min-height: 100vh;
+  padding: 1.25rem 1.75rem 2rem;
+  padding-top: calc(1.25rem + 64px); /* adjust 64px to your header's actual rendered height */
+}
+
+.admin-header {
+  position: fixed;
+  top: 0;
+  z-index: 90;
+  background-color: rgba(226, 232, 240, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.85rem 0 0.9rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  margin-left: 2%;
+}
+
+[data-theme="dark"] .admin-header {
+  background-color: rgba(9, 13, 22, 0.92);
+}
+
+.admin-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-title {
+  font-size: 1.35rem;
+  font-weight: 650;
+  color: var(--text-main);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+
+.admin-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.1px;
+}
+
+.meta-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--success);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.admin-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* User identity chip */
+.admin-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px 5px 5px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  box-shadow: var(--card-shadow);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.user-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.user-role {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.user-role.role-super { color: var(--success); }
+.user-role.role-worker { color: var(--accent); }
+
+/* Icon action buttons */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: var(--card-shadow);
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+  background-color: var(--primary-light);
+  color: var(--text-main);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+}
+
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border-color);
+  margin: 0 2px;
+}
+
+@media (max-width: 640px) {
+  .user-info { display: none; }
+  .admin-user-chip { padding: 5px; }
 }
