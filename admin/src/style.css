@@ -505,3 +505,18 @@ tr:hover {
   flex-direction: column;
   gap: 0.3rem;
 }
+
+.admin-layout {
+  display: flex; /* or grid — either way */
+  min-width: 0;
+}
+
+.admin-body {
+  flex: 1;
+  min-width: 0;       /* critical: allows this column to shrink instead of stretching the page */
+  overflow-x: hidden;  /* belt-and-braces: page itself should never scroll horizontally */
+}
+
+.admin-card {
+  min-width: 0;
+}

@@ -638,7 +638,7 @@ export default function QuestionWizard({
               <label className="form-label">Type / Paste Raw CSV Content</label>
               <textarea
                 className="textarea-csv"
-                placeholder={`id,exam_type,subject_id,year,topic_id,difficulty,question_text,formula,external_link,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations\n1,JAMB,1,2024,5,medium,"Find area of circle","A = πr^2","https://example.com/math/circle",154,44,49,110,A,"Circle area","A = 22/7 * 7 * 7 = 154","Common mix up with circumference"`}
+                placeholder={'id,exam_type,subject_id,year,topic_id,difficulty,question_text,formula,external_link,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations'}
                 value={rawCsvText}
                 onChange={(e) => handleRawCsvTextChange(e.target.value)}
                 style={{ height: '220px' }}
