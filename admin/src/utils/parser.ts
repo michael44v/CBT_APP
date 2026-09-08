@@ -109,6 +109,8 @@ export function validateAndMapRows(
     };
 
     const questionText = getVal('question_text');
+    const formula = getVal('formula');
+    const externalLink = getVal('external_link');
     const optionA = getVal('option_a');
     const optionB = getVal('option_b');
     const optionC = getVal('option_c');
@@ -171,6 +173,8 @@ export function validateAndMapRows(
       year: yrNum || currentYear,
       difficulty: ['easy', 'medium', 'hard'].includes(rawDiff) ? rawDiff : 'medium',
       question_text: questionText,
+      formula: formula,
+      external_link: externalLink,
       option_a: optionA,
       option_b: optionB,
       option_c: optionC,

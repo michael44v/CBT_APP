@@ -56,6 +56,8 @@ export default function QuestionWizard({
   // Column Mapping
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({
     question_text: 'question_text',
+    formula: 'formula',
+    external_link: 'external_link',
     option_a: 'option_a',
     option_b: 'option_b',
     option_c: 'option_c',
@@ -155,7 +157,7 @@ export default function QuestionWizard({
 
     const mapping: Record<string, string> = {};
     const targetFields = [
-      'id', 'exam_type', 'subject_id', 'topic_id', 'question_text',
+      'id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link',
       'option_a', 'option_b', 'option_c', 'option_d',
       'correct_answer', 'year', 'difficulty', 'topic_explanation',
       'correct_explanation', 'wrong_explanations'
@@ -207,30 +209,34 @@ export default function QuestionWizard({
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        question_text: 'Solve for x in the linear equation 2x + 5 = 15.',
-        option_a: '5',
-        option_b: '10',
-        option_c: '20',
-        option_d: '15',
+        question_text: 'Solve for x in the quadratic equation x^2 - 5x + 6 = 0 using the quadratic formula.',
+        formula: 'x = (-b ± √(b² - 4ac)) / (2a)',
+        external_link: 'https://cbt.filloptech.com/math/quadratic-equations',
+        option_a: 'x = 2 or x = 3',
+        option_b: 'x = 1 or x = 6',
+        option_c: 'x = -2 or x = -3',
+        option_d: 'x = 0 or x = 5',
         correct_answer: 'A',
         year: '2024',
         difficulty: 'medium',
-        topic_explanation: 'Linear Equations in one variable.',
-        correct_explanation: 'Subtracting 5 from both sides gives 2x = 10, so x = 5.',
-        wrong_explanations: 'Common errors occur when adding instead of subtracting 5.'
+        topic_explanation: 'Quadratic equations factorisation and formula method.',
+        correct_explanation: 'Factoring (x-2)(x-3) = 0 gives x = 2 or x = 3.',
+        wrong_explanations: 'Sign errors when factoring -5x and +6.'
       },
       {
-        question_text: 'Which of the following is a primary color?',
-        option_a: 'Green',
-        option_b: 'Red',
-        option_c: 'Orange',
-        option_d: 'Purple',
-        correct_answer: 'B',
+        question_text: 'Calculate the area of a circle with radius r = 7 cm.',
+        formula: 'A = π * r^2',
+        external_link: 'https://cbt.filloptech.com/math/circles',
+        option_a: '154 cm²',
+        option_b: '44 cm²',
+        option_c: '49 cm²',
+        option_d: '110 cm²',
+        correct_answer: 'A',
         year: '2023',
         difficulty: 'easy',
-        topic_explanation: 'Basic Color Theory.',
-        correct_explanation: 'Red is one of the three additive primary colors.',
-        wrong_explanations: 'Green, orange, and purple are secondary or tertiary colors.'
+        topic_explanation: 'Circle geometry area formula.',
+        correct_explanation: 'A = (22/7) * 7 * 7 = 154 cm².',
+        wrong_explanations: 'Confusing circumference C = 2πr with Area A = πr².'
       }
     ];
 
@@ -632,7 +638,7 @@ export default function QuestionWizard({
               <label className="form-label">Type / Paste Raw CSV Content</label>
               <textarea
                 className="textarea-csv"
-                placeholder={`id,exam_type,subject_id,year,topic_id,difficulty,question_text,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations\n1,JAMB,1,2024,5,medium,"What is 2+2?",2,3,4,5,C,"Addition explanation","2+2=4","Common miscalculation"`}
+                placeholder={`id,exam_type,subject_id,year,topic_id,difficulty,question_text,formula,external_link,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations\n1,JAMB,1,2024,5,medium,"Find area of circle","A = πr^2","https://example.com/math/circle",154,44,49,110,A,"Circle area","A = 22/7 * 7 * 7 = 154","Common mix up with circumference"`}
                 value={rawCsvText}
                 onChange={(e) => handleRawCsvTextChange(e.target.value)}
                 style={{ height: '220px' }}
@@ -698,7 +704,7 @@ export default function QuestionWizard({
             <summary style={{ fontWeight: 700, cursor: 'pointer' }}>Adjust Detected Column Mapping</summary>
             <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', minWidth: '600px' }}>
-                {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
+                {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
                   <div key={field} className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '11px' }}>{field}</label>
                     <select
@@ -756,6 +762,8 @@ export default function QuestionWizard({
                   <th style={{ whiteSpace: 'nowrap' }}>topic_id</th>
                   <th style={{ whiteSpace: 'nowrap' }}>difficulty</th>
                   <th style={{ minWidth: '220px' }}>question_text</th>
+                  <th style={{ minWidth: '150px' }}>formula</th>
+                  <th style={{ minWidth: '150px' }}>external_link</th>
                   <th style={{ minWidth: '120px' }}>option_a</th>
                   <th style={{ minWidth: '120px' }}>option_b</th>
                   <th style={{ minWidth: '120px' }}>option_c</th>
@@ -791,6 +799,8 @@ export default function QuestionWizard({
                       <td style={{ whiteSpace: 'nowrap' }}>{r.topic_id}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{r.difficulty}</td>
                       <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.question_text || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.formula || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.external_link || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_a || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_b || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_c || '-'}</td>

@@ -53,6 +53,8 @@ export default function QuestionBankBrowser({
     topic_id: 1,
     difficulty: 'medium',
     question_text: '',
+    formula: '',
+    external_link: '',
     option_a: '',
     option_b: '',
     option_c: '',
@@ -252,6 +254,8 @@ export default function QuestionBankBrowser({
       topic_name: q.topic_name || `Topic #${q.topic_id}`,
       difficulty: q.difficulty,
       question_text: q.question_text,
+      formula: q.formula || '',
+      external_link: q.external_link || '',
       option_a: q.option_a,
       option_b: q.option_b,
       option_c: q.option_c,
@@ -551,6 +555,16 @@ export default function QuestionBankBrowser({
                 <textarea className="form-input" style={{ minHeight: '70px' }} value={quickForm.question_text} onChange={(e) => setQuickForm({ ...quickForm, question_text: e.target.value })} required />
               </div>
 
+              <div className="form-group">
+                <label className="form-label">Formula (Optional)</label>
+                <input type="text" className="form-input" placeholder="e.g. x = (-b ± √(b² - 4ac)) / (2a)" value={quickForm.formula} onChange={(e) => setQuickForm({ ...quickForm, formula: e.target.value })} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">External Link (Optional)</label>
+                <input type="url" className="form-input" placeholder="https://..." value={quickForm.external_link} onChange={(e) => setQuickForm({ ...quickForm, external_link: e.target.value })} />
+              </div>
+
               <div className="form-group"><label className="form-label">Option A</label><input type="text" className="form-input" value={quickForm.option_a} onChange={(e) => setQuickForm({ ...quickForm, option_a: e.target.value })} required /></div>
               <div className="form-group"><label className="form-label">Option B</label><input type="text" className="form-input" value={quickForm.option_b} onChange={(e) => setQuickForm({ ...quickForm, option_b: e.target.value })} required /></div>
               <div className="form-group"><label className="form-label">Option C</label><input type="text" className="form-input" value={quickForm.option_c} onChange={(e) => setQuickForm({ ...quickForm, option_c: e.target.value })} required /></div>
@@ -629,6 +643,16 @@ export default function QuestionBankBrowser({
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">Question Text</label>
                 <textarea className="form-input" style={{ minHeight: '70px' }} value={editingQuestion.question_text} onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })} required />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Formula (Optional)</label>
+                <input type="text" className="form-input" placeholder="e.g. x = (-b ± √(b² - 4ac)) / (2a)" value={editingQuestion.formula || ''} onChange={(e) => setEditingQuestion({ ...editingQuestion, formula: e.target.value })} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">External Link (Optional)</label>
+                <input type="url" className="form-input" placeholder="https://..." value={editingQuestion.external_link || ''} onChange={(e) => setEditingQuestion({ ...editingQuestion, external_link: e.target.value })} />
               </div>
 
               <div className="form-group"><label className="form-label">Option A</label><input type="text" className="form-input" value={editingQuestion.option_a} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_a: e.target.value })} required /></div>

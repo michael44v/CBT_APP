@@ -26,6 +26,13 @@ export default function App() {
   const [upgradeModalMessage, setUpgradeModalMessage] = useState<string>('');
   const [showExamTrickModal, setShowExamTrickModal] = useState<boolean>(false);
 
+  // Question Info Modal in Exam Mode
+  const [infoModalData, setInfoModalData] = useState<{ text: string; link?: string } | null>(null);
+
+  // Post-Exam Answer Review Filters
+  const [reviewSubjectId, setReviewSubjectId] = useState<number | 'ALL'>('ALL');
+  const [reviewOnlyWrong, setReviewOnlyWrong] = useState<boolean>(false);
+
   // First Activation Welcome Modal
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
 
@@ -975,7 +982,10 @@ export default function App() {
       detailsList.push({
         id: q.id,
         subject_id: q.subject_id,
+        subject_name: q.subject_name || examSubjects.find(s => s.id === q.subject_id)?.name,
         question_text: q.question_text,
+        formula: q.formula,
+        external_link: q.external_link,
         option_a: q.option_a,
         option_b: q.option_b,
         option_c: q.option_c,
@@ -2579,9 +2589,30 @@ export default function App() {
 
         {/* Question + options */}
         <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
-          <p style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: '32px' }}>
+          <p style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: curQ.formula ? '12px' : '32px' }}>
             {curQ.question_text}
           </p>
+
+          {curQ.formula && (
+            <div style={{
+              backgroundColor: isDarkMode ? '#1e293b' : '#f0f4f8',
+              border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+              borderLeft: '4px solid #2563eb',
+              padding: '12px 18px',
+              borderRadius: '8px',
+              fontSize: '15px',
+              fontFamily: 'Courier New, monospace, serif',
+              fontWeight: 600,
+              color: isDarkMode ? '#60a5fa' : '#1d4ed8',
+              marginBottom: '28px',
+              whiteSpace: 'pre-wrap'
+            }}>
+              <span style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
+                Formula
+              </span>
+              {curQ.formula}
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {[
@@ -2671,6 +2702,26 @@ export default function App() {
                       <strong>Topic Insight:</strong> {curQ.topic_explanation}
                     </div>
                   )}
+
+                  {curQ.external_link && (
+                    <div style={{ marginTop: '10px', fontSize: '13px', color: '#2563eb', fontWeight: 600 }}>
+                      <strong>Reference / External Link:</strong>{' '}
+                      <a
+                        href={curQ.external_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: '#2563eb', textDecoration: 'underline' }}
+                        onClick={(e) => {
+                          if (window.api && window.api.openExternal) {
+                            e.preventDefault();
+                            window.api.openExternal(curQ.external_link!);
+                          }
+                        }}
+                      >
+                        {curQ.external_link} ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2737,15 +2788,18 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
-              alert(
-                `Active Question Information:\n\n` +
+              const infoText = `Active Question Information:\n\n` +
                 `Subject: ${curSubName ? curSubName.toUpperCase() : 'N/A'}\n` +
                 `Question Number: Question ${activeSubIndex !== -1 ? activeSubIndex + 1 : currentIdx + 1} of ${activeSubjectQuestions.length}\n` +
                 `Subject Attempted: ${activeSubAttemptedCount} of ${activeSubjectQuestions.length}\n` +
                 `Overall Session: Question ${currentIdx + 1} of ${examQuestions.length}\n` +
                 `Topic: ${(curQ as any)?.topic_name || 'General Syllabus'}\n` +
-                `Exam Source: ${(curQ as any)?.year || '2025'} ${(curQ as any)?.exam_type || examType}`
-              );
+                `Exam Source: ${(curQ as any)?.year || '2025'} ${(curQ as any)?.exam_type || examType}`;
+
+              setInfoModalData({
+                text: infoText,
+                link: curQ.external_link || undefined
+              });
             }}
             style={{
               border: '1px solid #1e3a8a',
@@ -2921,97 +2975,223 @@ export default function App() {
                   return <div style={styles.card}>No detailed question records available for this exam.</div>;
                 }
 
-                return parsedDetails.map((q: any, idx: number) => {
-                  const isCorrect = q.is_correct;
-                  const userAns = q.user_answer;
-                  const correctAns = q.correct_answer;
+                // Extract subject categories
+                const reviewSubjectMap = new Map<number, string>();
+                parsedDetails.forEach((q: any) => {
+                  if (q.subject_id) {
+                    reviewSubjectMap.set(q.subject_id, q.subject_name || `Subject ${q.subject_id}`);
+                  }
+                });
+                const reviewSubjectList = Array.from(reviewSubjectMap.entries()).map(([id, name]) => ({ id, name }));
 
-                  return (
-                    <div
-                      key={q.id || idx}
-                      style={{
-                        ...styles.reviewCard,
-                        borderLeftColor: isCorrect ? colors.success : colors.danger
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textMuted }}>
-                          Question {idx + 1}
-                        </span>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, textTransform: 'uppercase', fontWeight: 600 }}>
-                            Difficulty: {q.difficulty || 'Medium'}
-                          </span>
-                          <span style={{ ...styles.badge, ...(isCorrect ? styles.badgeSuccess : styles.badgeDanger) }}>
-                            {isCorrect ? 'Correct' : userAns ? 'Incorrect' : 'Unanswered'}
-                          </span>
-                        </div>
-                      </div>
+                const filteredDetails = parsedDetails.filter((q: any) => {
+                  if (reviewSubjectId !== 'ALL' && q.subject_id !== reviewSubjectId) return false;
+                  if (reviewOnlyWrong && q.is_correct) return false;
+                  return true;
+                });
 
-                      <p style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: '20px' }}>
-                        {q.question_text}
-                      </p>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                        {[
-                          { key: 'A', text: q.option_a },
-                          { key: 'B', text: q.option_b },
-                          { key: 'C', text: q.option_c },
-                          { key: 'D', text: q.option_d },
-                        ].map(opt => {
-                          const isUserChoice = userAns === opt.key;
-                          const isRightChoice = correctAns === opt.key;
-
-                          let optionBg = colors.bg;
-                          let optionBorder = colors.border;
-                          let labelText = '';
-
-                          if (isRightChoice) {
-                            optionBg = colors.successLight;
-                            optionBorder = colors.success;
-                            labelText = ' ✓ Correct Answer';
-                          } else if (isUserChoice && !isCorrect) {
-                            optionBg = colors.dangerLight;
-                            optionBorder = colors.danger;
-                            labelText = ' ✗ Your Choice';
-                          }
-
+                return (
+                  <>
+                    {/* Subject Category Tabs & Wrong Answer Filter */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', backgroundColor: colors.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase' }}>Subject Category:</span>
+                        <button
+                          onClick={() => setReviewSubjectId('ALL')}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            backgroundColor: reviewSubjectId === 'ALL' ? colors.primary : colors.bg,
+                            color: reviewSubjectId === 'ALL' ? '#ffffff' : colors.text
+                          }}
+                        >
+                          All Subjects ({parsedDetails.length})
+                        </button>
+                        {reviewSubjectList.map(s => {
+                          const subCount = parsedDetails.filter((q: any) => q.subject_id === s.id).length;
+                          const subWrong = parsedDetails.filter((q: any) => q.subject_id === s.id && !q.is_correct).length;
                           return (
-                            <div
-                              key={opt.key}
+                            <button
+                              key={s.id}
+                              onClick={() => setReviewSubjectId(s.id)}
                               style={{
-                                padding: '12px 16px',
-                                borderRadius: '10px',
-                                border: `1px solid ${optionBorder}`,
-                                backgroundColor: optionBg,
-                                fontSize: '14px',
-                                fontWeight: (isRightChoice || isUserChoice) ? 700 : 400
+                                padding: '6px 14px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                backgroundColor: reviewSubjectId === s.id ? colors.primary : colors.bg,
+                                color: reviewSubjectId === s.id ? '#ffffff' : colors.text
                               }}
                             >
-                              <strong>{opt.key}.</strong> {opt.text}
-                              {labelText && <span style={{ fontSize: '12px', marginLeft: '6px' }}>{labelText}</span>}
-                            </div>
+                              {s.name} ({subCount}{subWrong > 0 ? ` • ${subWrong} Wrong` : ''})
+                            </button>
                           );
                         })}
                       </div>
 
-                      {!isQuizMode && (q.correct_explanation || q.topic_explanation) && (
-                        <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
-                          {q.correct_explanation && (
-                            <div style={{ marginBottom: '6px' }}>
-                              <strong>Explanation:</strong> {q.correct_explanation}
-                            </div>
-                          )}
-                          {q.topic_explanation && (
-                            <div style={{ fontSize: '13px', color: colors.textSecondary }}>
-                              <strong>Topic Detail:</strong> {q.topic_explanation}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: colors.danger, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={reviewOnlyWrong}
+                          onChange={(e) => setReviewOnlyWrong(e.target.checked)}
+                          style={{ width: '16px', height: '16px', accentColor: colors.danger, cursor: 'pointer' }}
+                        />
+                        Show Wrong Answers Only
+                      </label>
                     </div>
-                  );
-                });
+
+                    {filteredDetails.length === 0 ? (
+                      <div style={{ ...styles.card, textAlign: 'center', color: colors.textMuted, padding: '32px' }}>
+                        {reviewOnlyWrong ? 'Great job! No wrong answers found for this selection.' : 'No questions match the selected subject category filter.'}
+                      </div>
+                    ) : (
+                      filteredDetails.map((q: any, idx: number) => {
+                        const isCorrect = q.is_correct;
+                        const userAns = q.user_answer;
+                        const correctAns = q.correct_answer;
+
+                        return (
+                          <div
+                            key={q.id || idx}
+                            style={{
+                              ...styles.reviewCard,
+                              borderLeftColor: isCorrect ? colors.success : colors.danger
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textMuted }}>
+                                  Question {idx + 1}
+                                </span>
+                                {q.subject_name && (
+                                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', backgroundColor: colors.primaryLight, color: colors.primary, fontWeight: 700 }}>
+                                    {q.subject_name}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, textTransform: 'uppercase', fontWeight: 600 }}>
+                                  Difficulty: {q.difficulty || 'Medium'}
+                                </span>
+                                <span style={{ ...styles.badge, ...(isCorrect ? styles.badgeSuccess : styles.badgeDanger) }}>
+                                  {isCorrect ? 'Correct' : userAns ? 'Incorrect' : 'Unanswered'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <p style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: q.formula ? '12px' : '20px' }}>
+                              {q.question_text}
+                            </p>
+
+                            {q.formula && (
+                              <div style={{
+                                backgroundColor: isDarkMode ? '#1e293b' : '#f0f4f8',
+                                border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+                                borderLeft: '4px solid #2563eb',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontFamily: 'Courier New, monospace, serif',
+                                fontWeight: 600,
+                                color: isDarkMode ? '#60a5fa' : '#1d4ed8',
+                                marginBottom: '20px',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                <span style={{ fontSize: '10px', color: colors.textMuted, display: 'block', marginBottom: '2px', textTransform: 'uppercase' }}>
+                                  Formula
+                                </span>
+                                {q.formula}
+                              </div>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                              {[
+                                { key: 'A', text: q.option_a },
+                                { key: 'B', text: q.option_b },
+                                { key: 'C', text: q.option_c },
+                                { key: 'D', text: q.option_d },
+                              ].map(opt => {
+                                const isUserChoice = userAns === opt.key;
+                                const isRightChoice = correctAns === opt.key;
+
+                                let optionBg = colors.bg;
+                                let optionBorder = colors.border;
+                                let labelText = '';
+
+                                if (isRightChoice) {
+                                  optionBg = colors.successLight;
+                                  optionBorder = colors.success;
+                                  labelText = ' ✓ Correct Answer';
+                                } else if (isUserChoice && !isCorrect) {
+                                  optionBg = colors.dangerLight;
+                                  optionBorder = colors.danger;
+                                  labelText = ' ✗ Your Choice';
+                                }
+
+                                return (
+                                  <div
+                                    key={opt.key}
+                                    style={{
+                                      padding: '12px 16px',
+                                      borderRadius: '10px',
+                                      border: `1px solid ${optionBorder}`,
+                                      backgroundColor: optionBg,
+                                      fontSize: '14px',
+                                      fontWeight: (isRightChoice || isUserChoice) ? 700 : 400
+                                    }}
+                                  >
+                                    <strong>{opt.key}.</strong> {opt.text}
+                                    {labelText && <span style={{ fontSize: '12px', marginLeft: '6px' }}>{labelText}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {!isQuizMode && (q.correct_explanation || q.topic_explanation || q.external_link) && (
+                              <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
+                                {q.correct_explanation && (
+                                  <div style={{ marginBottom: '6px' }}>
+                                    <strong>Explanation:</strong> {q.correct_explanation}
+                                  </div>
+                                )}
+                                {q.topic_explanation && (
+                                  <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                                    <strong>Topic Detail:</strong> {q.topic_explanation}
+                                  </div>
+                                )}
+                                {q.external_link && (
+                                  <div style={{ marginTop: '8px', fontSize: '13px', color: colors.primary, fontWeight: 700 }}>
+                                    <strong>External Reference:</strong>{' '}
+                                    <a
+                                      href={q.external_link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      style={{ color: colors.primary, textDecoration: 'underline' }}
+                                      onClick={(e) => {
+                                        if (window.api && window.api.openExternal) {
+                                          e.preventDefault();
+                                          window.api.openExternal(q.external_link);
+                                        }
+                                      }}
+                                    >
+                                      {q.external_link} ↗
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </>
+                );
               })()}
             </div>
           )}
@@ -3609,6 +3789,69 @@ export default function App() {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ================= QUESTION INFO MODAL ================= */}
+      {infoModalData && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '28px',
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: colors.text, marginBottom: '16px', marginTop: 0 }}>
+              Question Details &amp; Metadata
+            </h3>
+            <div style={{ fontSize: '13px', lineHeight: 1.6, color: colors.text, whiteSpace: 'pre-wrap', backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: infoModalData.link ? '16px' : '24px' }}>
+              {infoModalData.text}
+            </div>
+
+            {infoModalData.link && (
+              <div style={{ backgroundColor: colors.primaryLight, padding: '14px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: colors.primary, marginBottom: '4px', textTransform: 'uppercase' }}>
+                  External Reference Link
+                </div>
+                <a
+                  href={infoModalData.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: colors.primary, fontSize: '13px', fontWeight: 700, wordBreak: 'break-all', textDecoration: 'underline' }}
+                  onClick={(e) => {
+                    if (window.api && window.api.openExternal) {
+                      e.preventDefault();
+                      window.api.openExternal(infoModalData.link!);
+                    }
+                  }}
+                >
+                  {infoModalData.link} ↗
+                </a>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                style={{ ...styles.btn, ...styles.btnPrimary }}
+                onClick={() => setInfoModalData(null)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
