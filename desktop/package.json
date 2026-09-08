@@ -5,30 +5,19 @@
   "type": "module",
   "main": "electron/main.cjs",
   "productName": "CBT Practice App",
-
   "scripts": {
     "dev": "vite",
     "build:react": "vite build",
-
     "electron": "wait-on http://localhost:5173 && electronmon .",
-
     "start": "concurrently \"npm run dev\" \"npm run electron\"",
-
     "postinstall": "electron-builder install-app-deps",
-
     "rebuild:x64": "electron-rebuild -f -w better-sqlite3 --version 43.4.0 --arch x64",
-
     "rebuild:ia32": "electron-rebuild -f -w better-sqlite3 --version 43.4.0 --arch ia32",
-
     "dist": "npm run build:react && electron-builder",
-
     "dist:mac": "npm run build:react && electron-builder --mac",
-
     "dist:win:x64": "npm run build:react && electron-builder --win --x64",
-
     "dist:win:ia32": "npm run build:react && electron-builder --win --ia32"
   },
-
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",
     "@types/node": "^26.2.0",
@@ -44,64 +33,57 @@
     "vite": "^8.2.0",
     "wait-on": "^9.1.0"
   },
-
   "build": {
     "appId": "com.cbt.app",
     "productName": "CBT Practice App",
-
     "npmRebuild": false,
-
     "files": [
       "dist/**/*",
       "electron/**/*",
       "node_modules/**/*"
     ],
-
     "asar": true,
-
     "asarUnpack": [
       "**/*.node"
     ],
-
     "directories": {
       "buildResources": "build",
       "output": "release"
     },
-
     "mac": {
       "target": "dmg",
       "category": "public.app-category.education",
       "icon": "build/icon.icns"
     },
-
- "win": {
-  "target": [
-    {
-      "target": "nsis",
-      "arch": ["ia32"]
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName} ${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Fillop CBT Guru",
+      "installerHeaderTitle": "Fillop CBT Guru - Professional Exam Prep",
+      "installerHeader": "public/exam_hall_1.jpg",
+      "installerSidebar": "public/computer_center_1.jpg",
+      "uninstallerSidebar": "public/exam_hall_2.jpg"
     }
-  ],
-  "icon": "build/icon.ico",
-  "artifactName": "${productName} ${version}-${arch}.${ext}"
-},
-
-"nsis": {
-  "oneClick": false,
-  "allowToChangeInstallationDirectory": true,
-  "perMachine": false,
-  "deleteAppDataOnUninstall": false,
-  "createDesktopShortcut": true,
-  "createStartMenuShortcut": true,
-  "shortcutName": "Fillop CBT Guru",
-  "installerHeaderTitle": "Fillop CBT Guru - Professional Exam Prep",
-  "installerHeader": "public/exam_hall_1.jpg",
-  "installerSidebar": "public/computer_center_1.jpg",
-  "uninstallerSidebar": "public/exam_hall_2.jpg"
-}
   },
-
   "dependencies": {
     "better-sqlite3": "^13.0.3",
+    "katex": "^0.18.7",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

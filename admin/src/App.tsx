@@ -745,6 +745,8 @@ export default function App() {
   const handleRefreshAll = async () => {
     if (!authToken) return;
     setIsRefreshing(true);
+    setLoadingStats(true);
+    setLoadingTabData(true);
     try {
       await Promise.all([
         fetchSubjectsAndTopics(),
@@ -2518,9 +2520,9 @@ export default function App() {
 
       {/* EXAM RESULT DETAILS MODAL */}
       {selectedResultDetails && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem' }}>
@@ -2558,9 +2560,9 @@ export default function App() {
         }));
 
         return (
-          <div style={{
+          <div className="modal-overlay" style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000,
+            backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
             <div className="admin-card" style={{ maxWidth: '800px', width: '92%', maxHeight: '88vh', overflowY: 'auto', padding: '1.8rem' }}>
@@ -2597,22 +2599,37 @@ export default function App() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                    {userPasscodes.map(p => (
-                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.85rem' }}>
-                        <div>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', marginRight: '10px' }}>
-                            {p.passcode}
-                          </span>
-                          <span className="badge badge-info" style={{ marginRight: '8px' }}>{p.exam_category}</span>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            Allowed Subjects: {p.allowed_subjects || 'All Subjects'}
+                    {userPasscodes.map(p => {
+                      const formatSubjectNames = (rawSubjects?: string | null) => {
+                        if (!rawSubjects || !rawSubjects.trim()) return 'All Subjects';
+                        const items = rawSubjects.split(',').map(s => s.trim()).filter(Boolean);
+                        const names = items.map(item => {
+                          if (!isNaN(Number(item))) {
+                            const foundSub = dbSubjects.find(s => Number(s.id) === Number(item));
+                            return foundSub ? foundSub.name : `Subject #${item}`;
+                          }
+                          return item;
+                        });
+                        return names.join(', ');
+                      };
+
+                      return (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.85rem' }}>
+                          <div>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', marginRight: '10px' }}>
+                              {p.passcode}
+                            </span>
+                            <span className="badge badge-info" style={{ marginRight: '8px' }}>{p.exam_category}</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              Allowed Subjects: {formatSubjectNames(p.allowed_subjects)}
+                            </span>
+                          </div>
+                          <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                            {p.status} ({p.activated_devices || 0}/{p.max_devices || 1} seats)
                           </span>
                         </div>
-                        <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                          {p.status} ({p.activated_devices || 0}/{p.max_devices || 1} seats)
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -2687,9 +2704,9 @@ export default function App() {
 
       {/* EDIT CANDIDATE MODAL */}
       {editingUser && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '440px', width: '90%', padding: '1.5rem' }}>
@@ -2739,9 +2756,9 @@ export default function App() {
 
       {/* MANAGE PASSCODE CATEGORIES & SUBJECTS MODAL */}
       {editingPasscode && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '650px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem' }}>

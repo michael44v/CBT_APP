@@ -11,9 +11,11 @@ import {
   MoveRight,
   Zap,
   CheckCircle,
-  FileText
+  FileText,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Question, Subject, Topic } from './types';
+import { FormulaEditor, MathRenderer } from './FormulaEditor';
 
 interface QuestionBankBrowserProps {
   apiBase: string;
@@ -44,6 +46,37 @@ export default function QuestionBankBrowser({
   const [bulkNewDifficulty, setBulkNewDifficulty] = useState<string>('medium');
   const [showBulkMoveModal, setShowBulkMoveModal] = useState<boolean>(false);
 
+  // Image Upload State
+  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
+
+  const handleImageUpload = async (file: File, callback: (imageUrl: string) => void) => {
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('action', 'upload_image');
+      formData.append('image', file);
+
+      const res = await fetch(`${apiBase}/admin/questions.php`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success && data.image_url) {
+        callback(data.image_url);
+        showNotification('Question image attached!');
+      } else {
+        showNotification(data.message || 'Image upload failed.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error uploading image.', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Single Question Quick Add Modal
   const [showQuickAddModal, setShowQuickAddModal] = useState<boolean>(false);
   const [quickForm, setQuickForm] = useState({
@@ -55,6 +88,7 @@ export default function QuestionBankBrowser({
     question_text: '',
     formula: '',
     external_link: '',
+    image_url: '',
     option_a: '',
     option_b: '',
     option_c: '',
@@ -455,8 +489,24 @@ export default function QuestionBankBrowser({
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{q.topic_name || `Topic #${q.topic_id}`}</div>
                   </td>
                   <td><strong>{q.year}</strong></td>
-                  <td style={{ maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {q.question_text}
+                  <td style={{ maxWidth: '350px' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
+                      <MathRenderer text={q.question_text} />
+                    </div>
+                    {q.formula && (
+                      <div style={{ margin: '4px 0', background: 'var(--primary-light)', padding: '4px 8px', borderRadius: '6px' }}>
+                        <MathRenderer text={q.formula} />
+                      </div>
+                    )}
+                    {q.image_url && (
+                      <div style={{ marginTop: '6px' }}>
+                        <img
+                          src={q.image_url.startsWith('http') ? q.image_url : `https://cbt.filloptech.com/${q.image_url}`}
+                          alt="Question Visual"
+                          style={{ maxHeight: '80px', maxWidth: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
                   </td>
                   <td style={{ fontWeight: 'bold' }}>{q.correct_answer}</td>
                   <td>
@@ -510,9 +560,9 @@ export default function QuestionBankBrowser({
 
       {/* SINGLE QUESTION QUICK ADD MODAL */}
       {showQuickAddModal && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
@@ -555,9 +605,47 @@ export default function QuestionBankBrowser({
                 <textarea className="form-input" style={{ minHeight: '70px' }} value={quickForm.question_text} onChange={(e) => setQuickForm({ ...quickForm, question_text: e.target.value })} required />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Formula (Optional)</label>
-                <input type="text" className="form-input" placeholder="e.g. x = (-b ± √(b² - 4ac)) / (2a)" value={quickForm.formula} onChange={(e) => setQuickForm({ ...quickForm, formula: e.target.value })} />
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">Formula Editor (LaTeX Supported)</label>
+                <FormulaEditor
+                  value={quickForm.formula || ''}
+                  onChange={(val) => setQuickForm({ ...quickForm, formula: val })}
+                />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">Attached Question Image (Optional Attachment)</label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="form-input"
+                    disabled={uploadingImage}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImageUpload(file, (imgUrl) => setQuickForm({ ...quickForm, image_url: imgUrl }));
+                      }
+                    }}
+                  />
+                  {quickForm.image_url && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--primary-light)', padding: '6px 12px', borderRadius: '8px' }}>
+                      <img
+                        src={quickForm.image_url.startsWith('http') ? quickForm.image_url : `https://cbt.filloptech.com/${quickForm.image_url}`}
+                        alt="Attached Question Visual"
+                        style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain', borderRadius: '4px' }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                        onClick={() => setQuickForm({ ...quickForm, image_url: '' })}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group">
@@ -600,9 +688,9 @@ export default function QuestionBankBrowser({
 
       {/* SINGLE QUESTION INLINE EDIT MODAL */}
       {editingQuestion && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
@@ -645,9 +733,47 @@ export default function QuestionBankBrowser({
                 <textarea className="form-input" style={{ minHeight: '70px' }} value={editingQuestion.question_text} onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })} required />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Formula (Optional)</label>
-                <input type="text" className="form-input" placeholder="e.g. x = (-b ± √(b² - 4ac)) / (2a)" value={editingQuestion.formula || ''} onChange={(e) => setEditingQuestion({ ...editingQuestion, formula: e.target.value })} />
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">Formula Editor (LaTeX Supported)</label>
+                <FormulaEditor
+                  value={editingQuestion.formula || ''}
+                  onChange={(val) => setEditingQuestion({ ...editingQuestion, formula: val })}
+                />
+              </div>
+
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">Attached Question Image (Optional Attachment)</label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="form-input"
+                    disabled={uploadingImage}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImageUpload(file, (imgUrl) => setEditingQuestion({ ...editingQuestion, image_url: imgUrl }));
+                      }
+                    }}
+                  />
+                  {editingQuestion.image_url && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--primary-light)', padding: '6px 12px', borderRadius: '8px' }}>
+                      <img
+                        src={editingQuestion.image_url.startsWith('http') ? editingQuestion.image_url : `https://cbt.filloptech.com/${editingQuestion.image_url}`}
+                        alt="Attached Question Visual"
+                        style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain', borderRadius: '4px' }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                        onClick={() => setEditingQuestion({ ...editingQuestion, image_url: '' })}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group">
@@ -690,9 +816,9 @@ export default function QuestionBankBrowser({
 
       {/* BULK MOVE TOPIC MODAL */}
       {showBulkMoveModal && (
-        <div style={{
+        <div className="modal-overlay" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem' }}>

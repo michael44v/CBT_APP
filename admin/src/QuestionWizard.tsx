@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Subject, Topic, ParsedRow } from './types';
 import { parseFileToRawRows, parseCSVTextToRawRows, validateAndMapRows, isCellBlank } from './utils/parser';
+import { MathRenderer } from './FormulaEditor';
 
 interface QuestionWizardProps {
   apiBase: string;
@@ -553,9 +554,9 @@ export default function QuestionWizard({
 
           {/* Modal for adding new topic inline */}
           {showAddTopicModal && (
-            <div style={{
+            <div className="modal-overlay" style={{
               position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+              backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
               <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem' }}>
@@ -783,6 +784,7 @@ export default function QuestionWizard({
                   <th style={{ whiteSpace: 'nowrap' }}>Difficulty</th>
                   <th style={{ minWidth: '220px' }}>Question Text</th>
                   <th style={{ minWidth: '140px' }}>Formula</th>
+                  <th style={{ minWidth: '120px' }}>Attached Image</th>
                   <th style={{ minWidth: '140px' }}>External Link</th>
                   <th style={{ minWidth: '120px' }}>Option A</th>
                   <th style={{ minWidth: '120px' }}>Option B</th>
@@ -856,6 +858,28 @@ export default function QuestionWizard({
                           value={r.formula || ''}
                           onChange={(e) => handleRowFieldChange(idx, 'formula', e.target.value)}
                         />
+                        {r.formula && (
+                          <div style={{ marginTop: '4px', fontSize: '0.75rem', background: 'var(--bg-card)', padding: '2px 4px', borderRadius: '4px' }}>
+                            <MathRenderer text={r.formula} />
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Image Path/URL"
+                          style={{ width: '100%', minWidth: '120px', fontSize: '0.78rem' }}
+                          value={r.image_url || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'image_url', e.target.value)}
+                        />
+                        {r.image_url && (
+                          <img
+                            src={r.image_url.startsWith('http') ? r.image_url : `https://cbt.filloptech.com/${r.image_url}`}
+                            alt="Question Visual"
+                            style={{ maxHeight: '40px', maxWidth: '80px', marginTop: '4px', objectFit: 'contain', borderRadius: '4px' }}
+                          />
+                        )}
                       </td>
                       <td>
                         <input

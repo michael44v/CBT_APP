@@ -29,6 +29,7 @@ export interface Question {
   question_text: string;
   formula?: string | null;
   external_link?: string | null;
+  image_url?: string | null;
   option_a: string;
   option_b: string;
   option_c: string;
@@ -66,6 +67,7 @@ export interface ParsedRow {
   question_text: string;
   formula?: string;
   external_link?: string;
+  image_url?: string;
   option_a: string;
   option_b: string;
   option_c: string;

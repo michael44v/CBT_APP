@@ -111,6 +111,7 @@ export function validateAndMapRows(
     const questionText = getVal('question_text');
     const formula = getVal('formula');
     const externalLink = getVal('external_link');
+    const imageUrl = getVal('image_url');
     const optionA = getVal('option_a');
     const optionB = getVal('option_b');
     const optionC = getVal('option_c');
@@ -175,6 +176,7 @@ export function validateAndMapRows(
       question_text: questionText,
       formula: formula,
       external_link: externalLink,
+      image_url: imageUrl,
       option_a: optionA,
       option_b: optionB,
       option_c: optionC,
