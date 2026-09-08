@@ -107,6 +107,8 @@ function createTables() {
         topic_id INTEGER NOT NULL,
         difficulty TEXT DEFAULT 'medium',
         question_text TEXT NOT NULL,
+        formula TEXT,
+        external_link TEXT,
         option_a TEXT NOT NULL,
         option_b TEXT NOT NULL,
         option_c TEXT NOT NULL,
@@ -229,6 +231,14 @@ function createTables() {
 
     try {
       exec(`ALTER TABLE questions ADD COLUMN sync_version INTEGER DEFAULT 1`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE questions ADD COLUMN formula TEXT`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE questions ADD COLUMN external_link TEXT`);
     } catch (e) { /* Column already exists */ }
 
     try {

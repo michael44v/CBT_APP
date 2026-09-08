@@ -324,6 +324,8 @@ if ($method === 'POST') {
         $topic_name = trim($data['topic_name'] ?? '');
         $difficulty = trim($data['difficulty'] ?? 'medium');
         $question_text = trim($data['question_text'] ?? '');
+        $formula = trim($data['formula'] ?? '');
+        $external_link = trim($data['external_link'] ?? '');
         $option_a = trim($data['option_a'] ?? '');
         $option_b = trim($data['option_b'] ?? '');
         $option_c = trim($data['option_c'] ?? '');
@@ -363,8 +365,8 @@ if ($method === 'POST') {
         }
 
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiissssssssssi", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version);
+        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, formula, external_link, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("siiissssssssssssi", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version);
         $stmt->execute();
 
         echo json_encode(["success" => true, "id" => $db->insert_id, "message" => "Question added successfully."]);
@@ -379,6 +381,8 @@ if ($method === 'POST') {
         $topic_id = intval($data['topic_id'] ?? 0);
         $difficulty = trim($data['difficulty'] ?? 'medium');
         $question_text = trim($data['question_text'] ?? '');
+        $formula = trim($data['formula'] ?? '');
+        $external_link = trim($data['external_link'] ?? '');
         $option_a = trim($data['option_a'] ?? '');
         $option_b = trim($data['option_b'] ?? '');
         $option_c = trim($data['option_c'] ?? '');
@@ -404,8 +408,8 @@ if ($method === 'POST') {
         }
 
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("UPDATE questions SET exam_type=?, subject_id=?, year=?, topic_id=?, difficulty=?, question_text=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_answer=?, topic_explanation=?, correct_explanation=?, wrong_explanations=?, sync_version=? WHERE id=?");
-        $stmt->bind_param("siiissssssssssii", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version, $id);
+        $stmt = $db->prepare("UPDATE questions SET exam_type=?, subject_id=?, year=?, topic_id=?, difficulty=?, question_text=?, formula=?, external_link=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_answer=?, topic_explanation=?, correct_explanation=?, wrong_explanations=?, sync_version=? WHERE id=?");
+        $stmt->bind_param("siiissssssssssssii", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version, $id);
         $stmt->execute();
 
         echo json_encode(["success" => true, "message" => "Question updated successfully."]);
@@ -543,12 +547,14 @@ if ($method === 'POST') {
         $stmtCheck = $db->prepare("SELECT id FROM questions WHERE subject_id = ? AND question_text = ? LIMIT 1");
         $stmtIns = $db->prepare("INSERT INTO questions (
             exam_type, subject_id, year, topic_id, difficulty,
-            question_text, option_a, option_b, option_c, option_d, correct_answer,
+            question_text, formula, external_link, option_a, option_b, option_c, option_d, correct_answer,
             topic_explanation, correct_explanation, wrong_explanations, sync_version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         foreach ($rows as $pRow) {
             $qText = trim($pRow['question_text'] ?? '');
+            $formula = trim($pRow['formula'] ?? '');
+            $extLink = trim($pRow['external_link'] ?? '');
             $subId = intval($pRow['subject_id'] ?? $subject_id);
             $topId = intval($pRow['topic_id'] ?? $topic_id);
             $examType = strtoupper(trim($pRow['exam_type'] ?? 'JAMB'));
@@ -571,9 +577,9 @@ if ($method === 'POST') {
                 continue;
             }
 
-            $stmtIns->bind_param("siiissssssssssi",
+            $stmtIns->bind_param("siiissssssssssssi",
                 $examType, $subId, $yr, $topId, $diff,
-                $qText, $optA, $optB, $optC, $optD, $corrAns,
+                $qText, $formula, $extLink, $optA, $optB, $optC, $optD, $corrAns,
                 $topExp, $corrExp, $wrongExp, $sync_version
             );
             $stmtIns->execute();

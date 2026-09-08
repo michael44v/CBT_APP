@@ -27,6 +27,8 @@ export interface Question {
   topic_name?: string;
   difficulty: 'easy' | 'medium' | 'hard' | string;
   question_text: string;
+  formula?: string | null;
+  external_link?: string | null;
   option_a: string;
   option_b: string;
   option_c: string;
@@ -62,6 +64,8 @@ export interface ParsedRow {
   year: number;
   difficulty: string;
   question_text: string;
+  formula?: string;
+  external_link?: string;
   option_a: string;
   option_b: string;
   option_c: string;
@@ -77,6 +81,8 @@ export interface ParsedRow {
 
 export interface ColumnMapping {
   question_text?: string;
+  formula?: string;
+  external_link?: string;
   option_a?: string;
   option_b?: string;
   option_c?: string;
