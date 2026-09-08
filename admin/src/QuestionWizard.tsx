@@ -373,6 +373,28 @@ export default function QuestionWizard({
   const errorCount = parsedRows.filter(r => !r.isValid).length;
   const warningCount = parsedRows.filter(r => r.warnings.length > 0).length;
 
+  const handleRowFieldChange = (idx: number, field: keyof ParsedRow, val: any) => {
+    setParsedRows(prev => {
+      const updated = [...prev];
+      const item = { ...updated[idx], [field]: val };
+
+      const errors: string[] = [];
+      if (!String(item.question_text || '').trim()) errors.push('Question text is required');
+      if (!String(item.option_a || '').trim()) errors.push('Option A is required');
+      if (!String(item.option_b || '').trim()) errors.push('Option B is required');
+      if (!String(item.option_c || '').trim()) errors.push('Option C is required');
+      if (!String(item.option_d || '').trim()) errors.push('Option D is required');
+      if (!['A', 'B', 'C', 'D'].includes(String(item.correct_answer || '').toUpperCase().trim())) {
+        errors.push('Correct answer must be A, B, C, or D');
+      }
+
+      item.errors = errors;
+      item.isValid = errors.length === 0;
+      updated[idx] = item;
+      return updated;
+    });
+  };
+
   return (
     <div className="admin-card" style={{ padding: '2rem' }}>
       {/* Wizard Progress Stepper Header */}
@@ -748,36 +770,37 @@ export default function QuestionWizard({
             </div>
           )}
 
-          {/* Validation Results Table with Full Texts for All Fields */}
+          {/* Validation Results Table with Editable Textboxes & subject [exam_category] format (no ID column) */}
           <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', marginBottom: '2rem', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
             <table style={{ fontSize: '0.8rem', width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={{ whiteSpace: 'nowrap' }}>Row</th>
                   <th style={{ whiteSpace: 'nowrap' }}>Status</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>id</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>exam_type</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>subject_id</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>year</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>topic_id</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>difficulty</th>
-                  <th style={{ minWidth: '220px' }}>question_text</th>
-                  <th style={{ minWidth: '150px' }}>formula</th>
-                  <th style={{ minWidth: '150px' }}>external_link</th>
-                  <th style={{ minWidth: '120px' }}>option_a</th>
-                  <th style={{ minWidth: '120px' }}>option_b</th>
-                  <th style={{ minWidth: '120px' }}>option_c</th>
-                  <th style={{ minWidth: '120px' }}>option_d</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>correct_answer</th>
-                  <th style={{ minWidth: '180px' }}>topic_explanation</th>
-                  <th style={{ minWidth: '180px' }}>correct_explanation</th>
-                  <th style={{ minWidth: '180px' }}>wrong_explanations</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Subject [Exam Category]</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Topic</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Year</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Difficulty</th>
+                  <th style={{ minWidth: '220px' }}>Question Text</th>
+                  <th style={{ minWidth: '140px' }}>Formula</th>
+                  <th style={{ minWidth: '140px' }}>External Link</th>
+                  <th style={{ minWidth: '120px' }}>Option A</th>
+                  <th style={{ minWidth: '120px' }}>Option B</th>
+                  <th style={{ minWidth: '120px' }}>Option C</th>
+                  <th style={{ minWidth: '120px' }}>Option D</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Correct Answer</th>
+                  <th style={{ minWidth: '160px' }}>Topic Explanation</th>
+                  <th style={{ minWidth: '160px' }}>Correct Explanation</th>
+                  <th style={{ minWidth: '160px' }}>Wrong Explanations</th>
                   <th style={{ minWidth: '180px' }}>Issues / Warnings</th>
                 </tr>
               </thead>
               <tbody>
                 {parsedRows.map((r, idx) => {
-                  const rawObj = rawRows[idx] || {};
+                  const subName = selectedSubject?.name || r.subject_name || 'Subject';
+                  const catName = r.exam_type || selectedExamType || 'JAMB';
+                  const subjectDisplay = `${subName} [${catName}]`;
+
                   return (
                     <tr key={r.row_number}>
                       <td style={{ whiteSpace: 'nowrap' }}><strong>Row {r.row_number}</strong></td>
@@ -792,29 +815,136 @@ export default function QuestionWizard({
                           </span>
                         )}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{rawObj[columnMapping['id'] || 'id'] || '-'}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.exam_type}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.subject_id}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.year}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.topic_id}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.difficulty}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.question_text || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.formula || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.external_link || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_a || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_b || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_c || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.option_d || '-'}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}><strong>{r.correct_answer}</strong></td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.topic_explanation || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.correct_explanation || '-'}</td>
-                      <td style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.wrong_explanations || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--accent)' }}>
+                        {subjectDisplay}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{selectedTopic?.name || r.topic_name || `Topic #${r.topic_id}`}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <input
+                          type="number"
+                          className="form-input"
+                          style={{ width: '70px', padding: '2px 4px', fontSize: '0.78rem' }}
+                          value={r.year || 2024}
+                          onChange={(e) => handleRowFieldChange(idx, 'year', parseInt(e.target.value) || 2024)}
+                        />
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <select
+                          className="form-input"
+                          style={{ padding: '2px 4px', fontSize: '0.78rem' }}
+                          value={r.difficulty || 'medium'}
+                          onChange={(e) => handleRowFieldChange(idx, 'difficulty', e.target.value)}
+                        >
+                          <option value="easy">easy</option>
+                          <option value="medium">medium</option>
+                          <option value="hard">hard</option>
+                        </select>
+                      </td>
+                      <td>
+                        <textarea
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '220px', minHeight: '50px', fontSize: '0.78rem', resize: 'vertical' }}
+                          value={r.question_text || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'question_text', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '130px', fontSize: '0.78rem' }}
+                          value={r.formula || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'formula', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '130px', fontSize: '0.78rem' }}
+                          value={r.external_link || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'external_link', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                          value={r.option_a || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'option_a', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                          value={r.option_b || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'option_b', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                          value={r.option_c || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'option_c', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                          value={r.option_d || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'option_d', e.target.value)}
+                        />
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <select
+                          className="form-input"
+                          style={{ width: '60px', padding: '2px 4px', fontSize: '0.78rem', fontWeight: 800 }}
+                          value={r.correct_answer || 'A'}
+                          onChange={(e) => handleRowFieldChange(idx, 'correct_answer', e.target.value.toUpperCase())}
+                        >
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                        </select>
+                      </td>
+                      <td>
+                        <textarea
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
+                          value={r.topic_explanation || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'topic_explanation', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <textarea
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
+                          value={r.correct_explanation || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'correct_explanation', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <textarea
+                          className="form-input"
+                          style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
+                          value={r.wrong_explanations || ''}
+                          onChange={(e) => handleRowFieldChange(idx, 'wrong_explanations', e.target.value)}
+                        />
+                      </td>
                       <td style={{ minWidth: '180px' }}>
                         {r.errors.length > 0 && (
-                          <div style={{ fontWeight: 600 }}>{r.errors.join('; ')}</div>
+                          <div style={{ color: 'var(--danger)', fontWeight: 600 }}>{r.errors.join('; ')}</div>
                         )}
                         {r.warnings.length > 0 && (
-                          <div style={{ fontSize: '11px' }}>{r.warnings.join('; ')}</div>
+                          <div style={{ color: 'var(--warning)', fontSize: '11px' }}>{r.warnings.join('; ')}</div>
                         )}
                       </td>
                     </tr>

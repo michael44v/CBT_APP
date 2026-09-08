@@ -44,6 +44,20 @@ import QuestionWizard from './QuestionWizard';
 import SubjectTopicManager from './SubjectTopicManager';
 import QuestionBankBrowser from './QuestionBankBrowser';
 import { Subject, Topic, Question, UploadLog } from './types';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  LineChart,
+  Line
+} from 'recharts';
 
 const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost'
   ? 'https://cbt.filloptech.com/api/v1'
@@ -139,12 +153,38 @@ export default function App() {
     setExpandedEmails(prev => ({ ...prev, [emailKey]: !prev[emailKey] }));
   };
 
+  // Loading States
+  const [loadingStats, setLoadingStats] = useState<boolean>(true);
+  const [loadingTabData, setLoadingTabData] = useState<boolean>(false);
+
   // Notifications
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const LoadingSkeleton = ({ message = 'Loading...' }: { message?: string }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+      <div className="admin-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="skeleton-box" style={{ width: '35%', height: '24px', borderRadius: '6px' }} />
+          <div className="skeleton-box" style={{ width: '15%', height: '20px', borderRadius: '6px' }} />
+        </div>
+        <div className="skeleton-box" style={{ width: '100%', height: '140px', borderRadius: '10px' }} />
+      </div>
+
+      <div className="admin-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="skeleton-box" style={{ width: '25%', height: '20px', borderRadius: '6px' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
+          <div className="skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
+          <div className="skeleton-box" style={{ width: '100%', height: '40px', borderRadius: '8px' }} />
+        </div>
+      </div>
+    </div>
+  );
 
   // Result details & editing candidate modals
   const [selectedResultDetails, setSelectedResultDetails] = useState<any | null>(null);
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [viewingUser, setViewingUser] = useState<any | null>(null);
   const [editUserForm, setEditUserForm] = useState({ name: '', phone: '', school: '' });
 
   // Passcode category & subject editing modal state
@@ -662,25 +702,53 @@ export default function App() {
     }
   };
 
+  const isWorker = adminUser?.role === 'worker';
+
+  useEffect(() => {
+    if (isWorker) {
+      const allowedTabs = ['DASHBOARD', 'UPLOAD_WIZARD', 'QUESTIONS', 'TOPICS', 'UPLOAD_LOGS'];
+      if (!allowedTabs.includes(activeTab)) {
+        setActiveTab('DASHBOARD');
+      }
+    }
+  }, [isWorker, activeTab]);
+
   useEffect(() => {
     if (!authToken) return;
-    fetchSubjectsAndTopics();
-    fetchQuestions();
-    fetchStatsAndAnalytics(revenueRange);
-    fetchPricing();
-    if (activeTab === 'USERS') fetchUsers();
-    if (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS' || activeTab === 'UPGRADES') fetchPasscodes();
-    if (activeTab === 'PROMOS') fetchPromos();
-    if (activeTab === 'UPLOAD_LOGS') fetchUploadLogs();
-    if (activeTab === 'NEWS') fetchNews();
-    if (activeTab === 'UPDATES') fetchUpdates();
-  }, [authToken, activeTab, revenueRange]);
+    setLoadingTabData(true);
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          fetchSubjectsAndTopics(),
+          fetchQuestions(),
+          fetchStatsAndAnalytics(revenueRange),
+          !isWorker ? fetchPricing() : Promise.resolve(),
+          activeTab === 'USERS' && !isWorker ? fetchUsers() : Promise.resolve(),
+          (activeTab === 'PASSCODES' || activeTab === 'INSTITUTIONS' || activeTab === 'UPGRADES') && !isWorker ? fetchPasscodes() : Promise.resolve(),
+          activeTab === 'PROMOS' && !isWorker ? fetchPromos() : Promise.resolve(),
+          activeTab === 'UPLOAD_LOGS' ? fetchUploadLogs() : Promise.resolve(),
+          activeTab === 'NEWS' && !isWorker ? fetchNews() : Promise.resolve(),
+          activeTab === 'UPDATES' && !isWorker ? fetchUpdates() : Promise.resolve()
+        ]);
+      } finally {
+        if (isMounted) {
+          setLoadingStats(false);
+          setLoadingTabData(false);
+        }
+      }
+    };
+
+    loadData();
+    return () => { isMounted = false; };
+  }, [authToken, activeTab, revenueRange, isWorker]);
 
   if (!authToken) {
     return <Login onLoginSuccess={handleLoginSuccess} apiBase={API_BASE} />;
   }
 
-  // Real Smooth Area / Line Chart SVG Helper for Revenue
+  // Recharts Helper for Revenue Area Chart
   const renderRevenueAreaChart = (data: { label: string; amount: number }[]) => {
     if (!data || data.length === 0 || data.every(d => d.amount === 0)) {
       return (
@@ -698,66 +766,31 @@ export default function App() {
       );
     }
 
-    const width = 500;
-    const height = 180;
-    const padding = 30;
-    const maxVal = Math.max(...data.map(d => d.amount), 100);
-
-    const points = data.map((d, i) => {
-      const x = padding + (i / (data.length - 1 || 1)) * (width - padding * 2);
-      const y = height - padding - (d.amount / maxVal) * (height - padding * 2);
-      return { x, y, amount: d.amount, label: d.label };
-    });
-
-    let pathD = `M ${points[0].x},${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const curr = points[i];
-      const next = points[i + 1];
-      const cpX = (curr.x + next.x) / 2;
-      pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
-    }
-
-    const areaD = `${pathD} L ${points[points.length - 1].x},${height - padding} L ${points[0].x},${height - padding} Z`;
-    const peakPoint = [...points].sort((a, b) => b.amount - a.amount)[0];
-
     return (
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
-        <defs>
-          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-
-        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="var(--border-color)" strokeDasharray="3 3" />
-        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="var(--border-color)" strokeDasharray="3 3" />
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="var(--border-color)" />
-
-        <path d={areaD} fill="url(#revenueGradient)" />
-        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
-
-        {points.map((pt, i) => (
-          <g key={i}>
-            <circle cx={pt.x} cy={pt.y} r="4" fill="var(--bg-card)" stroke="var(--accent)" strokeWidth="2" />
-            <text x={pt.x} y={height - 10} fontSize="10" textAnchor="middle" fill="var(--text-muted)" fontWeight="600">
-              {pt.label}
-            </text>
-          </g>
-        ))}
-
-        {peakPoint && (
-          <g transform={`translate(${peakPoint.x},${peakPoint.y - 32})`}>
-            <rect x="-42" y="0" width="84" height="22" rx="6" fill="var(--primary)" />
-            <text x="0" y="14" fontSize="10" fill="#ffffff" textAnchor="middle" fontWeight="800">
-              ₦{peakPoint.amount.toLocaleString()}
-            </text>
-          </g>
-        )}
-      </svg>
+      <div style={{ width: '100%', height: 200, marginTop: '0.5rem' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+            <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={11} />
+            <YAxis stroke="var(--text-muted)" fontSize={11} tickFormatter={(v) => `₦${v}`} />
+            <Tooltip
+              contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+              formatter={(val: any) => [`₦${Number(val).toLocaleString()}`, 'Revenue']}
+            />
+            <Area type="monotone" dataKey="amount" stroke="var(--accent)" strokeWidth={3} fill="url(#revenueGradient)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     );
   };
 
-  // Real Question Count per Exam Category Bar Chart SVG Helper
+  // Recharts Helper for Questions Distribution Bar Chart
   const renderQuestionDistributionChart = (questionsList: Question[], color: string) => {
     const counts: Record<string, number> = {};
     questionsList.forEach(q => {
@@ -773,41 +806,21 @@ export default function App() {
           { label: 'NECO', count: questionsList.filter(q => q.subject_id >= 71).length || 0 }
         ];
 
-    const maxCount = Math.max(...chartData.map(d => d.count), 1);
-    const height = 160;
-    const width = 360;
-    const barWidth = 36;
-    const gap = (width - chartData.length * barWidth) / (chartData.length + 1);
-
     return (
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-        {chartData.map((d, i) => {
-          const x = gap + i * (barWidth + gap);
-          const barHeight = Math.max((d.count / maxCount) * 100, 6);
-          const y = 130 - barHeight;
-          const r = 8;
-          const pathD = `
-            M ${x},${y + r}
-            A ${r},${r} 0 0,1 ${x + r},${y}
-            L ${x + barWidth - r},${y}
-            A ${r},${r} 0 0,1 ${x + barWidth},${y + r}
-            L ${x + barWidth},${130}
-            L ${x},${130}
-            Z
-          `;
-          return (
-            <g key={i}>
-              <path d={pathD} fill={color} />
-              <text x={x + barWidth / 2} y={y - 6} fontSize="11" textAnchor="middle" fill="var(--text-main)" fontWeight="800">
-                {d.count}
-              </text>
-              <text x={x + barWidth / 2} y={150} fontSize="11" textAnchor="middle" fill="var(--text-muted)" fontWeight="700">
-                {d.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+      <div style={{ width: '100%', height: 180, marginTop: '0.5rem' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+            <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={11} />
+            <YAxis stroke="var(--text-muted)" fontSize={11} />
+            <Tooltip
+              contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+              formatter={(val: any) => [val, 'Questions']}
+            />
+            <Bar dataKey="count" fill={color} radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     );
   };
 
@@ -853,74 +866,78 @@ export default function App() {
             )}
           </div>
 
-          {/* Group 2: Users & Access */}
-          <div className="sidebar-group">
-            <div className="sidebar-group-header" onClick={() => toggleGroup('users')}>
-              <span>Users &amp; Access</span>
-              {openGroups.users ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </div>
-            {openGroups.users && (
-              <div className="sidebar-group-items">
-                <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>
-                  <Users size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Candidates
-                </button>
-                <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
-                  <Key size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Passcodes &amp; Licensing
-                </button>
+          {!isWorker && (
+            <>
+              {/* Group 2: Users & Access */}
+              <div className="sidebar-group">
+                <div className="sidebar-group-header" onClick={() => toggleGroup('users')}>
+                  <span>Users &amp; Access</span>
+                  {openGroups.users ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                {openGroups.users && (
+                  <div className="sidebar-group-items">
+                    <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>
+                      <Users size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Candidates
+                    </button>
+                    <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
+                      <Key size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Passcodes &amp; Licensing
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Group 3: Reports */}
-          <div className="sidebar-group">
-            <div className="sidebar-group-header" onClick={() => toggleGroup('reports')}>
-              <span>Reports</span>
-              {openGroups.reports ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </div>
-            {openGroups.reports && (
-              <div className="sidebar-group-items">
-                <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
-                  <BarChart3 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Exam Results &amp; Analytics
-                </button>
+              {/* Group 3: Reports */}
+              <div className="sidebar-group">
+                <div className="sidebar-group-header" onClick={() => toggleGroup('reports')}>
+                  <span>Reports</span>
+                  {openGroups.reports ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                {openGroups.reports && (
+                  <div className="sidebar-group-items">
+                    <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
+                      <BarChart3 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Exam Results &amp; Analytics
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Group 4: Monetization */}
-          <div className="sidebar-group">
-            <div className="sidebar-group-header" onClick={() => toggleGroup('monetization')}>
-              <span>Monetization</span>
-              {openGroups.monetization ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </div>
-            {openGroups.monetization && (
-              <div className="sidebar-group-items">
-                <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>
-                  <DollarSign size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Pricing Settings
-                </button>
-                <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>
-                  <Tag size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Promo Codes
-                </button>
+              {/* Group 4: Monetization */}
+              <div className="sidebar-group">
+                <div className="sidebar-group-header" onClick={() => toggleGroup('monetization')}>
+                  <span>Monetization</span>
+                  {openGroups.monetization ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                {openGroups.monetization && (
+                  <div className="sidebar-group-items">
+                    <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>
+                      <DollarSign size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Pricing Settings
+                    </button>
+                    <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>
+                      <Tag size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Promo Codes
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Group 5: System */}
-          <div className="sidebar-group">
-            <div className="sidebar-group-header" onClick={() => toggleGroup('system')}>
-              <span>System</span>
-              {openGroups.system ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </div>
-            {openGroups.system && (
-              <div className="sidebar-group-items">
-                <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>
-                  <Newspaper size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Admin News
-                </button>
-                <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>
-                  <Settings size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Software Release
-                </button>
+              {/* Group 5: System */}
+              <div className="sidebar-group">
+                <div className="sidebar-group-header" onClick={() => toggleGroup('system')}>
+                  <span>System</span>
+                  {openGroups.system ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                {openGroups.system && (
+                  <div className="sidebar-group-items">
+                    <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>
+                      <Newspaper size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Admin News
+                    </button>
+                    <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>
+                      <Settings size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Software Release
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </nav>
       </aside>
 
@@ -955,7 +972,13 @@ export default function App() {
               {activeTab === 'NEWS' && 'Admin News'}
               {activeTab === 'UPDATES' && 'Software Release'}
             </h1>
-            <p className="admin-subtitle">Welcome, {adminUser?.username || 'Admin'} • CBT Guru Central Cloud</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+              <span className="admin-subtitle" style={{ margin: 0 }}>Welcome, {adminUser?.username || 'Admin'}</span>
+              <span className={`badge ${isWorker ? 'badge-info' : 'badge-success'}`} style={{ textTransform: 'uppercase', fontSize: '0.72rem', padding: '2px 8px' }}>
+                {adminUser?.role || 'super_admin'}
+              </span>
+              <span className="admin-subtitle" style={{ margin: 0 }}>• CBT Guru Central Cloud</span>
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -998,6 +1021,110 @@ export default function App() {
         {/* DASHBOARD TAB */}
         {activeTab === 'DASHBOARD' && (
           <div>
+            {isWorker ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0 }}>Content Control Panel</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>Overview of question bank, subjects, topics, and upload log statistics.</p>
+                  </div>
+                  <div className="badge badge-info" style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Calendar size={16} /> {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                </div>
+
+                {/* Worker Content Stat Cards Grid */}
+                <div className="dashboard-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+                  <div className="stat-card" onClick={() => setActiveTab('QUESTIONS')} style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div className="stat-label">Total Questions</div>
+                        <div className="stat-val">{questions.length || stats.total_questions}</div>
+                      </div>
+                      <div className="stat-badge"><BookOpen size={20} /></div>
+                    </div>
+                  </div>
+
+                  <div className="stat-card" onClick={() => setActiveTab('TOPICS')} style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div className="stat-label">Subjects / Topics</div>
+                        <div className="stat-val">{dbSubjects.length} / {dbTopics.length}</div>
+                      </div>
+                      <div className="stat-badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)' }}><Layers size={20} /></div>
+                    </div>
+                  </div>
+
+                  <div className="stat-card" onClick={() => setActiveTab('UPLOAD_LOGS')} style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div className="stat-label">Upload History Logs</div>
+                        <div className="stat-val">{uploadLogs.length}</div>
+                      </div>
+                      <div className="stat-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)' }}><History size={20} /></div>
+                    </div>
+                  </div>
+
+                  <div className="stat-card" onClick={() => setActiveTab('UPLOAD_WIZARD')} style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div className="stat-label">Upload Wizard</div>
+                        <div className="stat-val" style={{ fontSize: '1rem', color: 'var(--accent)' }}>Import New Batch</div>
+                      </div>
+                      <div className="stat-badge" style={{ backgroundColor: 'var(--accent-light)' }}><Upload size={20} /></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Question Distribution Bar Chart */}
+                <div className="admin-card" style={{ marginBottom: '2rem' }}>
+                  <div className="card-title">
+                    <span>Questions per Exam Category</span>
+                    <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
+                  </div>
+                  {renderQuestionDistributionChart(questions, 'var(--primary)')}
+                </div>
+
+                {/* Recent Upload Activity */}
+                <div className="admin-card">
+                  <div className="card-title">
+                    <span>Recent Bulk Upload Activity</span>
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('UPLOAD_LOGS')} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                      View All Upload History <ArrowRight size={14} />
+                    </button>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Filename</th>
+                        <th>Target Subject</th>
+                        <th>Target Topic</th>
+                        <th>Imported Rows</th>
+                        <th>Skipped Rows</th>
+                        <th>Date &amp; Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {uploadLogs.length === 0 ? (
+                        <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No upload history recorded yet.</td></tr>
+                      ) : (
+                        uploadLogs.slice(0, 5).map(log => (
+                          <tr key={log.id}>
+                            <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{log.filename}</td>
+                            <td>{log.subject_name || `Sub #${log.subject_id}`}</td>
+                            <td>{log.topic_name || `Topic #${log.topic_id}`}</td>
+                            <td><span className="badge badge-success">{log.rows_imported}</span></td>
+                            <td><span className="badge badge-warning">{log.rows_skipped}</span></td>
+                            <td>{new Date(log.created_at).toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div>
            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
   <input
     type="text"
@@ -1320,6 +1447,8 @@ export default function App() {
               )}
             </div>
           </div>
+            )}
+          </div>
         )}
 
         {/* QUESTION BANK BROWSER TAB */}
@@ -1373,9 +1502,16 @@ export default function App() {
                 Questions Added in Upload File "{viewingLogQuestions.filename}" ({logQuestionsList.length} Questions)
               </h2>
 
-              <div style={{ marginBottom: '1rem', background: 'var(--primary-light)', padding: '0.85rem 1.2rem', borderRadius: '10px', fontSize: '0.85rem' }}>
-                Subject: <strong>{viewingLogQuestions.subject_name || `ID ${viewingLogQuestions.subject_id}`}</strong> • Topic: <strong>{viewingLogQuestions.topic_name || `ID ${viewingLogQuestions.topic_id}`}</strong> • Imported: <strong>{viewingLogQuestions.rows_imported}</strong> rows on {new Date(viewingLogQuestions.created_at).toLocaleString()}
-              </div>
+              {(() => {
+                const sub = dbSubjects.find(s => Number(s.id) === Number(viewingLogQuestions.subject_id));
+                const cat = sub?.exam_type || (logQuestionsList[0]?.exam_type) || 'JAMB';
+
+                return (
+                  <div style={{ marginBottom: '1rem', background: 'var(--primary-light)', padding: '0.85rem 1.2rem', borderRadius: '10px', fontSize: '0.85rem' }}>
+                    Exam Category: <strong className="badge badge-info" style={{ marginLeft: '4px', marginRight: '8px' }}>{cat}</strong> • Subject: <strong>{viewingLogQuestions.subject_name || sub?.name || `ID ${viewingLogQuestions.subject_id}`}</strong> • Topic: <strong>{viewingLogQuestions.topic_name || `ID ${viewingLogQuestions.topic_id}`}</strong> • Imported: <strong>{viewingLogQuestions.rows_imported}</strong> rows on {new Date(viewingLogQuestions.created_at).toLocaleString()}
+                  </div>
+                );
+              })()}
 
               {loadingLogQuestions ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
@@ -1430,6 +1566,7 @@ export default function App() {
                   <tr>
                     <th>Log ID</th>
                     <th>Filename</th>
+                    <th>Exam Category</th>
                     <th>Target Subject</th>
                     <th>Target Topic</th>
                     <th>Imported Rows</th>
@@ -1440,48 +1577,54 @@ export default function App() {
                 </thead>
                 <tbody>
                   {uploadLogs.length === 0 ? (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No upload history recorded yet.</td></tr>
+                    <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No upload history recorded yet.</td></tr>
                   ) : (
-                    uploadLogs.map(log => (
-                      <tr
-                        key={log.id}
-                        onClick={async () => {
-                          setViewingLogQuestions(log);
-                          setLoadingLogQuestions(true);
-                          try {
-                            const res = await fetch(`${API_BASE}/admin/questions.php?subject_id=${log.subject_id}&topic_id=${log.topic_id}`);
-                            const data = await res.json();
-                            if (data.success) {
-                              setLogQuestionsList(data.questions || []);
-                            } else {
-                              setLogQuestionsList([]);
+                    uploadLogs.map(log => {
+                      const matchedSub = dbSubjects.find(s => Number(s.id) === Number(log.subject_id));
+                      const catName = matchedSub?.exam_type || 'JAMB';
+
+                      return (
+                        <tr
+                          key={log.id}
+                          onClick={async () => {
+                            setViewingLogQuestions(log);
+                            setLoadingLogQuestions(true);
+                            try {
+                              const res = await fetch(`${API_BASE}/admin/questions.php?subject_id=${log.subject_id}&topic_id=${log.topic_id}`);
+                              const data = await res.json();
+                              if (data.success) {
+                                setLogQuestionsList(data.questions || []);
+                              } else {
+                                setLogQuestionsList([]);
+                              }
+                            } catch (e) {
+                              showNotification('Failed to load questions for log file', 'error');
+                            } finally {
+                              setLoadingLogQuestions(false);
                             }
-                          } catch (e) {
-                            showNotification('Failed to load questions for log file', 'error');
-                          } finally {
-                            setLoadingLogQuestions(false);
-                          }
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td>#{log.id}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{log.filename}</td>
-                        <td>{log.subject_name || `Sub #${log.subject_id}`}</td>
-                        <td>{log.topic_name || `Topic #${log.topic_id}`}</td>
-                        <td><span className="badge badge-success">{log.rows_imported}</span></td>
-                        <td><span className="badge badge-warning">{log.rows_skipped}</span></td>
-                        <td>{new Date(log.created_at).toLocaleString()}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                          >
-                            <Eye size={12} /> View Questions
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <td>#{log.id}</td>
+                          <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{log.filename}</td>
+                          <td><span className="badge badge-info">{catName}</span></td>
+                          <td>{log.subject_name || matchedSub?.name || `Sub #${log.subject_id}`}</td>
+                          <td>{log.topic_name || `Topic #${log.topic_id}`}</td>
+                          <td><span className="badge badge-success">{log.rows_imported}</span></td>
+                          <td><span className="badge badge-warning">{log.rows_skipped}</span></td>
+                          <td>{new Date(log.created_at).toLocaleString()}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                            >
+                              <Eye size={12} /> View Questions
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1655,6 +1798,7 @@ export default function App() {
 
         {/* CANDIDATES TAB */}
         {activeTab === 'USERS' && (
+          loadingTabData ? <LoadingSkeleton message="Loading candidates..." /> : (
           <div className="admin-card">
             <div className="card-title">
               <span>Candidates Management</span>
@@ -1694,6 +1838,14 @@ export default function App() {
                           <button
                             className="btn btn-secondary"
                             style={{ padding: '4px 8px' }}
+                            title="View Full Candidate Details"
+                            onClick={() => setViewingUser(u)}
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 8px' }}
                             title="Edit Candidate Profile"
                             onClick={() => {
                               setEditingUser(u);
@@ -1718,10 +1870,11 @@ export default function App() {
               </tbody>
             </table>
           </div>
+          )
         )}
 
         {/* PASSCODES TAB */}
-        {activeTab === 'PASSCODES' && (() => {
+        {activeTab === 'PASSCODES' && (loadingTabData ? <LoadingSkeleton message="Loading passcodes..." /> : (() => {
           // Group passcodes by user email
           const groups: Record<string, { email: string; items: any[]; active_count: number; total_paid: number }> = {};
           passcodes.forEach(p => {
@@ -1910,7 +2063,7 @@ export default function App() {
               )}
             </div>
           );
-        })()}
+        })())}
 
         {/* PRICING SETTINGS TAB */}
         {activeTab === 'PRICING' && (
@@ -1961,6 +2114,7 @@ export default function App() {
 
         {/* PROMO CODES TAB */}
         {activeTab === 'PROMOS' && (
+          loadingTabData ? <LoadingSkeleton message="Loading promo codes..." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2098,10 +2252,12 @@ export default function App() {
               </table>
             </div>
           </div>
+          )
         )}
 
         {/* ADMIN NEWS TAB */}
         {activeTab === 'NEWS' && (
+          loadingTabData ? <LoadingSkeleton message="Loading admin news..." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2188,10 +2344,12 @@ export default function App() {
               </div>
             </div>
           </div>
+          )
         )}
 
         {/* SOFTWARE RELEASE TAB */}
         {activeTab === 'UPDATES' && (
+          loadingTabData ? <LoadingSkeleton message="Loading software updates..." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2319,6 +2477,7 @@ export default function App() {
               </table>
             </div>
           </div>
+          )
         )}
 
       </main>
@@ -2352,6 +2511,145 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* CANDIDATE FULL DETAILS MODAL */}
+      {viewingUser && (() => {
+        const userPasscodes = passcodes.filter(p => (p.email || '').toLowerCase() === viewingUser.email.toLowerCase());
+        const userResults = resultsList.filter(r => (r.email || '').toLowerCase() === viewingUser.email.toLowerCase());
+
+        const chartData = userResults.map((r, idx) => ({
+          name: `Exam #${idx + 1}`,
+          percentage: Number(r.percentage || 0),
+          exam_type: r.exam_type || 'JAMB'
+        }));
+
+        return (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <div className="admin-card" style={{ maxWidth: '800px', width: '92%', maxHeight: '88vh', overflowY: 'auto', padding: '1.8rem' }}>
+              {/* Profile Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="avatar-circle" style={{ width: '56px', height: '56px', fontSize: '1.5rem', fontWeight: 800 }}>
+                    {(viewingUser.name || 'C').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                      {viewingUser.name}
+                    </h3>
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {viewingUser.email} • Phone: {viewingUser.phone || 'N/A'}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Institution: <strong>{viewingUser.school || 'N/A'}</strong> • Joined: {new Date(viewingUser.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                <button className="btn btn-secondary" onClick={() => setViewingUser(null)}>Close</button>
+              </div>
+
+              {/* Passcodes Section */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Key size={18} style={{ color: 'var(--accent)' }} /> Candidate Passcodes &amp; Licensing
+                </h4>
+                {userPasscodes.length === 0 ? (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'var(--primary-light)', padding: '0.85rem', borderRadius: '10px' }}>
+                    No passcode records linked to this email.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {userPasscodes.map(p => (
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.85rem' }}>
+                        <div>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', marginRight: '10px' }}>
+                            {p.passcode}
+                          </span>
+                          <span className="badge badge-info" style={{ marginRight: '8px' }}>{p.exam_category}</span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            Allowed Subjects: {p.allowed_subjects || 'All Subjects'}
+                          </span>
+                        </div>
+                        <span className={`badge ${p.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                          {p.status} ({p.activated_devices || 0}/{p.max_devices || 1} seats)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Candidate Performance Chart */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <TrendingUp size={18} style={{ color: 'var(--accent)' }} /> Candidate Performance History Trend
+                </h4>
+                {chartData.length === 0 ? (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'var(--primary-light)', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}>
+                    No exam submissions recorded for performance charting yet.
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', height: 220, backgroundColor: 'var(--bg-card)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                        <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} />
+                        <YAxis domain={[0, 100]} stroke="var(--text-muted)" fontSize={11} unit="%" />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+                          formatter={(val: any) => [`${val}%`, 'Score Percentage']}
+                        />
+                        <Line type="monotone" dataKey="percentage" stroke="var(--accent)" strokeWidth={3} dot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              {/* Exam History Table */}
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <BarChart3 size={18} style={{ color: 'var(--primary)' }} /> Exam Attempt History ({userResults.length})
+                </h4>
+                {userResults.length === 0 ? (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'var(--primary-light)', padding: '0.85rem', borderRadius: '10px' }}>
+                    No exam submissions on record.
+                  </div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Exam Type</th>
+                        <th>Score / Total</th>
+                        <th>Percentage</th>
+                        <th>Submitted At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userResults.map(r => (
+                        <tr key={r.id}>
+                          <td><span className="badge badge-info">{r.exam_type}</span></td>
+                          <td><strong>{r.score}</strong> / {r.total_questions}</td>
+                          <td>
+                            <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
+                              {Number(r.percentage).toFixed(2)}%
+                            </span>
+                          </td>
+                          <td>{new Date(r.submitted_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* EDIT CANDIDATE MODAL */}
       {editingUser && (
