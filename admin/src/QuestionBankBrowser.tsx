@@ -111,7 +111,20 @@ export default function QuestionBankBrowser({
     if (filterExam && q.exam_type !== filterExam) return false;
     if (filterSubjectId && q.subject_id !== Number(filterSubjectId)) return false;
     if (filterTopicId && q.topic_id !== Number(filterTopicId)) return false;
-    if (searchTerm && !q.question_text.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const subjectName = q.subject_name || dbSubjects.find(s => Number(s.id) === Number(q.subject_id))?.name || '';
+      const topicName = q.topic_name || dbTopics.find(t => Number(t.id) === Number(q.topic_id))?.name || '';
+      const matchText = q.question_text || '';
+      const matchFormula = q.formula || '';
+      const matchOptA = q.option_a || '';
+      const matchOptB = q.option_b || '';
+      const matchOptC = q.option_c || '';
+      const matchOptD = q.option_d || '';
+
+      const combined = `${subjectName} ${topicName} ${matchText} ${matchFormula} ${matchOptA} ${matchOptB} ${matchOptC} ${matchOptD}`.toLowerCase();
+      if (!combined.includes(term)) return false;
+    }
     return true;
   });
 
@@ -386,11 +399,11 @@ export default function QuestionBankBrowser({
         </div>
 
         <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
-          <label className="form-label" style={{ fontSize: '11px' }}>Search Question Text</label>
+          <label className="form-label" style={{ fontSize: '11px' }}>Search Questions, Subjects, Topics, or Formulas</label>
           <input
             type="text"
             className="form-input"
-            placeholder="Search keywords..."
+            placeholder="Search subject name, topic, formula, question..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -560,12 +573,22 @@ export default function QuestionBankBrowser({
 
       {/* SINGLE QUESTION QUICK ADD MODAL */}
       {showQuickAddModal && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowQuickAddModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setShowQuickAddModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Quick Add Single Question</h3>
             <form onSubmit={handleSaveQuickAdd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
               <div className="form-group">
@@ -688,12 +711,22 @@ export default function QuestionBankBrowser({
 
       {/* SINGLE QUESTION INLINE EDIT MODAL */}
       {editingQuestion && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingQuestion(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setEditingQuestion(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Edit Question #{editingQuestion.id}</h3>
             <form onSubmit={handleSaveInlineEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
               <div className="form-group">
@@ -816,12 +849,22 @@ export default function QuestionBankBrowser({
 
       {/* BULK MOVE TOPIC MODAL */}
       {showBulkMoveModal && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowBulkMoveModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setShowBulkMoveModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>
               Bulk Move ({selectedQuestionIds.length} questions)
             </h3>

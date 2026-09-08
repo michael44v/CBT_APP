@@ -473,12 +473,22 @@ export default function SubjectTopicManager({
 
       {/* EDIT TOPIC MODAL */}
       {editingTopic && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingTopic(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setEditingTopic(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Topic Name</h3>
             <form onSubmit={handleSaveTopicEdit}>
               <div className="form-group" style={{ marginBottom: '1.2rem' }}>
@@ -505,12 +515,22 @@ export default function SubjectTopicManager({
 
       {/* DELETE TOPIC MODAL (CLEAN QUESTION DELETION WITH PROGRESS BAR) */}
       {deletingTopic && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '460px', width: '90%', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setDeletingTopic(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '460px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setDeletingTopic(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={20} /> Delete Topic "{deletingTopic.name}"
             </h3>

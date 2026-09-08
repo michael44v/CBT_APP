@@ -2520,12 +2520,22 @@ export default function App() {
 
       {/* EXAM RESULT DETAILS MODAL */}
       {selectedResultDetails && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedResultDetails(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setSelectedResultDetails(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>
               Submission Details — {selectedResultDetails.candidate_name || 'Candidate'}
             </h3>
@@ -2560,12 +2570,22 @@ export default function App() {
         }));
 
         return (
-          <div className="modal-overlay" style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <div className="admin-card" style={{ maxWidth: '800px', width: '92%', maxHeight: '88vh', overflowY: 'auto', padding: '1.8rem' }}>
+          <div
+            className="modal-overlay"
+            onClick={(e) => { if (e.target === e.currentTarget) setViewingUser(null); }}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+          >
+            <div className="admin-card" style={{ maxWidth: '800px', width: '92%', maxHeight: '88vh', overflowY: 'auto', padding: '1.8rem', position: 'relative' }}>
+              <button
+                onClick={() => setViewingUser(null)}
+                style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
               {/* Profile Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -2704,12 +2724,22 @@ export default function App() {
 
       {/* EDIT CANDIDATE MODAL */}
       {editingUser && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '440px', width: '90%', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingUser(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '440px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setEditingUser(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>
               Edit Candidate Details
             </h3>
@@ -2756,12 +2786,22 @@ export default function App() {
 
       {/* MANAGE PASSCODE CATEGORIES & SUBJECTS MODAL */}
       {editingPasscode && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingPasscode(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setEditingPasscode(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
             <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
               Manage Passcode Access — <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{editingPasscode.passcode}</span>
             </h3>
