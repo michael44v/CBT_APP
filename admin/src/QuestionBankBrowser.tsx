@@ -53,22 +53,19 @@ export default function QuestionBankBrowser({
     setUploadingImage(true);
     try {
       const formData = new FormData();
-      formData.append('action', 'upload_image');
-      formData.append('image', file);
+      formData.append('file', file);
+      formData.append('upload_preset', 'futyApp');
 
-      const res = await fetch(`${apiBase}/admin/questions.php`, {
+      const res = await fetch('https://api.cloudinary.com/v1_1/dguvkirdr/image/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
-        },
         body: formData
       });
       const data = await res.json();
-      if (data.success && data.image_url) {
-        callback(data.image_url);
+      if (data.secure_url) {
+        callback(data.secure_url);
         showNotification('Question image attached!');
       } else {
-        showNotification(data.message || 'Image upload failed.', 'error');
+        showNotification(data.error?.message || 'Image upload failed.', 'error');
       }
     } catch (err) {
       showNotification('Error uploading image.', 'error');

@@ -59,6 +59,7 @@ export default function QuestionWizard({
     question_text: 'question_text',
     formula: 'formula',
     external_link: 'external_link',
+    image_url: 'image_url',
     option_a: 'option_a',
     option_b: 'option_b',
     option_c: 'option_c',
@@ -158,7 +159,7 @@ export default function QuestionWizard({
 
     const mapping: Record<string, string> = {};
     const targetFields = [
-      'id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link',
+      'id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link', 'image_url',
       'option_a', 'option_b', 'option_c', 'option_d',
       'correct_answer', 'year', 'difficulty', 'topic_explanation',
       'correct_explanation', 'wrong_explanations'
@@ -737,7 +738,7 @@ export default function QuestionWizard({
             <summary style={{ fontWeight: 700, cursor: 'pointer' }}>Adjust Detected Column Mapping</summary>
             <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', minWidth: '600px' }}>
-                {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
+                {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link', 'image_url', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
                   <div key={field} className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '11px' }}>{field}</label>
                     <select
