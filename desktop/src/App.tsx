@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus, SavedLogin } from './global';
 import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2 } from 'lucide-react';
 import { MathRenderer } from './MathRenderer';
+import { QuestionImage } from './QuestionImage';
 
 type Screen = 'ACTIVATION' | 'DASHBOARD' | 'PROFILE' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
@@ -1053,6 +1054,7 @@ export default function App() {
         question_text: q.question_text,
         formula: q.formula,
         external_link: q.external_link,
+        image_url: q.image_url,
         option_a: q.option_a,
         option_b: q.option_b,
         option_c: q.option_c,
@@ -2681,15 +2683,7 @@ export default function App() {
             </div>
           )}
 
-          {curQ.image_url && (
-            <div style={{ marginBottom: '28px', textAlign: 'center' }}>
-              <img
-                src={curQ.image_url.startsWith('http') ? curQ.image_url : `https://cbt.filloptech.com/${curQ.image_url}`}
-                alt="Question Attachment"
-                style={{ maxHeight: '250px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', border: `1px solid ${colors.border}` }}
-              />
-            </div>
-          )}
+          <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {[
@@ -3187,15 +3181,7 @@ export default function App() {
                               </div>
                             )}
 
-                            {q.image_url && (
-                              <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-                                <img
-                                  src={q.image_url.startsWith('http') ? q.image_url : `https://cbt.filloptech.com/${q.image_url}`}
-                                  alt="Question Attachment"
-                                  style={{ maxHeight: '200px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', border: `1px solid ${colors.border}` }}
-                                />
-                              </div>
-                            )}
+                            <QuestionImage key={`review-img-${q.id}`} imageUrl={q.image_url} isDarkMode={isDarkMode} />
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                               {[

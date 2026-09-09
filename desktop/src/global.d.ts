@@ -12,6 +12,7 @@ export interface Question {
   question_text: string;
   formula?: string;
   external_link?: string;
+  image_url?: string | null;
   option_a: string;
   option_b: string;
   option_c: string;
