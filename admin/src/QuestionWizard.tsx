@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import {
   BookOpen,
   Plus,
@@ -12,11 +13,14 @@ import {
   ArrowLeft,
   FileText,
   RefreshCw,
-  CheckSquare
+  CheckSquare,
+  Sparkles,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Subject, Topic, ParsedRow } from './types';
 import { parseFileToRawRows, parseCSVTextToRawRows, validateAndMapRows, isCellBlank } from './utils/parser';
 import { MathRenderer } from './FormulaEditor';
+import QuestionBuilder from './QuestionBuilder';
 
 interface QuestionWizardProps {
   apiBase: string;
@@ -33,10 +37,13 @@ export default function QuestionWizard({
   onRefreshData,
   showNotification
 }: QuestionWizardProps) {
-  // Step 1 to 7
+  // Navigation Mode: 'gui' (Default) vs 'csv'
+  const [creationMode, setCreationMode] = useState<'gui' | 'csv'>('gui');
+
+  // Step 1 to 7 for CSV upload workflow
   const [step, setStep] = useState<number>(1);
 
-  // Selections
+  // Selections for CSV
   const [selectedExamType, setSelectedExamType] = useState<string>('JAMB');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
@@ -398,699 +405,778 @@ export default function QuestionWizard({
   };
 
   return (
-    <div className="admin-card" style={{ padding: '2rem' }}>
-      {/* Wizard Progress Stepper Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
-        <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Upload size={20} /> Multi-Step Question Upload Wizard
-        </h2>
-        <div style={{ display: 'flex', gap: '6px', fontSize: '0.8rem', fontWeight: 700 }}>
-          {[1, 2, 3, 4, 5, 6, 7].map(s => (
-            <span
-              key={s}
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: step === s ? 'var(--primary)' : step > s ? 'var(--success)' : 'var(--primary-light)',
-                color: step >= s ? 'white' : 'var(--text-muted)'
-              }}
-            >
-              {s}
-            </span>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Top Mode Selector Bar */}
+      <div
+        className="admin-card"
+        style={{
+          padding: '1rem 1.5rem',
+          display: 'flex',
+          justify: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          backgroundColor: 'var(--bg-card)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Question Upload Mode:</h2>
+        </div>
+
+        {/* Segmented Mode Selector Buttons */}
+        <div style={{ display: 'inline-flex', background: 'var(--primary-light)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+          <button
+            type="button"
+            onClick={() => setCreationMode('gui')}
+            style={{
+              border: 'none',
+              padding: '8px 16px',
+              fontSize: '0.88rem',
+              fontWeight: 800,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              backgroundColor: creationMode === 'gui' ? 'var(--accent)' : 'transparent',
+              color: creationMode === 'gui' ? '#ffffff' : 'var(--text-muted)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Sparkles size={16} /> GUI Question Builder (Recommended)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCreationMode('csv')}
+            style={{
+              border: 'none',
+              padding: '8px 16px',
+              fontSize: '0.88rem',
+              fontWeight: 800,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              backgroundColor: creationMode === 'csv' ? 'var(--accent)' : 'transparent',
+              color: creationMode === 'csv' ? '#ffffff' : 'var(--text-muted)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <FileSpreadsheet size={16} /> Bulk CSV / XLSX Upload
+          </button>
         </div>
       </div>
 
-      {/* STEP 1: Select Exam Type */}
-      {step === 1 && (
-        <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 1: Select Exam Category</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Choose the targeted exam framework for this upload batch.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            {availableExamTypes.map(etype => (
-              <div
-                key={etype}
-                onClick={() => {
-                  setSelectedExamType(etype);
-                  const firstSub = dbSubjects.find(s => s.exam_type === etype);
-                  setSelectedSubject(firstSub || null);
-                }}
-                style={{
-                  padding: '1.5rem',
-                  borderRadius: '16px',
-                  border: selectedExamType === etype ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                  backgroundColor: selectedExamType === etype ? 'var(--primary-light)' : 'var(--bg-card)',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  fontWeight: 800,
-                  fontSize: '1.2rem',
-                  color: selectedExamType === etype ? 'var(--primary)' : 'var(--text-main)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {etype}
-              </div>
-            ))}
-          </div>
-          <button className="btn btn-primary" onClick={() => setStep(2)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            Next: Select Subject <ArrowRight size={18} />
-          </button>
-        </div>
+      {/* RENDER GUI QUESTION BUILDER */}
+      {creationMode === 'gui' && (
+        <QuestionBuilder
+          apiBase={apiBase}
+          dbSubjects={dbSubjects}
+          dbTopics={dbTopics}
+          onRefreshData={onRefreshData}
+          showNotification={showNotification}
+        />
       )}
 
-      {/* STEP 2: Select Subject */}
-      {step === 2 && (
-        <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>
-            Step 2: Select Subject ({selectedExamType})
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Choose an existing subject under category <strong>{selectedExamType}</strong>. Subject names are read-only.
-          </p>
-          <div className="form-group" style={{ maxWidth: '400px', marginBottom: '2rem' }}>
-            <label className="form-label">Subject</label>
-            <select
-              className="form-input"
-              value={selectedSubject?.id || ''}
-              onChange={(e) => {
-                const sub = dbSubjects.find(s => Number(s.id) === Number(e.target.value));
-                setSelectedSubject(sub || null);
-              }}
-            >
-              {filteredSubjects.map(sub => (
-                <option key={sub.id} value={sub.id}>
-                  {sub.name} (ID: {sub.id})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn btn-secondary" onClick={() => setStep(1)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowLeft size={16} /> Back
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={filteredSubjects.length > 0 && !selectedSubject}
-              onClick={() => {
-                let activeSub = selectedSubject;
-                if (!activeSub && filteredSubjects.length > 0) {
-                  activeSub = filteredSubjects[0];
-                  setSelectedSubject(filteredSubjects[0]);
-                }
-                setStep(3);
-              }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              Next: Select/Create Topic <ArrowRight size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: Select or Create Topic */}
-      {step === 3 && (
-        <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>
-            Step 3: Select Topic under {selectedSubject?.name}
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Select an existing topic or add a new topic inline.
-          </p>
-
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', maxWidth: '500px', marginBottom: '2rem' }}>
-            <div className="form-group" style={{ flex: 1, margin: 0 }}>
-              <label className="form-label">Topic</label>
-              <select
-                className="form-input"
-                value={selectedTopic?.id || ''}
-                onChange={(e) => {
-                  const top = dbTopics.find(t => Number(t.id) === Number(e.target.value));
-                  setSelectedTopic(top || null);
-                }}
-              >
-                {!filteredTopics.some(t => Number(t.id) === Number(selectedTopic?.id)) && selectedTopic && (
-                  <option key={selectedTopic.id} value={selectedTopic.id}>{selectedTopic.name}</option>
-                )}
-                {filteredTopics.map(top => (
-                  <option key={top.id} value={top.id}>{top.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setShowAddTopicModal(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '42px', whiteSpace: 'nowrap' }}
-            >
-              <Plus size={16} /> Add Topic
-            </button>
-          </div>
-
-          {/* Modal for adding new topic inline */}
-          {showAddTopicModal && (
-            <div
-              className="modal-overlay"
-              onClick={(e) => { if (e.target === e.currentTarget) setShowAddTopicModal(false); }}
-              style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >
-              <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
-                <button
-                  onClick={() => setShowAddTopicModal(false)}
-                  style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+      {/* RENDER LEGACY / BULK CSV WIZARD */}
+      {creationMode === 'csv' && (
+        <div className="admin-card" style={{ padding: '2rem' }}>
+          {/* Wizard Progress Stepper Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+            <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Upload size={20} /> Multi-Step Question Upload Wizard
+            </h2>
+            <div style={{ display: 'flex', gap: '6px', fontSize: '0.8rem', fontWeight: 700 }}>
+              {[1, 2, 3, 4, 5, 6, 7].map(s => (
+                <span
+                  key={s}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justify: 'center',
+                    backgroundColor: step === s ? 'var(--primary)' : step > s ? 'var(--success)' : 'var(--primary-light)',
+                    color: step >= s ? 'white' : 'var(--text-muted)'
+                  }}
                 >
-                  ✕
-                </button>
-                <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Topic</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Subject: {selectedSubject?.name}</p>
-                <form onSubmit={handleAddTopic}>
-                  <div className="form-group" style={{ marginBottom: '1.2rem' }}>
-                    <label className="form-label">Topic Name</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Organic Chemistry"
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.target.value)}
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    <button type="button" className="btn btn-secondary" onClick={() => setShowAddTopicModal(false)}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={addingTopic}>
-                      {addingTopic ? 'Adding...' : 'Save & Select'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn btn-secondary" onClick={() => setStep(2)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowLeft size={16} /> Back
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={!selectedTopic && filteredTopics.length === 0}
-              onClick={() => {
-                let activeTop = selectedTopic;
-                if (!activeTop && filteredTopics.length > 0) {
-                  activeTop = filteredTopics[0];
-                  setSelectedTopic(filteredTopics[0]);
-                }
-                if (activeTop) {
-                  setStep(4);
-                } else {
-                  showNotification('Please select or add a topic first.', 'error');
-                }
-              }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              Next: Upload File <ArrowRight size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 4: Upload File or Type Raw CSV */}
-      {step === 4 && (
-        <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 4: Upload File or Paste Raw CSV</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Target: <strong>{selectedExamType}</strong> → <strong>{selectedSubject?.name}</strong> → <strong>{selectedTopic?.name}</strong>
-          </p>
-
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className={`btn ${inputMode === 'file' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setInputMode('file')}
-            >
-              <Upload size={16} /> Upload File (.csv / .xlsx)
-            </button>
-            <button
-              type="button"
-              className={`btn ${inputMode === 'text' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setInputMode('text')}
-            >
-              <FileText size={16} /> Type / Paste Raw CSV Text
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleDownloadTemplate}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Download size={16} /> Download Expected Template ({fileFormat.toUpperCase()})
-            </button>
-          </div>
-
-          {inputMode === 'file' ? (
-            <div className="form-group" style={{ maxWidth: '500px', marginBottom: '2rem' }}>
-              <label className="form-label">Select File (.csv or .xlsx)</label>
-              <input
-                type="file"
-                accept=".csv, .xlsx, .xls"
-                className="form-input"
-                onChange={handleFileChange}
-              />
-            </div>
-          ) : (
-            <div className="form-group" style={{ marginBottom: '2rem' }}>
-              <label className="form-label">Type / Paste Raw CSV Content</label>
-              <textarea
-                className="textarea-csv"
-                placeholder={'id,exam_type,subject_id,year,topic_id,difficulty,question_text,formula,external_link,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations'}
-                value={rawCsvText}
-                onChange={(e) => handleRawCsvTextChange(e.target.value)}
-                style={{ height: '220px' }}
-              />
-            </div>
-          )}
-
-          {rawRows.length > 0 && (
-            <div style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
-              <strong>Loaded {rawRows.length} raw data rows</strong> with detected headers:
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {rawHeaders.join(', ')}
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn btn-secondary" onClick={() => setStep(3)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowLeft size={16} /> Back
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={rawRows.length === 0}
-              onClick={handleRunValidation}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              Next: Column Mapping &amp; Validation Preview <ArrowRight size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 5: Preview & Validate */}
-      {step === 5 && (
-        <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 5: Validation Preview &amp; Header Mapping (Editable)</h3>
-
-          {/* Blank Cell Count Summary Banner */}
-          <div style={{
-            display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap',
-            background: 'var(--bg-main)', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)'
-          }}>
-            <div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Parsed Rows:</span>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{parsedRows.length}</div>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Ready to Import:</span>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--success)' }}>{validCount}</div>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>Rows with Errors:</span>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--danger)' }}>{errorCount}</div>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--warning)' }}>Soft Warnings:</span>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--warning)' }}>{warningCount}</div>
+                  {s}
+                </span>
+              ))}
             </div>
           </div>
 
-          {/* Column Mapping Section if headers differ */}
-          <details style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
-            <summary style={{ fontWeight: 700, cursor: 'pointer' }}>Adjust Detected Column Mapping</summary>
-            <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', minWidth: '600px' }}>
-                {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link', 'image_url', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
-                  <div key={field} className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>{field}</label>
-                    <select
-                      className="form-input"
-                      value={columnMapping[field] || ''}
-                      onChange={(e) => {
-                        const newM = { ...columnMapping, [field]: e.target.value };
-                        setColumnMapping(newM);
-                      }}
-                    >
-                      <option value="">-- Ignore / Unmapped --</option>
-                      {rawHeaders.map(h => (
-                        <option key={h} value={h}>{h}</option>
-                      ))}
-                    </select>
+          {/* STEP 1: Select Exam Type */}
+          {step === 1 && (
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 1: Select Exam Category</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                Choose the targeted exam framework for this upload batch.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                {availableExamTypes.map(etype => (
+                  <div
+                    key={etype}
+                    onClick={() => {
+                      setSelectedExamType(etype);
+                      const firstSub = dbSubjects.find(s => s.exam_type === etype);
+                      setSelectedSubject(firstSub || null);
+                    }}
+                    style={{
+                      padding: '1.5rem',
+                      borderRadius: '16px',
+                      border: selectedExamType === etype ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                      backgroundColor: selectedExamType === etype ? 'var(--primary-light)' : 'var(--bg-card)',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      fontWeight: 800,
+                      fontSize: '1.2rem',
+                      color: selectedExamType === etype ? 'var(--primary)' : 'var(--text-main)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {etype}
                   </div>
                 ))}
               </div>
-            </div>
-            <button className="btn btn-secondary" onClick={handleRunValidation} style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
-              Re-run Validation with New Mapping
-            </button>
-          </details>
-
-          {/* Mandatory Checkbox for soft warnings */}
-          {warningCount > 0 && (
-            <div style={{
-              backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)',
-              padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px'
-            }}>
-              <input
-                type="checkbox"
-                id="ackWarnings"
-                checked={acknowledgedWarnings}
-                onChange={(e) => setAcknowledgedWarnings(e.target.checked)}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-              />
-              <label htmlFor="ackWarnings" style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--warning)', cursor: 'pointer' }}>
-                I acknowledge the soft warnings ({warningCount} rows have blank explanations or potential duplicate questions in DB).
-              </label>
-            </div>
-          )}
-
-          {/* Validation Results Table with Editable Textboxes & subject [exam_category] format (no ID column) */}
-          <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', marginBottom: '2rem', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-            <table style={{ fontSize: '0.8rem', width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ whiteSpace: 'nowrap' }}>Row</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Status</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Subject [Exam Category]</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Topic</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Year</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Difficulty</th>
-                  <th style={{ minWidth: '220px' }}>Question Text</th>
-                  <th style={{ minWidth: '140px' }}>Formula</th>
-                  <th style={{ minWidth: '120px' }}>Attached Image</th>
-                  <th style={{ minWidth: '140px' }}>External Link</th>
-                  <th style={{ minWidth: '120px' }}>Option A</th>
-                  <th style={{ minWidth: '120px' }}>Option B</th>
-                  <th style={{ minWidth: '120px' }}>Option C</th>
-                  <th style={{ minWidth: '120px' }}>Option D</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Correct Answer</th>
-                  <th style={{ minWidth: '160px' }}>Topic Explanation</th>
-                  <th style={{ minWidth: '160px' }}>Correct Explanation</th>
-                  <th style={{ minWidth: '160px' }}>Wrong Explanations</th>
-                  <th style={{ minWidth: '180px' }}>Issues / Warnings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parsedRows.map((r, idx) => {
-                  const subName = selectedSubject?.name || r.subject_name || 'Subject';
-                  const catName = r.exam_type || selectedExamType || 'JAMB';
-                  const subjectDisplay = `${subName} [${catName}]`;
-
-                  return (
-                    <tr key={r.row_number}>
-                      <td style={{ whiteSpace: 'nowrap' }}><strong>Row {r.row_number}</strong></td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {r.isValid ? (
-                          <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <CheckCircle size={12} /> Ready
-                          </span>
-                        ) : (
-                          <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <XCircle size={12} /> Invalid
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--accent)' }}>
-                        {subjectDisplay}
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{selectedTopic?.name || r.topic_name || `Topic #${r.topic_id}`}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <input
-                          type="number"
-                          className="form-input"
-                          style={{ width: '70px', padding: '2px 4px', fontSize: '0.78rem' }}
-                          value={r.year || 2024}
-                          onChange={(e) => handleRowFieldChange(idx, 'year', parseInt(e.target.value) || 2024)}
-                        />
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <select
-                          className="form-input"
-                          style={{ padding: '2px 4px', fontSize: '0.78rem' }}
-                          value={r.difficulty || 'medium'}
-                          onChange={(e) => handleRowFieldChange(idx, 'difficulty', e.target.value)}
-                        >
-                          <option value="easy">easy</option>
-                          <option value="medium">medium</option>
-                          <option value="hard">hard</option>
-                        </select>
-                      </td>
-                      <td>
-                        <textarea
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '220px', minHeight: '50px', fontSize: '0.78rem', resize: 'vertical' }}
-                          value={r.question_text || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'question_text', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '130px', fontSize: '0.78rem' }}
-                          value={r.formula || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'formula', e.target.value)}
-                        />
-                        {r.formula && (
-                          <div style={{ marginTop: '4px', fontSize: '0.75rem', background: 'var(--bg-card)', padding: '2px 4px', borderRadius: '4px' }}>
-                            <MathRenderer text={r.formula} />
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Image Path/URL"
-                          style={{ width: '100%', minWidth: '120px', fontSize: '0.78rem' }}
-                          value={r.image_url || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'image_url', e.target.value)}
-                        />
-                        {r.image_url && (
-                          <img
-                            src={r.image_url.startsWith('http') ? r.image_url : `https://cbt.filloptech.com/${r.image_url}`}
-                            alt="Question Visual"
-                            style={{ maxHeight: '40px', maxWidth: '80px', marginTop: '4px', objectFit: 'contain', borderRadius: '4px' }}
-                          />
-                        )}
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '130px', fontSize: '0.78rem' }}
-                          value={r.external_link || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'external_link', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                          value={r.option_a || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'option_a', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                          value={r.option_b || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'option_b', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                          value={r.option_c || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'option_c', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                          value={r.option_d || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'option_d', e.target.value)}
-                        />
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <select
-                          className="form-input"
-                          style={{ width: '60px', padding: '2px 4px', fontSize: '0.78rem', fontWeight: 800 }}
-                          value={r.correct_answer || 'A'}
-                          onChange={(e) => handleRowFieldChange(idx, 'correct_answer', e.target.value.toUpperCase())}
-                        >
-                          <option value="A">A</option>
-                          <option value="B">B</option>
-                          <option value="C">C</option>
-                          <option value="D">D</option>
-                        </select>
-                      </td>
-                      <td>
-                        <textarea
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
-                          value={r.topic_explanation || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'topic_explanation', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <textarea
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
-                          value={r.correct_explanation || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'correct_explanation', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <textarea
-                          className="form-input"
-                          style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
-                          value={r.wrong_explanations || ''}
-                          onChange={(e) => handleRowFieldChange(idx, 'wrong_explanations', e.target.value)}
-                        />
-                      </td>
-                      <td style={{ minWidth: '180px' }}>
-                        {r.errors.length > 0 && (
-                          <div style={{ color: 'var(--danger)', fontWeight: 600 }}>{r.errors.join('; ')}</div>
-                        )}
-                        {r.warnings.length > 0 && (
-                          <div style={{ color: 'var(--warning)', fontSize: '11px' }}>{r.warnings.join('; ')}</div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{
-            position: 'sticky', bottom: '0', backgroundColor: 'var(--bg-card)', padding: '1rem 0 0 0',
-            borderTop: '1px solid var(--border-color)', zIndex: 10, display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap'
-          }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button className="btn btn-secondary" onClick={() => setStep(4)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <ArrowLeft size={16} /> Back
+              <button className="btn btn-primary" onClick={() => setStep(2)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                Next: Select Subject <ArrowRight size={18} />
               </button>
-              {errorCount > 0 && (
-                <button className="btn btn-secondary" onClick={handleDownloadErrorsCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Download size={16} /> Download Errors-Only CSV
-                </button>
-              )}
             </div>
+          )}
 
-            <button
-              className="btn btn-primary"
-              disabled={(warningCount > 0 && !acknowledgedWarnings) || validCount === 0}
-              onClick={() => setStep(6)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              Next: Confirm &amp; Import ({validCount} valid rows) <ArrowRight size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 6: Confirm & Batched Import */}
-      {step === 6 && (
-        <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 6: Confirmation</h3>
-          <div style={{ backgroundColor: 'var(--primary-light)', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem' }}>
-            <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.1rem' }}>
-              You are about to import {validCount} questions into:
-            </h4>
-            <p style={{ margin: '8px 0 0 0', fontSize: '1rem', fontWeight: 700 }}>
-              {selectedExamType} → {selectedSubject?.name} → {selectedTopic?.name}
-            </p>
-            {errorCount > 0 && (
-              <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>
-                Note: {errorCount} invalid rows will be skipped. You can separately fix and re-upload them.
+          {/* STEP 2: Select Subject */}
+          {step === 2 && (
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>
+                Step 2: Select Subject ({selectedExamType})
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                Choose an existing subject under category <strong>{selectedExamType}</strong>. Subject names are read-only.
               </p>
-            )}
-          </div>
-
-          {importing && (
-            <div style={{ marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                <span>Importing batched question payload...</span>
-                <span>{importProgress}%</span>
+              <div className="form-group" style={{ maxWidth: '400px', marginBottom: '2rem' }}>
+                <label className="form-label">Subject</label>
+                <select
+                  className="form-input"
+                  value={selectedSubject?.id || ''}
+                  onChange={(e) => {
+                    const sub = dbSubjects.find(s => Number(s.id) === Number(e.target.value));
+                    setSelectedSubject(sub || null);
+                  }}
+                >
+                  {filteredSubjects.map(sub => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} (ID: {sub.id})
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div style={{ width: '100%', height: '10px', backgroundColor: 'var(--border-color)', borderRadius: '5px', overflow: 'hidden' }}>
-                <div style={{ width: `${importProgress}%`, height: '100%', backgroundColor: 'var(--success)', transition: 'width 0.3s ease' }}></div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btn btn-secondary" onClick={() => setStep(1)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <ArrowLeft size={16} /> Back
+                </button>
+                <button
+                  className="btn btn-primary"
+                  disabled={filteredSubjects.length > 0 && !selectedSubject}
+                  onClick={() => {
+                    let activeSub = selectedSubject;
+                    if (!activeSub && filteredSubjects.length > 0) {
+                      activeSub = filteredSubjects[0];
+                      setSelectedSubject(filteredSubjects[0]);
+                    }
+                    setStep(3);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  Next: Select/Create Topic <ArrowRight size={18} />
+                </button>
               </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn btn-secondary" disabled={importing} onClick={() => setStep(5)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowLeft size={16} /> Back
-            </button>
-            <button
-              className="btn btn-success"
-              disabled={importing}
-              onClick={() => handleExecuteImport(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Upload size={18} /> Confirm &amp; Import Valid Rows Now
-            </button>
-          </div>
-        </div>
-      )}
+          {/* STEP 3: Select or Create Topic */}
+          {step === 3 && (
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>
+                Step 3: Select Topic under {selectedSubject?.name}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                Select an existing topic or add a new topic inline.
+              </p>
 
-      {/* STEP 7: Result Screen */}
-      {step === 7 && (
-        <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.15)',
-            color: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'
-          }}>
-            <CheckCircle size={36} />
-          </div>
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Import Completed!</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2rem' }}>
-            Successfully inserted <strong>{importSummary?.imported}</strong> questions into {selectedSubject?.name} ({selectedTopic?.name}).
-            {importSummary?.skipped ? ` Skipped ${importSummary.skipped} duplicate questions.` : ''}
-          </p>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', maxWidth: '500px', marginBottom: '2rem' }}>
+                <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                  <label className="form-label">Topic</label>
+                  <select
+                    className="form-input"
+                    value={selectedTopic?.id || ''}
+                    onChange={(e) => {
+                      const top = dbTopics.find(t => Number(t.id) === Number(e.target.value));
+                      setSelectedTopic(top || null);
+                    }}
+                  >
+                    {!filteredTopics.some(t => Number(t.id) === Number(selectedTopic?.id)) && selectedTopic && (
+                      <option key={selectedTopic.id} value={selectedTopic.id}>{selectedTopic.name}</option>
+                    )}
+                    {filteredTopics.map(top => (
+                      <option key={top.id} value={top.id}>{top.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setStep(4);
-                setUploadedFile(null);
-                setRawRows([]);
-                setParsedRows([]);
-              }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              <RefreshCw size={16} /> Upload Another File for Same Subject/Topic
-            </button>
-          </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowAddTopicModal(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '42px', whiteSpace: 'nowrap' }}
+                >
+                  <Plus size={16} /> Add Topic
+                </button>
+              </div>
+
+              {/* Modal for adding new topic inline */}
+              {showAddTopicModal && (
+                <div
+                  className="modal-overlay"
+                  onClick={(e) => { if (e.target === e.currentTarget) setShowAddTopicModal(false); }}
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+                    <button
+                      onClick={() => setShowAddTopicModal(false)}
+                      style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    >
+                      ✕
+                    </button>
+                    <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Topic</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Subject: {selectedSubject?.name}</p>
+                    <form onSubmit={handleAddTopic}>
+                      <div className="form-group" style={{ marginBottom: '1.2rem' }}>
+                        <label className="form-label">Topic Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. Organic Chemistry"
+                          value={newTopicName}
+                          onChange={(e) => setNewTopicName(e.target.value)}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowAddTopicModal(false)}>Cancel</button>
+                        <button type="submit" className="btn btn-primary" disabled={addingTopic}>
+                          {addingTopic ? 'Adding...' : 'Save & Select'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btn btn-secondary" onClick={() => setStep(2)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <ArrowLeft size={16} /> Back
+                </button>
+                <button
+                  className="btn btn-primary"
+                  disabled={!selectedTopic && filteredTopics.length === 0}
+                  onClick={() => {
+                    let activeTop = selectedTopic;
+                    if (!activeTop && filteredTopics.length > 0) {
+                      activeTop = filteredTopics[0];
+                      setSelectedTopic(filteredTopics[0]);
+                    }
+                    if (activeTop) {
+                      setStep(4);
+                    } else {
+                      showNotification('Please select or add a topic first.', 'error');
+                    }
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  Next: Upload File <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Upload File or Type Raw CSV */}
+          {step === 4 && (
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 4: Upload File or Paste Raw CSV</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                Target: <strong>{selectedExamType}</strong> → <strong>{selectedSubject?.name}</strong> → <strong>{selectedTopic?.name}</strong>
+              </p>
+
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`btn ${inputMode === 'file' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setInputMode('file')}
+                >
+                  <Upload size={16} /> Upload File (.csv / .xlsx)
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${inputMode === 'text' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setInputMode('text')}
+                >
+                  <FileText size={16} /> Type / Paste Raw CSV Text
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleDownloadTemplate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={16} /> Download Expected Template ({fileFormat.toUpperCase()})
+                </button>
+              </div>
+
+              {inputMode === 'file' ? (
+                <div className="form-group" style={{ maxWidth: '500px', marginBottom: '2rem' }}>
+                  <label className="form-label">Select File (.csv or .xlsx)</label>
+                  <input
+                    type="file"
+                    accept=".csv, .xlsx, .xls"
+                    className="form-input"
+                    onChange={handleFileChange}
+                  />
+                </div>
+              ) : (
+                <div className="form-group" style={{ marginBottom: '2rem' }}>
+                  <label className="form-label">Type / Paste Raw CSV Content</label>
+                  <textarea
+                    className="textarea-csv"
+                    placeholder={'id,exam_type,subject_id,year,topic_id,difficulty,question_text,formula,external_link,option_a,option_b,option_c,option_d,correct_answer,topic_explanation,correct_explanation,wrong_explanations'}
+                    value={rawCsvText}
+                    onChange={(e) => handleRawCsvTextChange(e.target.value)}
+                    style={{ height: '220px' }}
+                  />
+                </div>
+              )}
+
+              {rawRows.length > 0 && (
+                <div style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
+                  <strong>Loaded {rawRows.length} raw data rows</strong> with detected headers:
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    {rawHeaders.join(', ')}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btn btn-secondary" onClick={() => setStep(3)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <ArrowLeft size={16} /> Back
+                </button>
+                <button
+                  className="btn btn-primary"
+                  disabled={rawRows.length === 0}
+                  onClick={handleRunValidation}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  Next: Column Mapping &amp; Validation Preview <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5: Preview & Validate */}
+          {step === 5 && (
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 5: Validation Preview &amp; Header Mapping (Editable)</h3>
+
+              {/* Blank Cell Count Summary Banner */}
+              <div style={{
+                display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap',
+                background: 'var(--bg-main)', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)'
+              }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Parsed Rows:</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{parsedRows.length}</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Ready to Import:</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--success)' }}>{validCount}</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>Rows with Errors:</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--danger)' }}>{errorCount}</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--warning)' }}>Soft Warnings:</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--warning)' }}>{warningCount}</div>
+                </div>
+              </div>
+
+              {/* Column Mapping Section if headers differ */}
+              <details style={{ marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
+                <summary style={{ fontWeight: 700, cursor: 'pointer' }}>Adjust Detected Column Mapping</summary>
+                <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', minWidth: '600px' }}>
+                    {['id', 'exam_type', 'subject_id', 'topic_id', 'question_text', 'formula', 'external_link', 'image_url', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'year', 'difficulty', 'topic_explanation', 'correct_explanation', 'wrong_explanations'].map(field => (
+                      <div key={field} className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>{field}</label>
+                        <select
+                          className="form-input"
+                          value={columnMapping[field] || ''}
+                          onChange={(e) => {
+                            const newM = { ...columnMapping, [field]: e.target.value };
+                            setColumnMapping(newM);
+                          }}
+                        >
+                          <option value="">-- Ignore / Unmapped --</option>
+                          {rawHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button className="btn btn-secondary" onClick={handleRunValidation} style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
+                  Re-run Validation with New Mapping
+                </button>
+              </details>
+
+              {/* Mandatory Checkbox for soft warnings */}
+              {warningCount > 0 && (
+                <div style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)',
+                  padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px'
+                }}>
+                  <input
+                    type="checkbox"
+                    id="ackWarnings"
+                    checked={acknowledgedWarnings}
+                    onChange={(e) => setAcknowledgedWarnings(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="ackWarnings" style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--warning)', cursor: 'pointer' }}>
+                    I acknowledge the soft warnings ({warningCount} rows have blank explanations or potential duplicate questions in DB).
+                  </label>
+                </div>
+              )}
+
+              {/* Validation Results Table with Editable Textboxes & subject [exam_category] format (no ID column) */}
+              <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', marginBottom: '2rem', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                <table style={{ fontSize: '0.8rem', width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ whiteSpace: 'nowrap' }}>Row</th>
+                      <th style={{ whiteSpace: 'nowrap' }}>Status</th>
+                      <th style={{ whiteSpace: 'nowrap' }}>Subject [Exam Category]</th>
+                      <th style={{ whiteSpace: 'nowrap' }}>Topic</th>
+                      <th style={{ whiteSpace: 'nowrap' }}>Year</th>
+                      <th style={{ whiteSpace: 'nowrap' }}>Difficulty</th>
+                      <th style={{ minWidth: '220px' }}>Question Text</th>
+                      <th style={{ minWidth: '140px' }}>Formula</th>
+                      <th style={{ minWidth: '120px' }}>Attached Image</th>
+                      <th style={{ minWidth: '140px' }}>External Link</th>
+                      <th style={{ minWidth: '120px' }}>Option A</th>
+                      <th style={{ minWidth: '120px' }}>Option B</th>
+                      <th style={{ minWidth: '120px' }}>Option C</th>
+                      <th style={{ minWidth: '120px' }}>Option D</th>
+                      <th style={{ whiteSpace: 'nowrap' }}>Correct Answer</th>
+                      <th style={{ minWidth: '160px' }}>Topic Explanation</th>
+                      <th style={{ minWidth: '160px' }}>Correct Explanation</th>
+                      <th style={{ minWidth: '160px' }}>Wrong Explanations</th>
+                      <th style={{ minWidth: '180px' }}>Issues / Warnings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRows.map((r, idx) => {
+                      const subName = selectedSubject?.name || r.subject_name || 'Subject';
+                      const catName = r.exam_type || selectedExamType || 'JAMB';
+                      const subjectDisplay = `${subName} [${catName}]`;
+
+                      return (
+                        <tr key={r.row_number}>
+                          <td style={{ whiteSpace: 'nowrap' }}><strong>Row {r.row_number}</strong></td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            {r.isValid ? (
+                              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckCircle size={12} /> Ready
+                              </span>
+                            ) : (
+                              <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <XCircle size={12} /> Invalid
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--accent)' }}>
+                            {subjectDisplay}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{selectedTopic?.name || r.topic_name || `Topic #${r.topic_id}`}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <input
+                              type="number"
+                              className="form-input"
+                              style={{ width: '70px', padding: '2px 4px', fontSize: '0.78rem' }}
+                              value={r.year || 2024}
+                              onChange={(e) => handleRowFieldChange(idx, 'year', parseInt(e.target.value) || 2024)}
+                            />
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <select
+                              className="form-input"
+                              style={{ padding: '2px 4px', fontSize: '0.78rem' }}
+                              value={r.difficulty || 'medium'}
+                              onChange={(e) => handleRowFieldChange(idx, 'difficulty', e.target.value)}
+                            >
+                              <option value="easy">easy</option>
+                              <option value="medium">medium</option>
+                              <option value="hard">hard</option>
+                            </select>
+                          </td>
+                          <td>
+                            <textarea
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '220px', minHeight: '50px', fontSize: '0.78rem', resize: 'vertical' }}
+                              value={r.question_text || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'question_text', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '130px', fontSize: '0.78rem' }}
+                              value={r.formula || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'formula', e.target.value)}
+                            />
+                            {r.formula && (
+                              <div style={{ marginTop: '4px', fontSize: '0.75rem', background: 'var(--bg-card)', padding: '2px 4px', borderRadius: '4px' }}>
+                                <MathRenderer text={r.formula} />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              placeholder="Image Path/URL"
+                              style={{ width: '100%', minWidth: '120px', fontSize: '0.78rem' }}
+                              value={r.image_url || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'image_url', e.target.value)}
+                            />
+                            {r.image_url && (
+                              <img
+                                src={r.image_url.startsWith('http') ? r.image_url : `https://cbt.filloptech.com/${r.image_url}`}
+                                alt="Question Visual"
+                                style={{ maxHeight: '40px', maxWidth: '80px', marginTop: '4px', objectFit: 'contain', borderRadius: '4px' }}
+                              />
+                            )}
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '130px', fontSize: '0.78rem' }}
+                              value={r.external_link || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'external_link', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                              value={r.option_a || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'option_a', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                              value={r.option_b || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'option_b', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                              value={r.option_c || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'option_c', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
+                              value={r.option_d || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'option_d', e.target.value)}
+                            />
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <select
+                              className="form-input"
+                              style={{ width: '60px', padding: '2px 4px', fontSize: '0.78rem', fontWeight: 800 }}
+                              value={r.correct_answer || 'A'}
+                              onChange={(e) => handleRowFieldChange(idx, 'correct_answer', e.target.value.toUpperCase())}
+                            >
+                              <option value="A">A</option>
+                              <option value="B">B</option>
+                              <option value="C">C</option>
+                              <option value="D">D</option>
+                            </select>
+                          </td>
+                          <td>
+                            <textarea
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
+                              value={r.topic_explanation || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'topic_explanation', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <textarea
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
+                              value={r.correct_explanation || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'correct_explanation', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <textarea
+                              className="form-input"
+                              style={{ width: '100%', minWidth: '160px', minHeight: '40px', fontSize: '0.78rem', resize: 'vertical' }}
+                              value={r.wrong_explanations || ''}
+                              onChange={(e) => handleRowFieldChange(idx, 'wrong_explanations', e.target.value)}
+                            />
+                          </td>
+                          <td style={{ minWidth: '180px' }}>
+                            {r.errors.length > 0 && (
+                              <div style={{ color: 'var(--danger)', fontWeight: 600 }}>{r.errors.join('; ')}</div>
+                            )}
+                            {r.warnings.length > 0 && (
+                              <div style={{ color: 'var(--warning)', fontSize: '11px' }}>{r.warnings.join('; ')}</div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{
+                position: 'sticky', bottom: '0', backgroundColor: 'var(--bg-card)', padding: '1rem 0 0 0',
+                borderTop: '1px solid var(--border-color)', zIndex: 10, display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button className="btn btn-secondary" onClick={() => setStep(4)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <ArrowLeft size={16} /> Back
+                  </button>
+                  {errorCount > 0 && (
+                    <button className="btn btn-secondary" onClick={handleDownloadErrorsCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Download size={16} /> Download Errors-Only CSV
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  className="btn btn-primary"
+                  disabled={(warningCount > 0 && !acknowledgedWarnings) || validCount === 0}
+                  onClick={() => setStep(6)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  Next: Confirm &amp; Import ({validCount} valid rows) <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 6: Confirm & Batched Import */}
+          {step === 6 && (
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Step 6: Confirmation</h3>
+              <div style={{ backgroundColor: 'var(--primary-light)', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem' }}>
+                <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '1.1rem' }}>
+                  You are about to import {validCount} questions into:
+                </h4>
+                <p style={{ margin: '8px 0 0 0', fontSize: '1rem', fontWeight: 700 }}>
+                  {selectedExamType} → {selectedSubject?.name} → {selectedTopic?.name}
+                </p>
+                {errorCount > 0 && (
+                  <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>
+                    Note: {errorCount} invalid rows will be skipped. You can separately fix and re-upload them.
+                  </p>
+                )}
+              </div>
+
+              {importing && (
+                <div style={{ marginBottom: '2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                    <span>Importing batched question payload...</span>
+                    <span>{importProgress}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '10px', backgroundColor: 'var(--border-color)', borderRadius: '5px', overflow: 'hidden' }}>
+                    <div style={{ width: `${importProgress}%`, height: '100%', backgroundColor: 'var(--success)', transition: 'width 0.3s ease' }}></div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btn btn-secondary" disabled={importing} onClick={() => setStep(5)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <ArrowLeft size={16} /> Back
+                </button>
+                <button
+                  className="btn btn-success"
+                  disabled={importing}
+                  onClick={() => handleExecuteImport(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Upload size={18} /> Confirm &amp; Import Valid Rows Now
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 7: Result Screen */}
+          {step === 7 && (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+              <div style={{
+                width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                color: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'
+              }}>
+                <CheckCircle size={36} />
+              </div>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Import Completed!</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2rem' }}>
+                Successfully inserted <strong>{importSummary?.imported}</strong> questions into {selectedSubject?.name} ({selectedTopic?.name}).
+                {importSummary?.skipped ? ` Skipped ${importSummary.skipped} duplicate questions.` : ''}
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setStep(4);
+                    setUploadedFile(null);
+                    setRawRows([]);
+                    setParsedRows([]);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <RefreshCw size={16} /> Upload Another File for Same Subject/Topic
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

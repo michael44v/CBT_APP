@@ -96,3 +96,47 @@ export interface ColumnMapping {
   correct_explanation?: string;
   wrong_explanations?: string;
 }
+
+export interface BuilderQuestionCard {
+  id: string; // unique card id for key
+  exam_type: string;
+  subject_id: number | '';
+  topic_id: number | '';
+  year: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  question_text: string;
+  formula: string;
+  external_link: string;
+  image_url: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: 'A' | 'B' | 'C' | 'D' | '';
+  topic_explanation: string;
+  correct_explanation: string;
+  wrong_explanations: string;
+  isCollapsed?: boolean;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'failed';
+  saveError?: string;
+}
+
+export interface BuilderFieldErrorMap {
+  exam_type?: string;
+  subject_id?: string;
+  topic_id?: string;
+  year?: string;
+  difficulty?: string;
+  question_text?: string;
+  formula?: string;
+  external_link?: string;
+  image_url?: string;
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
+  correct_answer?: string;
+  topic_explanation?: string;
+  correct_explanation?: string;
+  wrong_explanations?: string;
+}
