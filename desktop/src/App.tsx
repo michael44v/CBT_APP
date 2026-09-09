@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus, SavedLogin } from './global';
 import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2 } from 'lucide-react';
 import { MathRenderer } from './MathRenderer';
+
 import { QuestionImage } from './QuestionImage';
+
+import { BlockMath } from "react-katex";
+import "katex/dist/katex.min.css";
+
 
 type Screen = 'ACTIVATION' | 'DASHBOARD' | 'PROFILE' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
 
@@ -46,6 +51,12 @@ export default function App() {
   const [newsList, setNewsList] = useState<any[]>([]);
   const [readNewsIds, setReadNewsIds] = useState<number[]>([]);
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
+
+
+
+function Formula({ text }) {
+  return <BlockMath math={text} />;
+}
 
   useEffect(() => {
     const handleOnline = () => {
@@ -2662,26 +2673,34 @@ export default function App() {
             <MathRenderer text={curQ.question_text} />
           </div>
 
-          {curQ.formula && (
-            <div style={{
-              backgroundColor: isDarkMode ? '#1e293b' : '#f0f4f8',
-              border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
-              borderLeft: '4px solid #2563eb',
-              padding: '12px 18px',
-              borderRadius: '8px',
-              fontSize: '15px',
-              fontFamily: 'Courier New, monospace, serif',
-              fontWeight: 600,
-              color: isDarkMode ? '#60a5fa' : '#1d4ed8',
-              marginBottom: curQ.image_url ? '16px' : '28px',
-              whiteSpace: 'pre-wrap'
-            }}>
-              <span style={{ fontSize: '11px', color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
-                Formula
-              </span>
-              <MathRenderer text={curQ.formula} />
-            </div>
-          )}
+       {curQ.formula && (
+  <div style={{
+    backgroundColor: 'transparent',
+    border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+    borderLeft: '4px solid #2563eb',
+    padding: '3px 6px',
+    borderRadius: '8px',
+    fontSize: '15px',
+    fontFamily: 'Courier New, monospace, serif',
+    fontWeight: 600,
+    color: isDarkMode ? '#60a5fa' : '#1d4ed8',
+    marginBottom: curQ.image_url ? '16px' : '28px',
+    whiteSpace: 'pre-wrap'
+  }}>
+    <span style={{
+      fontSize: '11px',
+      color: colors.textMuted,
+      display: 'block',
+      marginBottom: '4px',
+      textTransform: 'uppercase',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      Formula
+    </span>
+
+    <Formula text={curQ.formula} />
+  </div>
+)}
 
           <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
 
