@@ -26,6 +26,7 @@ import {
   LogOut,
   Layers,
   History,
+  Plus,
   BarChart3,
   BarChart2,
   PieChart,

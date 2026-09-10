@@ -591,7 +591,7 @@ export default function SubjectTopicManager({
                   value={newTopicDesc}
                   onChange={setNewTopicDesc}
                   placeholder="Brief summary or description of this topic..."
-                  rows={3}
+                  rows={1}
                   showPreview={true}
                   previewTitle="Description Preview"
                 />

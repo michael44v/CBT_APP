@@ -16,7 +16,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
   placeholder = 'Type text or formatted content here...',
-  rows = 3,
+  rows = 13,
   showMathToolbar = false,
   showPreview = false,
   previewTitle = 'Live Preview'
@@ -166,19 +166,21 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       {/* Editor & Optional Preview */}
       <div style={{ display: showPreview ? 'grid' : 'block', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: '10px', width: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <textarea
-            ref={textareaRef}
-            className="form-input"
-            rows={rows}
-            placeholder={placeholder}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            style={{
-              fontFamily: 'inherit',
-              fontSize: '0.88rem',
-              resize: 'vertical',
-              width: '100%'
-            }}
+         <textarea
+  ref={textareaRef}
+  className="form-input"
+  rows={rows}
+  placeholder={placeholder}
+  value={value}
+  onChange={(e) => onChange(e.target.value)}
+  style={{
+    fontFamily: 'inherit',
+    fontSize: '0.88rem',
+    resize: 'vertical',
+    width: '100%',
+    minHeight: '350px'
+  }}
+
           />
         </div>
 
