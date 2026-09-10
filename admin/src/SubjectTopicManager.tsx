@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, BookOpen, AlertTriangle, Layers, Lock, Search, Eye, ArrowLeft } from 'lucide-react';
 import { Subject, Topic } from './types';
+import RichTextEditor from './RichTextEditor';
 
 interface SubjectTopicManagerProps {
   apiBase: string;
@@ -22,9 +23,18 @@ export default function SubjectTopicManager({
   const [newSubExamType, setNewSubExamType] = useState('JAMB');
   const [creatingSub, setCreatingSub] = useState(false);
 
+  // Add Topic State
+  const [showAddTopicModal, setShowAddTopicModal] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [newTopicDesc, setNewTopicDesc] = useState('');
+  const [newTopicContent, setNewTopicContent] = useState('');
+  const [creatingTopic, setCreatingTopic] = useState(false);
+
   // Topic Edit Modal
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editTopicName, setEditTopicName] = useState('');
+  const [editTopicDesc, setEditTopicDesc] = useState('');
+  const [editTopicContent, setEditTopicContent] = useState('');
   const [savingTopic, setSavingTopic] = useState(false);
 
   // Topic Delete Modal
@@ -115,7 +125,46 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Save Topic Name Edit
+  // Handle Add Topic
+  const handleCreateTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeSubject || !newTopicName.trim()) return;
+
+    setCreatingTopic(true);
+    try {
+      const res = await fetch(`${apiBase}/admin/questions.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
+        body: JSON.stringify({
+          action: 'create_topic',
+          subject_id: activeSubject.id,
+          topic_name: newTopicName.trim(),
+          description: newTopicDesc.trim(),
+          content: newTopicContent.trim()
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'Topic created successfully!');
+        setNewTopicName('');
+        setNewTopicDesc('');
+        setNewTopicContent('');
+        setShowAddTopicModal(false);
+        onRefreshData();
+      } else {
+        showNotification(data.message || 'Failed to create topic.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error creating topic.', 'error');
+    } finally {
+      setCreatingTopic(false);
+    }
+  };
+
+  // Save Topic Edit
   const handleSaveTopicEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTopic || !editTopicName.trim()) return;
@@ -131,7 +180,9 @@ export default function SubjectTopicManager({
         body: JSON.stringify({
           action: 'edit_topic',
           topic_id: editingTopic.id,
-          name: editTopicName.trim()
+          name: editTopicName.trim(),
+          description: editTopicDesc.trim(),
+          content: editTopicContent.trim()
         }),
       });
       const data = await res.json();
@@ -393,7 +444,7 @@ export default function SubjectTopicManager({
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Layers size={20} /> Topics for {activeSubject ? `"${activeSubject.name}" (${activeSubject.exam_type})` : 'Selected Subject'}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative' }}>
               <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
@@ -402,10 +453,20 @@ export default function SubjectTopicManager({
                 placeholder="Search topics..."
                 value={topicSearch}
                 onChange={(e) => setTopicSearch(e.target.value)}
-                style={{ paddingLeft: '28px', width: '160px', padding: '0.25rem 0.5rem 0.25rem 28px', fontSize: '0.8rem' }}
+                style={{ paddingLeft: '28px', width: '150px', padding: '0.25rem 0.5rem 0.25rem 28px', fontSize: '0.8rem' }}
               />
             </div>
             <span className="badge badge-info">{scopedTopics.length} Topics</span>
+            {activeSubject && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowAddTopicModal(true)}
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              >
+                <Plus size={14} /> Add Topic
+              </button>
+            )}
           </div>
         </div>
 
@@ -442,9 +503,11 @@ export default function SubjectTopicManager({
                             onClick={() => {
                               setEditingTopic(top);
                               setEditTopicName(top.name);
+                              setEditTopicDesc(top.description || '');
+                              setEditTopicContent(top.content || '');
                             }}
                             style={{ padding: '4px 8px' }}
-                            title="Edit Topic Name"
+                            title="Edit Topic"
                           >
                             <Edit size={14} />
                           </button>
@@ -471,6 +534,75 @@ export default function SubjectTopicManager({
         )}
       </div>
 
+      {/* CREATE TOPIC MODAL */}
+      {showAddTopicModal && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddTopicModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '650px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+            <button
+              onClick={() => setShowAddTopicModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create Topic for {activeSubject?.name}</h3>
+            <form onSubmit={handleCreateTopic} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Name <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Quadratic Equations"
+                  value={newTopicName}
+                  onChange={(e) => setNewTopicName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Description</label>
+                <RichTextEditor
+                  value={newTopicDesc}
+                  onChange={setNewTopicDesc}
+                  placeholder="Brief summary or description of this topic..."
+                  rows={3}
+                  showPreview={true}
+                  previewTitle="Description Preview"
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Content / Study Notes</label>
+                <RichTextEditor
+                  value={newTopicContent}
+                  onChange={setNewTopicContent}
+                  placeholder="Detailed study content, formulas, or lesson material..."
+                  rows={5}
+                  showMathToolbar={true}
+                  showPreview={true}
+                  previewTitle="Content Preview"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddTopicModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={creatingTopic}>
+                  {creatingTopic ? 'Creating...' : 'Create Topic'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* EDIT TOPIC MODAL */}
       {editingTopic && (
         <div
@@ -482,17 +614,17 @@ export default function SubjectTopicManager({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '650px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
             <button
               onClick={() => setEditingTopic(null)}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Topic Name</h3>
-            <form onSubmit={handleSaveTopicEdit}>
-              <div className="form-group" style={{ marginBottom: '1.2rem' }}>
-                <label className="form-label">Topic Name</label>
+            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Topic: {editingTopic.name}</h3>
+            <form onSubmit={handleSaveTopicEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Name <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input
                   type="text"
                   className="form-input"
@@ -502,7 +634,33 @@ export default function SubjectTopicManager({
                   autoFocus
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Description</label>
+                <RichTextEditor
+                  value={editTopicDesc}
+                  onChange={setEditTopicDesc}
+                  placeholder="Brief summary or description of this topic..."
+                  rows={3}
+                  showPreview={true}
+                  previewTitle="Description Preview"
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Content / Study Notes</label>
+                <RichTextEditor
+                  value={editTopicContent}
+                  onChange={setEditTopicContent}
+                  placeholder="Detailed study content, formulas, or lesson material..."
+                  rows={5}
+                  showMathToolbar={true}
+                  showPreview={true}
+                  previewTitle="Content Preview"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingTopic(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={savingTopic}>
                   {savingTopic ? 'Saving...' : 'Update Topic'}

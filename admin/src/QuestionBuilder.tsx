@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Subject, Topic, BuilderQuestionCard, BuilderFieldErrorMap } from './types';
 import FormulaEditor, { MathRenderer, renderLatexToString } from './FormulaEditor';
+import RichTextEditor from './RichTextEditor';
 
 interface QuestionBuilderProps {
   apiBase: string;
@@ -826,16 +827,17 @@ export default function QuestionBuilder({
                     </div>
                   </div>
 
-                  {/* Question Text Editor */}
+                  {/* Question Text Editor & Live KaTeX Card Preview */}
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 700 }}>Question Text <span style={{ color: 'var(--danger)' }}>*</span></label>
-                    <textarea
-                      className="form-input"
-                      rows={3}
-                      placeholder="Enter the full question text here..."
+                    <RichTextEditor
                       value={card.question_text}
-                      onChange={(e) => updateCard(card.id, { question_text: e.target.value })}
-                      style={{ resize: 'vertical' }}
+                      onChange={(val) => updateCard(card.id, { question_text: val })}
+                      placeholder="Enter question text with inline or block LaTeX formulas (e.g., What is \( x \) if \( x^2 - 4 = 0 \)?)..."
+                      rows={3}
+                      showMathToolbar={true}
+                      showPreview={true}
+                      previewTitle="Formatted Question Card Preview"
                     />
                     {errors.question_text && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.question_text}</span>}
                   </div>
@@ -1024,13 +1026,14 @@ export default function QuestionBuilder({
 
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>Correct Answer Explanation (Optional)</label>
-                      <textarea
-                        className="form-input"
-                        rows={2}
-                        placeholder="Why the selected correct answer option is right..."
+                      <RichTextEditor
                         value={card.correct_explanation}
-                        onChange={(e) => updateCard(card.id, { correct_explanation: e.target.value })}
-                        style={{ resize: 'vertical' }}
+                        onChange={(val) => updateCard(card.id, { correct_explanation: val })}
+                        placeholder="Why the selected correct answer option is right (supports formulas, e.g. \( x = \pm 2 \))..."
+                        rows={3}
+                        showMathToolbar={true}
+                        showPreview={true}
+                        previewTitle="Explanation KaTeX Preview"
                       />
                     </div>
                   </div>
