@@ -9,6 +9,8 @@ interface SubjectTopicManagerProps {
   dbTopics: Topic[];
   onRefreshData: () => void;
   showNotification: (msg: string, type?: 'success' | 'error') => void;
+  initialAddModalOpen?: boolean;
+  onModalClosed?: () => void;
 }
 
 export default function SubjectTopicManager({
@@ -16,7 +18,9 @@ export default function SubjectTopicManager({
   dbSubjects,
   dbTopics,
   onRefreshData,
-  showNotification
+  showNotification,
+  initialAddModalOpen = false,
+  onModalClosed
 }: SubjectTopicManagerProps) {
   // Add Subject State
   const [newSubName, setNewSubName] = useState('');
@@ -24,7 +28,13 @@ export default function SubjectTopicManager({
   const [creatingSub, setCreatingSub] = useState(false);
 
   // Add Topic State
-  const [showAddTopicModal, setShowAddTopicModal] = useState(false);
+  const [showAddTopicModal, setShowAddTopicModal] = useState(initialAddModalOpen);
+
+  React.useEffect(() => {
+    if (initialAddModalOpen) {
+      setShowAddTopicModal(true);
+    }
+  }, [initialAddModalOpen]);
   const [newTopicName, setNewTopicName] = useState('');
   const [newTopicDesc, setNewTopicDesc] = useState('');
   const [newTopicContent, setNewTopicContent] = useState('');
@@ -538,7 +548,12 @@ export default function SubjectTopicManager({
       {showAddTopicModal && (
         <div
           className="modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAddTopicModal(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddTopicModal(false);
+              if (onModalClosed) onModalClosed();
+            }
+          }}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
@@ -547,7 +562,10 @@ export default function SubjectTopicManager({
         >
           <div className="admin-card" style={{ maxWidth: '650px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
             <button
-              onClick={() => setShowAddTopicModal(false)}
+              onClick={() => {
+                setShowAddTopicModal(false);
+                if (onModalClosed) onModalClosed();
+              }}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
@@ -593,7 +611,16 @@ export default function SubjectTopicManager({
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddTopicModal(false)}>Cancel</button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowAddTopicModal(false);
+                    if (onModalClosed) onModalClosed();
+                  }}
+                >
+                  Cancel
+                </button>
                 <button type="submit" className="btn btn-primary" disabled={creatingTopic}>
                   {creatingTopic ? 'Creating...' : 'Create Topic'}
                 </button>

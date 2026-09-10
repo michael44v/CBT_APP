@@ -254,7 +254,7 @@ async function downloadQuestions() {
     logSyncEvent(
       'PULL_QUESTIONS',
       'SUCCESS',
-      `Sync v${serverVersion} complete: ${questions.length} updated, ${deletedQuestionIds.length} deleted, ${subjects.length} subjects, ${topics.length} topics.`
+      `Sync v${serverVersion} complete on ${new Date().toLocaleString()}: ${questions.length} updated, ${deletedQuestionIds.length} deleted, ${subjects.length} subjects, ${topics.length} topics.`
     );
 
     return true;

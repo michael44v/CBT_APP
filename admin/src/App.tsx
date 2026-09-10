@@ -81,6 +81,8 @@ export default function App() {
     'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES'
   >('DASHBOARD');
 
+  const [openAddTopicDirectly, setOpenAddTopicDirectly] = useState<boolean>(false);
+
   // Collapsible Sidebar Category Groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     content: true,
@@ -886,8 +888,11 @@ export default function App() {
                 <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>
                   <BookOpen size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Question Bank Browser
                 </button>
-                <button className={`menu-btn ${activeTab === 'TOPICS' ? 'active' : ''}`} onClick={() => setActiveTab('TOPICS')}>
+                <button className={`menu-btn ${activeTab === 'TOPICS' ? 'active' : ''}`} onClick={() => { setActiveTab('TOPICS'); setOpenAddTopicDirectly(false); }}>
                   <Layers size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Subjects &amp; Topics
+                </button>
+                <button className="menu-btn" onClick={() => { setActiveTab('TOPICS'); setOpenAddTopicDirectly(true); }}>
+                  <Plus size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Create New Topic
                 </button>
                 <button className={`menu-btn ${activeTab === 'UPLOAD_LOGS' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_LOGS')}>
                   <History size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Upload History Log
@@ -1521,6 +1526,8 @@ export default function App() {
               fetchQuestions();
             }}
             showNotification={showNotification}
+            initialAddModalOpen={openAddTopicDirectly}
+            onModalClosed={() => setOpenAddTopicDirectly(false)}
           />
         )}
 
