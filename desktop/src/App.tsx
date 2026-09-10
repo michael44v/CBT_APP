@@ -2311,6 +2311,9 @@ export default function App() {
                             <span style={{ ...styles.logStatus, backgroundColor: log.status === 'SUCCESS' ? colors.successLight : colors.dangerLight }}>{log.status}</span>
                           </div>
                           <div style={styles.logText}>{log.message}</div>
+                          <div style={styles.logTime}>
+                            {log.timestamp ? new Date(log.timestamp).toLocaleString() : ''}
+                          </div>
                         </div>
                       ))
                     )}
