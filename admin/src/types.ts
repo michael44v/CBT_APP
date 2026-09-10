@@ -12,6 +12,8 @@ export interface Topic {
   id: number;
   subject_id: number;
   name: string;
+  description?: string | null;
+  content?: string | null;
   question_count?: number;
   sync_version?: number;
   created_at?: string;

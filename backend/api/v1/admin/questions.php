@@ -215,6 +215,8 @@ if ($method === 'POST') {
     if ($action === 'create_topic') {
         $subject_id = intval($data['subject_id'] ?? 0);
         $topic_name = trim($data['topic_name'] ?? '');
+        $description = trim($data['description'] ?? '');
+        $content = trim($data['content'] ?? '');
 
         if ($subject_id <= 0 || empty($topic_name)) {
             echo json_encode(["success" => false, "message" => "Subject ID and topic_name are required."]);
@@ -234,8 +236,8 @@ if ($method === 'POST') {
         }
 
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("INSERT INTO topics (subject_id, name, sync_version) VALUES (?, ?, ?)");
-        $stmt->bind_param("isi", $subject_id, $topic_name, $sync_version);
+        $stmt = $db->prepare("INSERT INTO topics (subject_id, name, description, content, sync_version) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssi", $subject_id, $topic_name, $description, $content, $sync_version);
         $stmt->execute();
         $new_topic_id = $db->insert_id;
 
@@ -246,6 +248,8 @@ if ($method === 'POST') {
     if ($action === 'edit_topic') {
         $topic_id = intval($data['topic_id'] ?? 0);
         $name = trim($data['name'] ?? '');
+        $description = trim($data['description'] ?? '');
+        $content = trim($data['content'] ?? '');
 
         if ($topic_id <= 0 || empty($name)) {
             echo json_encode(["success" => false, "message" => "Valid topic_id and name are required."]);
@@ -253,8 +257,8 @@ if ($method === 'POST') {
         }
 
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("UPDATE topics SET name = ?, sync_version = ? WHERE id = ?");
-        $stmt->bind_param("sii", $name, $sync_version, $topic_id);
+        $stmt = $db->prepare("UPDATE topics SET name = ?, description = ?, content = ?, sync_version = ? WHERE id = ?");
+        $stmt->bind_param("sssii", $name, $description, $content, $sync_version, $topic_id);
         $stmt->execute();
 
         echo json_encode(["success" => true, "message" => "Topic updated successfully."]);

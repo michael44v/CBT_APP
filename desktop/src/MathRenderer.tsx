@@ -47,15 +47,24 @@ export const renderLatexToString = (latex: string, displayMode: boolean = true):
 export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ text, inline = false }) => {
   if (!text) return null;
 
-  // Check if text contains LaTeX delimiters \(...\), \[...\], or $...$ or latex math constructs
-  const hasLatexDelimiters = /\\\(|\\\[|\$|\{|\^|_|\\frac|\\sqrt|\\times|\\pm|\\div/.test(text);
+  // Check if text contains LaTeX delimiters \(...\), \[...\], or $...$ or raw latex math commands
+  const hasLatexConstructs = /\\\(|\\\[|\$|\{|\^|_|\\frac|\\sqrt|\\times|\\div|\\pm|\\sum|\\int|\\pi|\\alpha|\\beta|\\theta|\\begin|\\end/.test(text);
 
-  if (!hasLatexDelimiters) {
+  if (!hasLatexConstructs) {
     if (/<[a-z][\s\S]*>/i.test(text)) {
       const normalized = normalizeHtmlImageUrls(text);
       return <span dangerouslySetInnerHTML={{ __html: normalized }} />;
     }
     return <span>{text}</span>;
+  }
+
+  // Auto-detect raw LaTeX math commands without explicit delimiters and wrap them
+  let processedText = text;
+  const hasExplicitDelimiters = /(\\\[[\s\S]*?\\\])|(\\\([\s\S]*?\\\))|(\$\$[\s\S]*?\$\$)|(\$[^\$]+?\$)/.test(text);
+
+  if (!hasExplicitDelimiters && /\\(?:frac|sqrt|times|div|pm|sum|int|pi|alpha|beta|theta|begin|end)\b/.test(text)) {
+    // Wrap raw LaTeX command expressions in \(...\)
+    processedText = processedText.replace(/(\\(?:frac|sqrt|sum|int)\{[^}]+\}(?:\{[^}]+\})*|\\(?:times|div|pm|pi|alpha|beta|theta))/g, '\\($1\\)');
   }
 
   // Parse text into plain text segments and LaTeX segments
@@ -64,9 +73,9 @@ export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ tex
   let lastIndex = 0;
   let match;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(processedText)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+      segments.push({ type: 'text', content: processedText.substring(lastIndex, match.index) });
     }
     const matchedStr = match[0];
     if (matchedStr.startsWith('\\[') && matchedStr.endsWith('\\]')) {
@@ -81,13 +90,13 @@ export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ tex
     lastIndex = regex.lastIndex;
   }
 
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.substring(lastIndex) });
+  if (lastIndex < processedText.length) {
+    segments.push({ type: 'text', content: processedText.substring(lastIndex) });
   }
 
   if (segments.length === 0) {
     // If no delimiters found but contains raw LaTeX formula
-    const html = renderLatexToString(text, !inline);
+    const html = renderLatexToString(processedText, !inline);
     return <span dangerouslySetInnerHTML={{ __html: html }} />;
   }
 
