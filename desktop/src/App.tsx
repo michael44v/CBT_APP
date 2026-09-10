@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus, SavedLogin } from './global';
 import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2 } from 'lucide-react';
-import { MathRenderer } from './MathRenderer';
+import { MathRenderer, formatQuestionWithFormula } from './MathRenderer';
 
 import { QuestionImage } from './QuestionImage';
 
-import { BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
 
 
@@ -54,9 +53,6 @@ export default function App() {
 
 
 
-function Formula({ text }) {
-  return <BlockMath math={text} />;
-}
 
   useEffect(() => {
     const handleOnline = () => {
@@ -2669,38 +2665,9 @@ function Formula({ text }) {
 
         {/* Question + options */}
         <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
-          <div style={{ fontSize: '17px', lineHeight: 1.7, color: '#1a1a1a', marginTop: '18px', marginBottom: curQ.formula || curQ.image_url ? '12px' : '32px' }}>
-            <MathRenderer text={curQ.question_text} />
+          <div style={{ fontSize: '17px', lineHeight: 1.7, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '18px', marginBottom: curQ.image_url ? '12px' : '32px' }}>
+            <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
           </div>
-
-       {curQ.formula && (
-  <div style={{
-    backgroundColor: 'transparent',
-    border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
-    borderLeft: '4px solid #2563eb',
-    padding: '3px 6px',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontFamily: 'Courier New, monospace, serif',
-    fontWeight: 600,
-    color: isDarkMode ? '#60a5fa' : '#1d4ed8',
-    marginBottom: curQ.image_url ? '16px' : '28px',
-    whiteSpace: 'pre-wrap'
-  }}>
-    <span style={{
-      fontSize: '11px',
-      color: colors.textMuted,
-      display: 'block',
-      marginBottom: '4px',
-      textTransform: 'uppercase',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      Formula
-    </span>
-
-    <Formula text={curQ.formula} />
-  </div>
-)}
 
           <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
 
@@ -3175,30 +3142,9 @@ function Formula({ text }) {
                               </div>
                             </div>
 
-                            <div style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: q.formula || q.image_url ? '12px' : '20px' }}>
-                              <MathRenderer text={q.question_text} />
+                            <div style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: q.image_url ? '12px' : '20px' }}>
+                              <MathRenderer text={formatQuestionWithFormula(q.question_text, q.formula)} />
                             </div>
-
-                            {q.formula && (
-                              <div style={{
-                                backgroundColor: isDarkMode ? '#1e293b' : '#f0f4f8',
-                                border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
-                                borderLeft: '4px solid #2563eb',
-                                padding: '10px 16px',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontFamily: 'Courier New, monospace, serif',
-                                fontWeight: 600,
-                                color: isDarkMode ? '#60a5fa' : '#1d4ed8',
-                                marginBottom: q.image_url ? '12px' : '20px',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                <span style={{ fontSize: '10px', color: colors.textMuted, display: 'block', marginBottom: '2px', textTransform: 'uppercase' }}>
-                                  Formula
-                                </span>
-                                <MathRenderer text={q.formula} />
-                              </div>
-                            )}
 
                             <QuestionImage key={`review-img-${q.id}`} imageUrl={q.image_url} isDarkMode={isDarkMode} />
 

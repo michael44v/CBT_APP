@@ -19,6 +19,19 @@ export const normalizeHtmlImageUrls = (htmlStr: string): string => {
   });
 };
 
+export const formatQuestionWithFormula = (questionText: string, formula?: string): string => {
+  if (!formula || !formula.trim()) return questionText || '';
+  const qText = questionText || '';
+  const trimmedFormula = formula.trim();
+  const hasDelimiter = /^(\\\(|\\\[|\$|\$\$)/.test(trimmedFormula);
+  const formattedFormula = hasDelimiter
+    ? trimmedFormula
+    : trimmedFormula.includes('\n') || trimmedFormula.includes('\\\\') || trimmedFormula.includes('\\begin')
+    ? `\\[ ${trimmedFormula} \\]`
+    : `\\( ${trimmedFormula} \\)`;
+  return qText ? `${qText} ${formattedFormula}` : formattedFormula;
+};
+
 export const renderLatexToString = (latex: string, displayMode: boolean = true): string => {
   if (!latex || !latex.trim()) return '';
   try {
