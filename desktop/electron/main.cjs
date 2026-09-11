@@ -374,6 +374,7 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
   const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
   const isFree = !actRow;
 
+  // First try querying with the specific topic/year filters if requested
   let sql = "SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ?";
   const params = [examType, subjectId];
 
@@ -388,7 +389,6 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
 
   sql += " ORDER BY RANDOM()";
 
-  // In Free Mode, max 30 questions per practice session
   let maxLimit = limit || 30;
   if (isFree) {
     maxLimit = Math.min(maxLimit, 30);
@@ -397,7 +397,15 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
   sql += " LIMIT ?";
   params.push(maxLimit);
 
-  const questions = dbService.all(sql, params);
+  let questions = dbService.all(sql, params);
+
+  // Fallback: If topic or year filter was specific and returned 0 questions, query all questions under that subject
+  if ((!questions || questions.length === 0) && (topicId || year)) {
+    console.log(`[Practice Session] 0 questions found for topicId ${topicId}/year ${year}. Falling back to general subject questions.`);
+    let fallbackSql = "SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ? ORDER BY RANDOM() LIMIT ?";
+    questions = dbService.all(fallbackSql, [examType, subjectId, maxLimit]);
+  }
+
   return questions;
 });
 
