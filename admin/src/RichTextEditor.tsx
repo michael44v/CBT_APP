@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Bold, Italic, Underline, List, CornerDownLeft, Heading } from 'lucide-react';
 import { MathRenderer } from './FormulaEditor';
 
@@ -12,33 +12,6 @@ interface RichTextEditorProps {
   previewTitle?: string;
 }
 
-/**
- * Sanitizes and normalizes HTML formatting strings to guarantee valid tag nesting.
- * Ensures block elements (<h3>, <ul>, <ol>, <li>) are never nested inside inline elements (<b>, <i>, <u>, <span>).
- */
-export const sanitizeHtmlFormatting = (html: string): string => {
-  if (!html) return html;
-
-  let cleaned = html;
-
-  // Fix improper nesting where inline elements wrap block elements, e.g. <b><u><h3>text</h3></u></b> or <b><ul><li>text</li></ul></b>
-  const blockTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'p', 'div'];
-  const inlineTags = ['b', 'i', 'u', 'strong', 'em', 'span'];
-
-  inlineTags.forEach(inline => {
-    blockTags.forEach(block => {
-      // Pattern matching <inline><block>content</block></inline> -> <block><inline>content</inline></block>
-      const regex = new RegExp(`<${inline}>\\s*<${block}>([\\s\\S]*?)</${block}>\\s*</${inline}>`, 'gi');
-      cleaned = cleaned.replace(regex, `<${block}><${inline}>$1</${inline}></${block}>`);
-    });
-  });
-
-  // Clean empty inline tags or invalid lone breaks inside headings/lists
-  cleaned = cleaned.replace(/<(b|i|u|strong|em)>\s*<\/(b|i|u|strong|em)>/gi, '');
-
-  return cleaned;
-};
-
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
@@ -48,108 +21,149 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   showPreview = false,
   previewTitle = 'Live Preview'
 }) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isComposingRef = useRef<boolean>(false);
 
-  const applyInlineFormatting = (tag: 'b' | 'i' | 'u', defaultText: string) => {
-    if (!textareaRef.current) {
-      const sanitized = sanitizeHtmlFormatting(value + `<${tag}>${defaultText}</${tag}>`);
-      onChange(sanitized);
-      return;
+  // Active formatting state for toolbar buttons
+  const [activeFormats, setActiveFormats] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    heading: false,
+    list: false,
+  });
+
+  // Track if content is empty to show placeholder
+  const [isEmpty, setIsEmpty] = useState<boolean>(!value || value.trim() === '');
+
+  // Synchronize incoming `value` prop to contentEditable innerHTML without losing cursor
+  useEffect(() => {
+    if (!editorRef.current) return;
+    const currentHtml = editorRef.current.innerHTML;
+    const normalizedProp = value || '';
+
+    // Only update innerHTML if the external prop differs significantly from current innerHTML
+    if (normalizedProp !== currentHtml && document.activeElement !== editorRef.current) {
+      editorRef.current.innerHTML = normalizedProp;
+      const text = editorRef.current.innerText || '';
+      setIsEmpty(text.trim() === '' && !editorRef.current.querySelector('img, ul, ol, h3'));
     }
+  }, [value]);
 
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const openTag = `<${tag}>`;
-    const closeTag = `</${tag}>`;
+  // Check state of selection/cursor to update active formatting toolbar buttons
+  const checkSelectionState = useCallback(() => {
+    if (!editorRef.current) return;
 
-    const selectedText = value.substring(start, end);
+    try {
+      const isBold = document.queryCommandState('bold');
+      const isItalic = document.queryCommandState('italic');
+      const isUnderline = document.queryCommandState('underline');
+      const isList = document.queryCommandState('insertUnorderedList');
 
-    let replacement = '';
-    let newCursorStart = start;
-    let newCursorEnd = end;
-
-    if (selectedText) {
-      // Check if the selected text is already wrapped in this inline tag (Toggle off)
-      if (selectedText.startsWith(openTag) && selectedText.endsWith(closeTag)) {
-        replacement = selectedText.substring(openTag.length, selectedText.length - closeTag.length);
-        newCursorEnd = start + replacement.length;
-      } else {
-        // Wrap ONLY the selected inline text content
-        replacement = `${openTag}${selectedText}${closeTag}`;
-        newCursorStart = start + openTag.length;
-        newCursorEnd = newCursorStart + selectedText.length;
+      let isHeading = false;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        let parent: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+        while (parent && parent !== editorRef.current) {
+          if (parent.nodeName === 'H3' || parent.nodeName === 'H1' || parent.nodeName === 'H2') {
+            isHeading = true;
+            break;
+          }
+          parent = parent.parentNode;
+        }
       }
+
+      setActiveFormats({
+        bold: isBold,
+        italic: isItalic,
+        underline: isUnderline,
+        heading: isHeading,
+        list: isList,
+      });
+    } catch (e) {
+      // Ignore queryCommandState errors if document not focused
+    }
+  }, []);
+
+  const handleInput = () => {
+    if (!editorRef.current || isComposingRef.current) return;
+    const currentHtml = editorRef.current.innerHTML;
+    const textContent = editorRef.current.innerText || '';
+
+    const empty = textContent.trim() === '' && !editorRef.current.querySelector('img, ul, ol, h3, br');
+    setIsEmpty(empty);
+
+    onChange(empty ? '' : currentHtml);
+    checkSelectionState();
+  };
+
+  const executeCommand = (command: string, valueArg: string | undefined = undefined) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+
+    document.execCommand(command, false, valueArg);
+    handleInput();
+    checkSelectionState();
+  };
+
+  const handleToggleHeading = () => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+
+    if (activeFormats.heading) {
+      document.execCommand('formatBlock', false, '<p>');
     } else {
-      // Insert empty tag with default text at current cursor position
-      replacement = `${openTag}${defaultText}${closeTag}`;
-      newCursorStart = start + openTag.length;
-      newCursorEnd = newCursorStart + defaultText.length;
+      document.execCommand('formatBlock', false, '<h3>');
     }
-
-    const uncleanedNewValue = value.substring(0, start) + replacement + value.substring(end);
-    const sanitizedValue = sanitizeHtmlFormatting(uncleanedNewValue);
-    onChange(sanitizedValue);
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(newCursorStart, newCursorEnd);
-    }, 0);
+    handleInput();
   };
 
-  const applyBlockFormatting = (type: 'heading' | 'list' | 'break') => {
-    if (!textareaRef.current) {
-      let snippet = '';
-      if (type === 'heading') snippet = '<h3>Heading</h3>';
-      else if (type === 'list') snippet = '<ul>\n  <li>List Item</li>\n</ul>';
-      else if (type === 'break') snippet = '<br/>\n';
+  const handleInsertBreak = () => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
 
-      onChange(sanitizeHtmlFormatting(value + snippet));
-      return;
-    }
-
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = value.substring(start, end);
-
-    let replacement = '';
-    if (type === 'heading') {
-      const content = selectedText || 'Heading';
-      replacement = `<h3>${content}</h3>`;
-    } else if (type === 'list') {
-      const content = selectedText || 'List Item';
-      replacement = `<ul>\n  <li>${content}</li>\n</ul>`;
-    } else if (type === 'break') {
-      replacement = '<br/>\n';
-    }
-
-    const uncleanedNewValue = value.substring(0, start) + replacement + value.substring(end);
-    const sanitizedValue = sanitizeHtmlFormatting(uncleanedNewValue);
-    onChange(sanitizedValue);
-
-    setTimeout(() => {
-      textarea.focus();
-      const newPos = start + replacement.length;
-      textarea.setSelectionRange(newPos, newPos);
-    }, 0);
+    document.execCommand('insertHTML', false, '<br/><br/>');
+    handleInput();
   };
 
-  const insertSnippet = (snippet: string) => {
-    if (!textareaRef.current) {
-      onChange(value + snippet);
-      return;
-    }
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newValue = value.substring(0, start) + snippet + value.substring(end);
-    onChange(newValue);
+  const insertMathSnippet = (snippet: string) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
 
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + snippet.length, start + snippet.length);
-    }, 0);
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(snippet);
+      range.insertNode(textNode);
+
+      // Move caret after inserted text node
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      document.execCommand('insertText', false, snippet);
+    }
+
+    handleInput();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Keyboard shortcuts: Ctrl+B, Ctrl+I, Ctrl+U
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === 'b') {
+        e.preventDefault();
+        executeCommand('bold');
+      } else if (key === 'i') {
+        e.preventDefault();
+        executeCommand('italic');
+      } else if (key === 'u') {
+        e.preventDefault();
+        executeCommand('underline');
+      }
+    }
   };
 
   const mathItems = [
@@ -167,6 +181,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     { label: 'Beta', snippet: '\\( \\beta \\)' },
     { label: 'Theta', snippet: '\\( \\theta \\)' }
   ];
+
+  const minHeight = rows > 5 ? '200px' : '100px';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
@@ -187,13 +203,22 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           Format:
         </span>
 
-        {/* Text Formatting Toolbar */}
+        {/* Text Formatting Toolbar Buttons with Active State */}
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => applyInlineFormatting('b', 'bold text')}
-          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-          title="Bold"
+          onClick={() => executeCommand('bold')}
+          style={{
+            padding: '3px 8px',
+            fontSize: '0.75rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            backgroundColor: activeFormats.bold ? 'var(--accent)' : undefined,
+            color: activeFormats.bold ? '#ffffff' : undefined,
+            fontWeight: activeFormats.bold ? 800 : 500
+          }}
+          title="Bold (Ctrl+B)"
         >
           <Bold size={13} /> Bold
         </button>
@@ -201,9 +226,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => applyInlineFormatting('i', 'italic text')}
-          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-          title="Italic"
+          onClick={() => executeCommand('italic')}
+          style={{
+            padding: '3px 8px',
+            fontSize: '0.75rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            backgroundColor: activeFormats.italic ? 'var(--accent)' : undefined,
+            color: activeFormats.italic ? '#ffffff' : undefined,
+            fontWeight: activeFormats.italic ? 800 : 500
+          }}
+          title="Italic (Ctrl+I)"
         >
           <Italic size={13} /> Italic
         </button>
@@ -211,9 +245,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => applyInlineFormatting('u', 'underlined text')}
-          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-          title="Underline"
+          onClick={() => executeCommand('underline')}
+          style={{
+            padding: '3px 8px',
+            fontSize: '0.75rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            backgroundColor: activeFormats.underline ? 'var(--accent)' : undefined,
+            color: activeFormats.underline ? '#ffffff' : undefined,
+            fontWeight: activeFormats.underline ? 800 : 500
+          }}
+          title="Underline (Ctrl+U)"
         >
           <Underline size={13} /> Underline
         </button>
@@ -221,8 +264,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => applyBlockFormatting('heading')}
-          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+          onClick={handleToggleHeading}
+          style={{
+            padding: '3px 8px',
+            fontSize: '0.75rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            backgroundColor: activeFormats.heading ? 'var(--accent)' : undefined,
+            color: activeFormats.heading ? '#ffffff' : undefined,
+            fontWeight: activeFormats.heading ? 800 : 500
+          }}
           title="Heading"
         >
           <Heading size={13} /> Heading
@@ -231,7 +283,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => applyBlockFormatting('break')}
+          onClick={handleInsertBreak}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Line Break"
         >
@@ -241,8 +293,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => applyBlockFormatting('list')}
-          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+          onClick={() => executeCommand('insertUnorderedList')}
+          style={{
+            padding: '3px 8px',
+            fontSize: '0.75rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            backgroundColor: activeFormats.list ? 'var(--accent)' : undefined,
+            color: activeFormats.list ? '#ffffff' : undefined,
+            fontWeight: activeFormats.list ? 800 : 500
+          }}
           title="Bullet List"
         >
           <List size={13} /> List
@@ -259,7 +320,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 key={idx}
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => insertSnippet(item.snippet)}
+                onClick={() => insertMathSnippet(item.snippet)}
                 style={{ padding: '2px 7px', fontSize: '0.72rem', fontWeight: 600 }}
                 title={`Insert ${item.label}`}
               >
@@ -270,25 +331,51 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         )}
       </div>
 
-      {/* Editor & Optional Preview */}
+      {/* Visual ContentEditable Surface & Optional Live Preview */}
       <div style={{ display: showPreview ? 'grid' : 'block', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: '10px', width: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-         <textarea
-  ref={textareaRef}
-  className="form-input"
-  rows={rows}
-  placeholder={placeholder}
-  value={value}
-  onChange={(e) => onChange(e.target.value)}
-  style={{
-    fontFamily: 'inherit',
-    fontSize: '0.88rem',
-    resize: 'vertical',
-    width: '100%',
-    minHeight: rows > 5 ? '200px' : '100px'
-  }}
-
+        <div style={{ position: 'relative', width: '100%' }}>
+          <div
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            onKeyUp={checkSelectionState}
+            onMouseUp={checkSelectionState}
+            onKeyDown={handleKeyDown}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={() => { isComposingRef.current = false; handleInput(); }}
+            className="form-input"
+            style={{
+              fontFamily: 'inherit',
+              fontSize: '0.88rem',
+              lineHeight: 1.5,
+              width: '100%',
+              minHeight: minHeight,
+              padding: '8px 12px',
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              outline: 'none',
+              overflowY: 'auto'
+            }}
           />
+
+          {isEmpty && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '9px',
+                left: '13px',
+                color: 'var(--text-muted)',
+                fontSize: '0.88rem',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                fontStyle: 'italic'
+              }}
+            >
+              {placeholder}
+            </div>
+          )}
         </div>
 
         {showPreview && (
@@ -297,7 +384,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             <div
               style={{
                 padding: '8px 12px',
-                minHeight: '70px',
+                minHeight: minHeight,
                 backgroundColor: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
@@ -307,7 +394,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 color: 'var(--text-main)'
               }}
             >
-              {value ? <MathRenderer text={value} /> : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', italic: true }}>Formatted text preview will render here...</span>}
+              {value ? <MathRenderer text={value} /> : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>Formatted text preview will render here...</span>}
             </div>
           </div>
         )}
