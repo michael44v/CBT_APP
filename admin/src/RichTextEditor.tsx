@@ -207,6 +207,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => executeCommand('bold')}
           style={{
             padding: '3px 8px',
@@ -226,6 +227,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => executeCommand('italic')}
           style={{
             padding: '3px 8px',
@@ -245,6 +247,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => executeCommand('underline')}
           style={{
             padding: '3px 8px',
@@ -264,6 +267,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleToggleHeading}
           style={{
             padding: '3px 8px',
@@ -283,6 +287,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleInsertBreak}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Line Break"
@@ -293,6 +298,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => executeCommand('insertUnorderedList')}
           style={{
             padding: '3px 8px',
@@ -320,6 +326,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 key={idx}
                 type="button"
                 className="btn btn-secondary"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => insertMathSnippet(item.snippet)}
                 style={{ padding: '2px 7px', fontSize: '0.72rem', fontWeight: 600 }}
                 title={`Insert ${item.label}`}
