@@ -1110,8 +1110,19 @@ export default function App() {
       percentage = examQuestions.length > 0 ? (correctCount / examQuestions.length) * 100 : 0;
     }
 
+    const fallbackResult = {
+      id: Date.now(),
+      exam_type: examType,
+      user_name: activation?.email || 'Candidate (Free)',
+      score: correctCount,
+      total_questions: examQuestions.length,
+      percentage: Number(percentage) || 0,
+      details: JSON.stringify(detailsList),
+      submitted_at: new Date().toISOString()
+    };
+
     try {
-      const resultRow = await window.api.submitExamResult({
+      let resultRow = await window.api.submitExamResult({
         examType,
         examSessionId,
         userName: activation?.email || 'Candidate (Free)',
@@ -1121,8 +1132,18 @@ export default function App() {
         details: JSON.stringify(detailsList)
       });
 
+      if (!resultRow || typeof resultRow !== 'object') {
+        resultRow = fallbackResult;
+      } else {
+        resultRow = {
+          ...fallbackResult,
+          ...resultRow,
+          percentage: typeof resultRow.percentage === 'number' ? resultRow.percentage : (Number(resultRow.percentage) || percentage || 0)
+        };
+      }
+
       if (window.api && window.api.setExamActive) {
-        await window.api.setExamActive(false);
+        await window.api.setExamActive(false).catch(() => {});
       }
       // If this was Daily Quiz, save today's completion result locally
       if (isQuizMode) {
@@ -1139,32 +1160,12 @@ export default function App() {
         const todayKey = getTodayDateKey();
         const activeUser = activation?.email || 'Candidate (Free)';
         const storageKey = `daily_quiz_${activeUser}_${todayKey}`;
-        const fallbackRes = {
-          id: Date.now(),
-          exam_type: examType,
-          user_name: activeUser,
-          score: correctCount,
-          total_questions: examQuestions.length,
-          percentage,
-          details: JSON.stringify(detailsList),
-          submitted_at: new Date().toISOString()
-        };
-        localStorage.setItem(storageKey, JSON.stringify(fallbackRes));
+        localStorage.setItem(storageKey, JSON.stringify(fallbackResult));
       }
       console.error('Submission error:', e);
       if (window.api && window.api.setExamActive) {
         await window.api.setExamActive(false).catch(() => {});
       }
-      const fallbackResult = {
-        id: Date.now(),
-        exam_type: examType,
-        user_name: activation?.email || 'Candidate (Free)',
-        score: correctCount,
-        total_questions: examQuestions.length,
-        percentage,
-        details: JSON.stringify(detailsList),
-        submitted_at: new Date().toISOString()
-      };
       setActiveResult(fallbackResult);
       setScreen('RESULT');
     }
@@ -2953,7 +2954,7 @@ export default function App() {
 })()}
 
           {/* ================= RESULT SCREEN ================= */}
-          {screen === 'RESULT' && activeResult && (
+          {screen === 'RESULT' && (
             <div style={{ maxWidth: '560px', margin: '40px auto' }}>
               <div style={styles.card}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -2962,10 +2963,19 @@ export default function App() {
                   </h1>
                 </div>
 
-                <div style={{ ...styles.resultCircle, borderColor: colors.success }}>
-                  <span style={{ fontSize: '36px', fontWeight: 800 }}>{activeResult.percentage.toFixed(1)}%</span>
-                  <span style={{ fontSize: '12px', color: colors.textMuted }}>Score</span>
-                </div>
+                {(() => {
+                  const displayPct = activeResult && typeof activeResult.percentage === 'number'
+                    ? activeResult.percentage.toFixed(1)
+                    : activeResult && activeResult.percentage != null
+                    ? (Number(activeResult.percentage) || 0).toFixed(1)
+                    : '0.0';
+                  return (
+                    <div style={{ ...styles.resultCircle, borderColor: colors.success }}>
+                      <span style={{ fontSize: '36px', fontWeight: 800 }}>{displayPct}%</span>
+                      <span style={{ fontSize: '12px', color: colors.textMuted }}>Score</span>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '32px' }}>
                   <button style={{ ...styles.btn, ...styles.btnSuccess }} onClick={() => setScreen('REVIEW')}>
@@ -2985,8 +2995,12 @@ export default function App() {
                     <button
                       style={{ ...styles.btn, backgroundColor: '#25D366', color: 'white' }}
                       onClick={() => {
-                        const shareUrl = `https://cbt.filloptech.com/results.php?result=${activeResult.id}`;
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(1)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru! View full result online: ${shareUrl}`;
+                        const scoreStr = activeResult ? `${activeResult.score}/${activeResult.total_questions}` : '0/0';
+                        const pctStr = activeResult && activeResult.percentage != null ? Number(activeResult.percentage).toFixed(1) : '0.0';
+                        const examTypeStr = activeResult?.exam_type || 'Quiz';
+                        const resId = activeResult?.id || '';
+                        const shareUrl = `https://cbt.filloptech.com/results.php?result=${resId}`;
+                        const text = `I scored ${scoreStr} (${pctStr}%) in my ${examTypeStr} test on Fillop CBT Guru! View full result online: ${shareUrl}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -2995,8 +3009,12 @@ export default function App() {
                     <button
                       style={{ ...styles.btn, ...styles.btnSecondary }}
                       onClick={() => {
-                        const shareUrl = `https://cbt.filloptech.com/results.php?result=${activeResult.id}`;
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(1)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!\n\nView full result online: ${shareUrl}`;
+                        const scoreStr = activeResult ? `${activeResult.score}/${activeResult.total_questions}` : '0/0';
+                        const pctStr = activeResult && activeResult.percentage != null ? Number(activeResult.percentage).toFixed(1) : '0.0';
+                        const examTypeStr = activeResult?.exam_type || 'Quiz';
+                        const resId = activeResult?.id || '';
+                        const shareUrl = `https://cbt.filloptech.com/results.php?result=${resId}`;
+                        const text = `I scored ${scoreStr} (${pctStr}%) in my ${examTypeStr} test on Fillop CBT Guru!\n\nView full result online: ${shareUrl}`;
                         window.open(`mailto:?subject=Fillop CBT Result&body=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -3005,7 +3023,10 @@ export default function App() {
                     <button
                       style={{ ...styles.btn, ...styles.btnSecondary }}
                       onClick={() => {
-                        const text = `I scored ${activeResult.score}/${activeResult.total_questions} (${activeResult.percentage.toFixed(1)}%) in my ${activeResult.exam_type} test on Fillop CBT Guru!`;
+                        const scoreStr = activeResult ? `${activeResult.score}/${activeResult.total_questions}` : '0/0';
+                        const pctStr = activeResult && activeResult.percentage != null ? Number(activeResult.percentage).toFixed(1) : '0.0';
+                        const examTypeStr = activeResult?.exam_type || 'Quiz';
+                        const text = `I scored ${scoreStr} (${pctStr}%) in my ${examTypeStr} test on Fillop CBT Guru!`;
                         navigator.clipboard.writeText(text);
                         alert("Result summary copied to clipboard!");
                       }}

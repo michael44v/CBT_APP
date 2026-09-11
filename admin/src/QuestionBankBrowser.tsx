@@ -224,6 +224,32 @@ export default function QuestionBankBrowser({
     }
   };
 
+  // Delete All Questions
+  const handleDeleteAllQuestions = async () => {
+    if (!window.confirm(`WARNING: Are you sure you want to delete ALL questions in the question bank? This action cannot be undone!`)) return;
+
+    try {
+      const res = await fetch(`${apiBase}/admin/questions.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
+        body: JSON.stringify({ action: 'delete_all' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'All questions deleted successfully!');
+        setSelectedQuestionIds([]);
+        onRefreshData();
+      } else {
+        showNotification(data.message || 'Failed to delete all questions.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error deleting all questions.', 'error');
+    }
+  };
+
   // Bulk Move Same Subject Topic
   const handleBulkMove = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -344,6 +370,14 @@ export default function QuestionBankBrowser({
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
           >
             <Plus size={16} /> Quick Add Single Question
+          </button>
+
+          <button
+            className="btn btn-danger"
+            onClick={handleDeleteAllQuestions}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+          >
+            <Trash2 size={15} /> Delete All Questions
           </button>
         </div>
       </div>
