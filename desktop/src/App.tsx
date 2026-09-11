@@ -785,8 +785,7 @@ export default function App() {
         limit: 30,
       });
 
-      if (qList.length === 0) {
-        alert('No questions match this configuration. Try another subject/topic.');
+      if (!qList || qList.length === 0) {
         return;
       }
 
