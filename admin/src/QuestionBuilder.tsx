@@ -85,6 +85,10 @@ export default function QuestionBuilder({
   // Inline Topic Creation Modal State
   const [showAddTopicModal, setShowAddTopicModal] = useState<boolean>(false);
   const [modalSubjectId, setModalSubjectId] = useState<number | ''>('');
+  const [targetCardForTopic, setTargetCardForTopic] = useState<string | null>(null);
+  const [targetSubjectForTopic, setTargetSubjectForTopic] = useState<Subject | null>(null);
+  const [newTopicName, setNewTopicName] = useState<string>('');
+  const [addingTopic, setAddingTopic] = useState<boolean>(false);
 
   useEffect(() => {
     if (showAddTopicModal) {
@@ -95,11 +99,6 @@ export default function QuestionBuilder({
       }
     }
   }, [showAddTopicModal, targetSubjectForTopic]);
-
-  const [targetCardForTopic, setTargetCardForTopic] = useState<string | null>(null);
-  const [targetSubjectForTopic, setTargetSubjectForTopic] = useState<Subject | null>(null);
-  const [newTopicName, setNewTopicName] = useState<string>('');
-  const [addingTopic, setAddingTopic] = useState<boolean>(false);
 
   // Accordion Section Toggle State per Card
   const [expandedAccordions, setExpandedAccordions] = useState<Record<string, { formula?: boolean; media?: boolean }>>({});
