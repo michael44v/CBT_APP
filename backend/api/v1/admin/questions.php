@@ -625,6 +625,36 @@ if ($method === 'POST') {
         exit();
     }
 
+    if ($action === 'delete_all') {
+        $sync_version = bumpSyncVersion($db);
+
+        // Fetch all current question IDs to log them into deleted_questions for client sync
+        $resAll = $db->query("SELECT id FROM questions");
+        $deletedCount = 0;
+
+        if ($resAll) {
+            $stmtDel = $db->prepare("INSERT INTO deleted_questions (question_id, sync_version) VALUES (?, ?)");
+            while ($row = $resAll->fetch_assoc()) {
+                $qId = intval($row['id']);
+                if ($qId > 0) {
+                    $stmtDel->bind_param("ii", $qId, $sync_version);
+                    $stmtDel->execute();
+                    $deletedCount++;
+                }
+            }
+        }
+
+        // Delete all questions
+        $db->query("DELETE FROM questions");
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Successfully deleted all {$deletedCount} question(s) from the question bank.",
+            "deleted_count" => $deletedCount
+        ]);
+        exit();
+    }
+
     if ($action === 'bulk_move') {
         $ids = $data['ids'] ?? [];
         $target_topic_id = intval($data['target_topic_id'] ?? 0);
