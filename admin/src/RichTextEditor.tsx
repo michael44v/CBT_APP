@@ -12,6 +12,33 @@ interface RichTextEditorProps {
   previewTitle?: string;
 }
 
+/**
+ * Sanitizes and normalizes HTML formatting strings to guarantee valid tag nesting.
+ * Ensures block elements (<h3>, <ul>, <ol>, <li>) are never nested inside inline elements (<b>, <i>, <u>, <span>).
+ */
+export const sanitizeHtmlFormatting = (html: string): string => {
+  if (!html) return html;
+
+  let cleaned = html;
+
+  // Fix improper nesting where inline elements wrap block elements, e.g. <b><u><h3>text</h3></u></b> or <b><ul><li>text</li></ul></b>
+  const blockTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'p', 'div'];
+  const inlineTags = ['b', 'i', 'u', 'strong', 'em', 'span'];
+
+  inlineTags.forEach(inline => {
+    blockTags.forEach(block => {
+      // Pattern matching <inline><block>content</block></inline> -> <block><inline>content</inline></block>
+      const regex = new RegExp(`<${inline}>\\s*<${block}>([\\s\\S]*?)</${block}>\\s*</${inline}>`, 'gi');
+      cleaned = cleaned.replace(regex, `<${block}><${inline}>$1</${inline}></${block}>`);
+    });
+  });
+
+  // Clean empty inline tags or invalid lone breaks inside headings/lists
+  cleaned = cleaned.replace(/<(b|i|u|strong|em)>\s*<\/(b|i|u|strong|em)>/gi, '');
+
+  return cleaned;
+};
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
@@ -23,25 +50,105 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const insertFormatting = (before: string, after: string = '', defaultText: string = '') => {
+  const applyInlineFormatting = (tag: 'b' | 'i' | 'u', defaultText: string) => {
     if (!textareaRef.current) {
-      onChange(value + before + defaultText + after);
+      const sanitized = sanitizeHtmlFormatting(value + `<${tag}>${defaultText}</${tag}>`);
+      onChange(sanitized);
       return;
     }
 
     const textarea = textareaRef.current;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = value.substring(start, end) || defaultText;
-    const replacement = before + selectedText + after;
-    const newValue = value.substring(0, start) + replacement + value.substring(end);
+    const openTag = `<${tag}>`;
+    const closeTag = `</${tag}>`;
+
+    const selectedText = value.substring(start, end);
+
+    let replacement = '';
+    let newCursorStart = start;
+    let newCursorEnd = end;
+
+    if (selectedText) {
+      // Check if the selected text is already wrapped in this inline tag (Toggle off)
+      if (selectedText.startsWith(openTag) && selectedText.endsWith(closeTag)) {
+        replacement = selectedText.substring(openTag.length, selectedText.length - closeTag.length);
+        newCursorEnd = start + replacement.length;
+      } else {
+        // Wrap ONLY the selected inline text content
+        replacement = `${openTag}${selectedText}${closeTag}`;
+        newCursorStart = start + openTag.length;
+        newCursorEnd = newCursorStart + selectedText.length;
+      }
+    } else {
+      // Insert empty tag with default text at current cursor position
+      replacement = `${openTag}${defaultText}${closeTag}`;
+      newCursorStart = start + openTag.length;
+      newCursorEnd = newCursorStart + defaultText.length;
+    }
+
+    const uncleanedNewValue = value.substring(0, start) + replacement + value.substring(end);
+    const sanitizedValue = sanitizeHtmlFormatting(uncleanedNewValue);
+    onChange(sanitizedValue);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorStart, newCursorEnd);
+    }, 0);
+  };
+
+  const applyBlockFormatting = (type: 'heading' | 'list' | 'break') => {
+    if (!textareaRef.current) {
+      let snippet = '';
+      if (type === 'heading') snippet = '<h3>Heading</h3>';
+      else if (type === 'list') snippet = '<ul>\n  <li>List Item</li>\n</ul>';
+      else if (type === 'break') snippet = '<br/>\n';
+
+      onChange(sanitizeHtmlFormatting(value + snippet));
+      return;
+    }
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+
+    let replacement = '';
+    if (type === 'heading') {
+      const content = selectedText || 'Heading';
+      replacement = `<h3>${content}</h3>`;
+    } else if (type === 'list') {
+      const content = selectedText || 'List Item';
+      replacement = `<ul>\n  <li>${content}</li>\n</ul>`;
+    } else if (type === 'break') {
+      replacement = '<br/>\n';
+    }
+
+    const uncleanedNewValue = value.substring(0, start) + replacement + value.substring(end);
+    const sanitizedValue = sanitizeHtmlFormatting(uncleanedNewValue);
+    onChange(sanitizedValue);
+
+    setTimeout(() => {
+      textarea.focus();
+      const newPos = start + replacement.length;
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  };
+
+  const insertSnippet = (snippet: string) => {
+    if (!textareaRef.current) {
+      onChange(value + snippet);
+      return;
+    }
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newValue = value.substring(0, start) + snippet + value.substring(end);
     onChange(newValue);
 
     setTimeout(() => {
       textarea.focus();
-      const cursorStart = start + before.length;
-      const cursorEnd = cursorStart + selectedText.length;
-      textarea.setSelectionRange(cursorStart, cursorEnd);
+      textarea.setSelectionRange(start + snippet.length, start + snippet.length);
     }, 0);
   };
 
@@ -84,7 +191,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => insertFormatting('<b>', '</b>', 'bold text')}
+          onClick={() => applyInlineFormatting('b', 'bold text')}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Bold"
         >
@@ -94,7 +201,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => insertFormatting('<i>', '</i>', 'italic text')}
+          onClick={() => applyInlineFormatting('i', 'italic text')}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Italic"
         >
@@ -104,7 +211,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => insertFormatting('<u>', '</u>', 'underlined text')}
+          onClick={() => applyInlineFormatting('u', 'underlined text')}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Underline"
         >
@@ -114,7 +221,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => insertFormatting('<h3>', '</h3>', 'Heading')}
+          onClick={() => applyBlockFormatting('heading')}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Heading"
         >
@@ -124,7 +231,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => insertFormatting('<br/>\n', '', '')}
+          onClick={() => applyBlockFormatting('break')}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Line Break"
         >
@@ -134,7 +241,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => insertFormatting('<ul>\n  <li>', '</li>\n</ul>', 'List Item')}
+          onClick={() => applyBlockFormatting('list')}
           style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
           title="Bullet List"
         >
@@ -152,7 +259,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 key={idx}
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => insertFormatting(item.snippet, '', '')}
+                onClick={() => insertSnippet(item.snippet)}
                 style={{ padding: '2px 7px', fontSize: '0.72rem', fontWeight: 600 }}
                 title={`Insert ${item.label}`}
               >

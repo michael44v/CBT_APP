@@ -391,6 +391,14 @@ export default function App() {
     }
   };
 
+  // Automatically notify main process of active exam screen state to pause background syncing
+  useEffect(() => {
+    const isExamActiveScreen = screen === 'EXAM' || screen === 'INSTRUCTIONS';
+    if (window.api && window.api.setExamActive) {
+      window.api.setExamActive(isExamActiveScreen).catch(() => {});
+    }
+  }, [screen]);
+
   useEffect(() => {
     checkActivation();
     loadSyncLogs();
