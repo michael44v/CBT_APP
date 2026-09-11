@@ -68,7 +68,7 @@ function checkInternet() {
  * Downloads subjects, topics, and questions from the cloud PHP backend
  * and integrates them into the local SQLite database.
  */
-async function downloadQuestions() {
+async function downloadQuestions(forceFull = false) {
   if (!checkInternet()) {
     logSyncEvent(
       'PULL_QUESTIONS',
@@ -86,13 +86,17 @@ async function downloadQuestions() {
   logSyncEvent(
     'PULL_QUESTIONS',
     'PENDING',
-    'Connecting to Fillop central sync API...'
+    forceFull ? 'Connecting to Fillop central sync API (FORCED FULL SYNC)...' : 'Connecting to Fillop central sync API...'
   );
 
   try {
+    if (forceFull) {
+      run('UPDATE sync_state SET last_version = 0 WHERE id = 1');
+    }
+
     // Fetch local sync_state
     const syncState = get('SELECT last_version FROM sync_state WHERE id = 1');
-    const lastVersion = syncState ? (syncState.last_version || 0) : 0;
+    const lastVersion = forceFull ? 0 : (syncState ? (syncState.last_version || 0) : 0);
 
     // Fetch active local activation info
     const actRow = get('SELECT * FROM activation WHERE is_active = 1 LIMIT 1');
@@ -412,8 +416,29 @@ async function triggerSync() {
 
   try {
     const resultsSuccess = await uploadResults();
-    const questionsSuccess = await downloadQuestions();
+    const questionsSuccess = await downloadQuestions(false);
     return resultsSuccess && questionsSuccess;
+  } finally {
+    isSyncing = false;
+  }
+}
+
+/**
+ * Force deletes local question/topic/subject cache and force-pulls entire contents from online DB
+ */
+async function forceFullSync() {
+  if (isSyncing) {
+    console.log('[Sync Service] Sync operation already in progress.');
+    return false;
+  }
+
+  isSyncing = true;
+  console.log('[Sync Service] Initiating FORCED FULL SYNC...');
+
+  try {
+    await uploadResults().catch(() => {});
+    const questionsSuccess = await downloadQuestions(true);
+    return questionsSuccess;
   } finally {
     isSyncing = false;
   }
@@ -480,6 +505,7 @@ module.exports = {
   downloadQuestions,
   uploadResults,
   triggerSync,
+  forceFullSync,
   setOnlineStatus,
   registerStatusCallback,
   startBackgroundSync,

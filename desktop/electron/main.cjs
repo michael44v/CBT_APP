@@ -584,6 +584,10 @@ ipcMain.handle("sync:trigger", async () => {
   return await syncService.triggerSync();
 });
 
+ipcMain.handle("sync:force-full-sync", async () => {
+  return await syncService.forceFullSync();
+});
+
 ipcMain.handle("sync:set-online", async (event, isOnline) => {
   syncService.setOnlineStatus(isOnline);
   return { isOnline: syncService.checkInternet() };

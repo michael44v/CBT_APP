@@ -134,6 +134,7 @@ export interface DesktopAPI {
   // Sync API
   getSyncStatus: () => Promise<SyncStatus>;
   startSync: () => Promise<boolean>;
+  forceFullSync: () => Promise<boolean>;
   setOnlineStatus: (isOnline: boolean) => Promise<{ isOnline: boolean }>;
   onSyncStatusChanged: (callback: () => void) => void;
   onPasscodeRevoked?: (callback: () => void) => void;

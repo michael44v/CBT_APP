@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld("api", {
   // Sync API
   getSyncStatus: () => ipcRenderer.invoke("sync:get-status"),
   startSync: () => ipcRenderer.invoke("sync:trigger"),
+  forceFullSync: () => ipcRenderer.invoke("sync:force-full-sync"),
   setOnlineStatus: (isOnline) => ipcRenderer.invoke("sync:set-online", isOnline),
 
   onSyncStatusChanged: (callback) => {
