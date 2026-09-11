@@ -25,13 +25,8 @@ export default function SubjectTopicManager({
   // Add Subject State & Modal
   const [showCreateSubjectModal, setShowCreateSubjectModal] = useState(false);
   const [newSubName, setNewSubName] = useState('');
-  const [newSubDesc, setNewSubDesc] = useState('');
   const [creatingSub, setCreatingSub] = useState(false);
 
-  // Edit Subject Description State & Modal
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [editSubDesc, setEditSubDesc] = useState('');
-  const [savingSub, setSavingSub] = useState(false);
 
   // Distinct subjects list (1 entry per subject name for selection dropdowns)
   const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
@@ -124,7 +119,7 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Handle Add Subject (Automatically creates for all categories JAMB, WAEC, NECO with description)
+  // Handle Add Subject (Automatically creates for all categories JAMB, WAEC, NECO)
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubName.trim()) return;
@@ -139,15 +134,13 @@ export default function SubjectTopicManager({
         },
         body: JSON.stringify({
           action: 'create_subject',
-          name: newSubName.trim(),
-          description: newSubDesc.trim()
+          name: newSubName.trim()
         }),
       });
       const data = await res.json();
       if (data.success) {
         showNotification(data.message || 'Subject created across all categories successfully!');
         setNewSubName('');
-        setNewSubDesc('');
         setShowCreateSubjectModal(false);
         onRefreshData();
       } else {
@@ -481,19 +474,6 @@ export default function SubjectTopicManager({
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        style={{ padding: '3px 8px', fontSize: '0.75rem', marginRight: '4px' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingSubject(sub);
-                          setEditSubDesc(sub.description || '');
-                        }}
-                        title={`Edit description for ${sub.name}`}
-                      >
-                        <Edit size={12} /> Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
                         style={{ padding: '3px 8px', fontSize: '0.75rem' }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -793,7 +773,7 @@ export default function SubjectTopicManager({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', padding: '1.8rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '500px', width: '92%', padding: '1.8rem', position: 'relative' }}>
             <button
               onClick={() => setShowCreateSubjectModal(false)}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
@@ -819,18 +799,6 @@ export default function SubjectTopicManager({
                 />
               </div>
 
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Subject Description / Syllabus Overview</label>
-                <RichTextEditor
-                  value={newSubDesc}
-                  onChange={setNewSubDesc}
-                  placeholder="Summary or syllabus overview of this subject..."
-                  rows={4}
-                  showPreview={true}
-                  previewTitle="Description Preview"
-                />
-              </div>
-
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreateSubjectModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creatingSub}>
@@ -842,52 +810,6 @@ export default function SubjectTopicManager({
         </div>
       )}
 
-      {/* EDIT SUBJECT DESCRIPTION MODAL */}
-      {editingSubject && (
-        <div
-          className="modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditingSubject(null); }}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}
-        >
-          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', padding: '1.8rem', position: 'relative' }}>
-            <button
-              onClick={() => setEditingSubject(null)}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
-            >
-              ✕
-            </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Edit Subject Description: {editingSubject.name}</h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
-              Updates apply to "{editingSubject.name}" across all exam categories.
-            </p>
-
-            <form onSubmit={handleSaveSubjectEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Subject Description / Overview</label>
-                <RichTextEditor
-                  value={editSubDesc}
-                  onChange={setEditSubDesc}
-                  placeholder="Summary or syllabus overview of this subject..."
-                  rows={4}
-                  showPreview={true}
-                  previewTitle="Description Preview"
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingSubject(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={savingSub}>
-                  {savingSub ? 'Saving...' : 'Update Subject Description'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* DELETE TOPIC MODAL (CLEAN QUESTION DELETION WITH PROGRESS BAR) */}
       {deletingTopic && (
