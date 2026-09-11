@@ -3982,7 +3982,7 @@ export default function App() {
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: colors.text, marginBottom: '16px', marginTop: 0 }}>
               Question Details &amp; Metadata
             </h3>
-            <div style={{ fontSize: '13px', lineHeight: 1.6, color: colors.text, backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: infoModalData.link ? '16px' : '24px' }}>
+            <div style={{ fontSize: '13px', lineHeight: 1.6, color: colors.text, backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: infoModalData.link ? '16px' : '24px', whiteSpace: 'pre-wrap' }}>
               <MathRenderer text={infoModalData.text} />
             </div>
 
