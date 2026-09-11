@@ -178,7 +178,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     fontSize: '0.88rem',
     resize: 'vertical',
     width: '100%',
-    minHeight: '350px'
+    minHeight: rows > 5 ? '200px' : '100px'
   }}
 
           />

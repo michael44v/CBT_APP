@@ -374,15 +374,15 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
   const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
   const isFree = !actRow;
 
-  let sql = "SELECT * FROM questions WHERE exam_type = ? AND subject_id = ?";
+  let sql = "SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ?";
   const params = [examType, subjectId];
 
   if (topicId) {
-    sql += " AND topic_id = ?";
+    sql += " AND q.topic_id = ?";
     params.push(topicId);
   }
   if (year) {
-    sql += " AND year = ?";
+    sql += " AND q.year = ?";
     params.push(year);
   }
 
@@ -426,11 +426,11 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
     let subjectQuestions = [];
 
     if (byYear) {
-      subjectQuestions = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year = ? LIMIT ?", [examType, subjectId, byYear, needed]);
+      subjectQuestions = dbService.all("SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ? AND q.year = ? LIMIT ?", [examType, subjectId, byYear, needed]);
 
       if (subjectQuestions.length < needed) {
         const pullCount = needed - subjectQuestions.length;
-        const padding = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND year != ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, byYear, pullCount]);
+        const padding = dbService.all("SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ? AND q.year != ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, byYear, pullCount]);
 
         subjectQuestions = subjectQuestions.concat(padding);
         fallbackNote = `⚠️ Selected past paper (${byYear}) had incomplete data for some subjects and has been padded with questions from other years.`;
@@ -440,7 +440,7 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
       const topicCount = topics.length;
 
       if (topicCount === 0) {
-        subjectQuestions = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, needed]);
+        subjectQuestions = dbService.all("SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ? ORDER BY RANDOM() LIMIT ?", [examType, subjectId, needed]);
       } else {
         const base = Math.floor(needed / topicCount);
         const remainder = needed % topicCount;
@@ -454,7 +454,7 @@ ipcMain.handle("db:generate-mock-questions", async (event, { examType, subjectId
         let surplusPool = [];
 
         for (const topic of topics) {
-          const tqs = dbService.all("SELECT * FROM questions WHERE exam_type = ? AND subject_id = ? AND topic_id = ? ORDER BY RANDOM()", [examType, subjectId, topic.id]);
+          const tqs = dbService.all("SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ? AND q.topic_id = ? ORDER BY RANDOM()", [examType, subjectId, topic.id]);
 
           pool[topic.id] = tqs;
           const target = targets[topic.id];

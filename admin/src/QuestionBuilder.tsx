@@ -84,6 +84,19 @@ export default function QuestionBuilder({
   const [newTopicName, setNewTopicName] = useState<string>('');
   const [addingTopic, setAddingTopic] = useState<boolean>(false);
 
+  // Accordion Section Toggle State per Card
+  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, { formula?: boolean; media?: boolean }>>({});
+
+  const toggleAccordion = (cardId: string, section: 'formula' | 'media') => {
+    setExpandedAccordions(prev => ({
+      ...prev,
+      [cardId]: {
+        ...prev[cardId],
+        [section]: !prev[cardId]?.[section]
+      }
+    }));
+  };
+
   // Image Uploading per Card State
   const [uploadingImageCardId, setUploadingImageCardId] = useState<string | null>(null);
 
@@ -119,13 +132,12 @@ export default function QuestionBuilder({
         },
         body: JSON.stringify({
           action: 'create_subject',
-          name: newSubjectName.trim(),
-          exam_type: newSubjectExamType
+          name: newSubjectName.trim()
         })
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Subject created successfully!');
+        showNotification(data.message || 'Subject created across all categories successfully!');
         const newSubId = Number(data.subject_id);
         setNewSubjectName('');
         setShowAddSubjectModal(false);
@@ -133,7 +145,6 @@ export default function QuestionBuilder({
 
         if (targetCardForSubject) {
           updateCard(targetCardForSubject, {
-            exam_type: newSubjectExamType,
             subject_id: newSubId,
             topic_id: ''
           });
@@ -843,20 +854,51 @@ export default function QuestionBuilder({
                   </div>
                 </div>
 
-                {/* SECTION 2: Formula Editor */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <Sparkles size={18} style={{ color: 'var(--accent)' }} />
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>2. Mathematical Formula (LaTeX)</h3>
-                  </div>
+                {/* SECTION 2: Formula Editor (Collapsible Accordion Dropdown) */}
+                {(() => {
+                  const isFormulaExpanded = expandedAccordions[card.id]?.formula || Boolean(card.formula.trim());
+                  return (
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+                      <div
+                        onClick={() => toggleAccordion(card.id, 'formula')}
+                        style={{
+                          padding: '0.8rem 1rem',
+                          backgroundColor: 'var(--primary-light)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justify: 'space-between',
+                          alignItems: 'center',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Sparkles size={18} style={{ color: 'var(--accent)' }} />
+                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
+                            2. Mathematical Formula (LaTeX) Dropdown
+                          </h3>
+                          {card.formula.trim() && (
+                            <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>Formula Attached</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <span>{isFormulaExpanded ? 'Collapse' : 'Expand'}</span>
+                          {isFormulaExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                      </div>
 
-                  <FormulaEditor
-                    value={card.formula}
-                    onChange={(val) => updateCard(card.id, { formula: val })}
-                    placeholder="Enter mathematical formula using LaTeX (e.g. x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a})"
-                  />
-                  {errors.formula && <span style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>{errors.formula}</span>}
-                </div>
+                      {isFormulaExpanded && (
+                        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', backgroundColor: 'var(--bg-card)' }}>
+                          <FormulaEditor
+                            value={card.formula}
+                            onChange={(val) => updateCard(card.id, { formula: val })}
+                            placeholder="Enter mathematical formula using LaTeX (e.g. x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a})"
+                          />
+                          {errors.formula && <span style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>{errors.formula}</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* SECTION 3: Answer Options */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -933,76 +975,110 @@ export default function QuestionBuilder({
                   </div>
                 </div>
 
-                {/* SECTION 4: Media & Resources (Image + External Link) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <ImageIcon size={18} style={{ color: 'var(--accent)' }} />
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>4. Media &amp; External Resources</h3>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-                    {/* Image Upload Box */}
-                    <div style={{ border: '1px dashed var(--border-color)', padding: '1rem', borderRadius: '10px', backgroundColor: 'var(--primary-light)' }}>
-                      <label className="form-label" style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'block' }}>Question Image Attachment</label>
-
-                      {card.image_url ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
-                          <img
-                            src={card.image_url.startsWith('http') ? card.image_url : `${apiBase.replace('/api/v1', '')}/${card.image_url}`}
-                            alt="Question Diagram"
-                            style={{ maxHeight: '120px', maxWidth: '100%', borderRadius: '8px', objectFit: 'contain', border: '1px solid var(--border-color)' }}
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-danger"
-                            onClick={() => updateCard(card.id, { image_url: '' })}
-                            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                          >
-                            <Trash2 size={12} /> Remove Image
-                          </button>
+                {/* SECTION 4: Media & Resources (Image + External Link Accordion Dropdown) */}
+                {(() => {
+                  const isMediaExpanded = expandedAccordions[card.id]?.media || Boolean(card.image_url.trim() || card.external_link.trim());
+                  return (
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+                      <div
+                        onClick={() => toggleAccordion(card.id, 'media')}
+                        style={{
+                          padding: '0.8rem 1rem',
+                          backgroundColor: 'var(--primary-light)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justify: 'space-between',
+                          alignItems: 'center',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <ImageIcon size={18} style={{ color: 'var(--accent)' }} />
+                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
+                            4. Image &amp; Media Attachments Dropdown
+                          </h3>
+                          {card.image_url.trim() && (
+                            <span className="badge badge-success" style={{ fontSize: '0.75rem' }}>Image Attached</span>
+                          )}
+                          {card.external_link.trim() && (
+                            <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>Link Attached</span>
+                          )}
                         </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            id={`img_file_${card.id}`}
-                            style={{ display: 'none' }}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageUpload(card.id, file);
-                            }}
-                          />
-                          <label
-                            htmlFor={`img_file_${card.id}`}
-                            className="btn btn-secondary"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.82rem' }}
-                          >
-                            <Upload size={14} /> {uploadingImageCardId === card.id ? 'Uploading...' : 'Choose Image File'}
-                          </label>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                            Supported: PNG, JPG, WEBP, GIF, SVG (Max 5MB)
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <span>{isMediaExpanded ? 'Collapse' : 'Expand'}</span>
+                          {isMediaExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                      </div>
+
+                      {isMediaExpanded && (
+                        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: 'var(--bg-card)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                            {/* Image Upload Box */}
+                            <div style={{ border: '1px dashed var(--border-color)', padding: '1rem', borderRadius: '10px', backgroundColor: 'var(--primary-light)' }}>
+                              <label className="form-label" style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'block' }}>Question Image Attachment</label>
+
+                              {card.image_url ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                                  <img
+                                    src={card.image_url.startsWith('http') ? card.image_url : `${apiBase.replace('/api/v1', '')}/${card.image_url}`}
+                                    alt="Question Diagram"
+                                    style={{ maxHeight: '120px', maxWidth: '100%', borderRadius: '8px', objectFit: 'contain', border: '1px solid var(--border-color)' }}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="btn btn-danger"
+                                    onClick={() => updateCard(card.id, { image_url: '' })}
+                                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                                  >
+                                    <Trash2 size={12} /> Remove Image
+                                  </button>
+                                </div>
+                              ) : (
+                                <div>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    id={`img_file_${card.id}`}
+                                    style={{ display: 'none' }}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleImageUpload(card.id, file);
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`img_file_${card.id}`}
+                                    className="btn btn-secondary"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.82rem' }}
+                                  >
+                                    <Upload size={14} /> {uploadingImageCardId === card.id ? 'Uploading...' : 'Choose Image File'}
+                                  </label>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                                    Supported: PNG, JPG, WEBP, GIF, SVG (Max 5MB)
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* External Link Input */}
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <LinkIcon size={14} /> External Resource / Reference Link (Optional)
+                              </label>
+                              <input
+                                type="url"
+                                className="form-input"
+                                placeholder="https://cbt.filloptech.com/resources/topic-ref"
+                                value={card.external_link}
+                                onChange={(e) => updateCard(card.id, { external_link: e.target.value })}
+                              />
+                              {errors.external_link && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.external_link}</span>}
+                            </div>
                           </div>
                         </div>
                       )}
                     </div>
-
-                    {/* External Link Input */}
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <LinkIcon size={14} /> External Resource / Reference Link (Optional)
-                      </label>
-                      <input
-                        type="url"
-                        className="form-input"
-                        placeholder="https://cbt.filloptech.com/resources/topic-ref"
-                        value={card.external_link}
-                        onChange={(e) => updateCard(card.id, { external_link: e.target.value })}
-                      />
-                      {errors.external_link && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.external_link}</span>}
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* SECTION 5: Explanations */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

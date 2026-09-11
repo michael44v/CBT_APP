@@ -47,15 +47,37 @@ export const renderLatexToString = (latex: string, displayMode: boolean = true):
 export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ text, inline = false }) => {
   if (!text) return null;
 
+  const renderFormattedText = (textContent: string, keyPrefix: string | number) => {
+    if (!textContent) return null;
+
+    const hasHtmlTags = /<[a-z][\s\S]*>/i.test(textContent);
+    if (hasHtmlTags) {
+      const normalized = normalizeHtmlImageUrls(textContent);
+      return <span key={keyPrefix} dangerouslySetInnerHTML={{ __html: normalized }} />;
+    }
+
+    if (textContent.includes('\n')) {
+      const lines = textContent.split('\n');
+      return (
+        <span key={keyPrefix}>
+          {lines.map((line, idx) => (
+            <React.Fragment key={idx}>
+              {line}
+              {idx < lines.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    }
+
+    return <span key={keyPrefix}>{textContent}</span>;
+  };
+
   // Check if text contains LaTeX delimiters \(...\), \[...\], or $...$ or raw latex math commands
   const hasLatexConstructs = /\\\(|\\\[|\$|\{|\^|_|\\frac|\\sqrt|\\times|\\div|\\pm|\\sum|\\int|\\pi|\\alpha|\\beta|\\theta|\\begin|\\end/.test(text);
 
   if (!hasLatexConstructs) {
-    if (/<[a-z][\s\S]*>/i.test(text)) {
-      const normalized = normalizeHtmlImageUrls(text);
-      return <span dangerouslySetInnerHTML={{ __html: normalized }} />;
-    }
-    return <span>{text}</span>;
+    return renderFormattedText(text, 'single');
   }
 
   // Auto-detect raw LaTeX math commands without explicit delimiters and wrap them
@@ -104,11 +126,7 @@ export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ tex
     <span>
       {segments.map((seg, i) => {
         if (seg.type === 'text') {
-          if (/<[a-z][\s\S]*>/i.test(seg.content)) {
-            const normalized = normalizeHtmlImageUrls(seg.content);
-            return <span key={i} dangerouslySetInnerHTML={{ __html: normalized }} />;
-          }
-          return <span key={i}>{seg.content}</span>;
+          return renderFormattedText(seg.content, i);
         } else {
           const html = renderLatexToString(seg.content, seg.displayMode ?? !inline);
           return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;

@@ -94,6 +94,8 @@ function createTables() {
         id INTEGER PRIMARY KEY,
         subject_id INTEGER NOT NULL,
         name TEXT NOT NULL,
+        description TEXT,
+        content TEXT,
         sync_version INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
@@ -252,6 +254,14 @@ function createTables() {
 
     try {
       exec(`ALTER TABLE topics ADD COLUMN sync_version INTEGER DEFAULT 1`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE topics ADD COLUMN description TEXT`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE topics ADD COLUMN content TEXT`);
     } catch (e) { /* Column already exists */ }
 
     console.log('[SQLite] Local database tables and indices verified.');

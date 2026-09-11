@@ -187,28 +187,54 @@ if ($method === 'POST') {
 
     if ($action === 'create_subject') {
         $name = trim($data['name'] ?? '');
-        $exam_type = strtoupper(trim($data['exam_type'] ?? ''));
 
-        if (empty($name) || empty($exam_type)) {
-            echo json_encode(["success" => false, "message" => "Subject name and exam_type are required."]);
+        if (empty($name)) {
+            echo json_encode(["success" => false, "message" => "Subject name is required."]);
             exit();
         }
 
-        // Check unique constraint (name, exam_type)
-        $stmtCheck = $db->prepare("SELECT id FROM subjects WHERE LOWER(name) = LOWER(?) AND exam_type = ? LIMIT 1");
-        $stmtCheck->bind_param("ss", $name, $exam_type);
-        $stmtCheck->execute();
-        if ($stmtCheck->get_result()->fetch_assoc()) {
-            echo json_encode(["success" => false, "message" => "Subject '{$name}' already exists for category {$exam_type}."]);
+        $allCategories = ['JAMB', 'WAEC', 'NECO'];
+        $createdIds = [];
+        $createdCategories = [];
+        $existingCategories = [];
+
+        foreach ($allCategories as $cat) {
+            $stmtCheck = $db->prepare("SELECT id FROM subjects WHERE LOWER(name) = LOWER(?) AND exam_type = ? LIMIT 1");
+            $stmtCheck->bind_param("ss", $name, $cat);
+            $stmtCheck->execute();
+            if ($stmtCheck->get_result()->fetch_assoc()) {
+                $existingCategories[] = $cat;
+            } else {
+                $sync_version = bumpSyncVersion($db);
+                $stmtIns = $db->prepare("INSERT INTO subjects (name, exam_type, sync_version) VALUES (?, ?, ?)");
+                $stmtIns->bind_param("ssi", $name, $cat, $sync_version);
+                $stmtIns->execute();
+                $createdIds[$cat] = $db->insert_id;
+                $createdCategories[] = $cat;
+            }
+        }
+
+        if (count($createdCategories) === 0) {
+            echo json_encode([
+                "success" => false,
+                "message" => "Subject '{$name}' already exists in all categories (" . implode(", ", $existingCategories) . ")."
+            ]);
             exit();
         }
 
-        $sync_version = bumpSyncVersion($db);
-        $stmtIns = $db->prepare("INSERT INTO subjects (name, exam_type, sync_version) VALUES (?, ?, ?)");
-        $stmtIns->bind_param("ssi", $name, $exam_type, $sync_version);
-        $stmtIns->execute();
+        $msg = "Subject '{$name}' created for categories: " . implode(", ", $createdCategories) . ".";
+        if (count($existingCategories) > 0) {
+            $msg .= " Already exists in: " . implode(", ", $existingCategories) . ".";
+        }
 
-        echo json_encode(["success" => true, "subject_id" => $db->insert_id, "message" => "Subject created successfully."]);
+        $primaryId = reset($createdIds);
+        echo json_encode([
+            "success" => true,
+            "subject_id" => $primaryId,
+            "created_categories" => $createdCategories,
+            "existing_categories" => $existingCategories,
+            "message" => $msg
+        ]);
         exit();
     }
 

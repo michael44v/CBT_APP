@@ -2848,13 +2848,15 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
+              const topicDesc = (curQ as any)?.topic_description ? `\n\nTopic Description:\n${(curQ as any).topic_description}` : '';
               const infoText = `Active Question Information:\n\n` +
                 `Subject: ${curSubName ? curSubName.toUpperCase() : 'N/A'}\n` +
                 `Question Number: Question ${activeSubIndex !== -1 ? activeSubIndex + 1 : currentIdx + 1} of ${activeSubjectQuestions.length}\n` +
                 `Subject Attempted: ${activeSubAttemptedCount} of ${activeSubjectQuestions.length}\n` +
                 `Overall Session: Question ${currentIdx + 1} of ${examQuestions.length}\n` +
-                `Topic: ${(curQ as any)?.topic_name || 'General Syllabus'}\n` +
-                `Exam Source: ${(curQ as any)?.year || '2025'} ${(curQ as any)?.exam_type || examType}`;
+                `Topic: ${(curQ as any)?.topic_name || 'General Syllabus'}` +
+                topicDesc +
+                `\n\nExam Source: ${(curQ as any)?.year || '2025'} ${(curQ as any)?.exam_type || examType}`;
 
               setInfoModalData({
                 text: infoText,
@@ -3972,8 +3974,8 @@ export default function App() {
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: colors.text, marginBottom: '16px', marginTop: 0 }}>
               Question Details &amp; Metadata
             </h3>
-            <div style={{ fontSize: '13px', lineHeight: 1.6, color: colors.text, whiteSpace: 'pre-wrap', backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: infoModalData.link ? '16px' : '24px' }}>
-              {infoModalData.text}
+            <div style={{ fontSize: '13px', lineHeight: 1.6, color: colors.text, backgroundColor: colors.bg, padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: infoModalData.link ? '16px' : '24px' }}>
+              <MathRenderer text={infoModalData.text} />
             </div>
 
             {infoModalData.link && (
