@@ -48,8 +48,25 @@ export default function QuestionWizard({
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
 
+  // Distinct subjects list (1 per subject name for dropdowns)
+  const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
+    return dbSubjects.find(s => s.name.trim().toLowerCase() === name.toLowerCase())!;
+  }).filter(Boolean);
+
   // Topic Inline Modal
   const [showAddTopicModal, setShowAddTopicModal] = useState<boolean>(false);
+  const [modalSubjectId, setModalSubjectId] = useState<number | ''>('');
+
+  useEffect(() => {
+    if (showAddTopicModal) {
+      if (selectedSubject) {
+        setModalSubjectId(selectedSubject.id);
+      } else if (distinctSubjects.length > 0) {
+        setModalSubjectId(distinctSubjects[0].id);
+      }
+    }
+  }, [showAddTopicModal, selectedSubject]);
+
   const [newTopicName, setNewTopicName] = useState<string>('');
   const [addingTopic, setAddingTopic] = useState<boolean>(false);
 
@@ -121,7 +138,8 @@ export default function QuestionWizard({
   // Handle inline Topic creation
   const handleAddTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSubject || !newTopicName.trim()) return;
+    const targetSub = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId)) || selectedSubject;
+    if (!targetSub || !newTopicName.trim()) return;
 
     setAddingTopic(true);
     try {
@@ -133,16 +151,17 @@ export default function QuestionWizard({
         },
         body: JSON.stringify({
           action: 'create_topic',
-          subject_id: selectedSubject.id,
+          subject_id: targetSub.id,
+          subject_name: targetSub.name,
           topic_name: newTopicName.trim()
         }),
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Topic created successfully!');
+        showNotification(data.message || 'Topic created across all categories successfully!');
         const createdTopic: Topic = {
           id: Number(data.topic_id),
-          subject_id: Number(selectedSubject.id),
+          subject_id: Number(targetSub.id),
           name: newTopicName.trim()
         };
         setSelectedTopic(createdTopic);
@@ -648,7 +667,7 @@ export default function QuestionWizard({
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}
                 >
-                  <div className="admin-card" style={{ maxWidth: '400px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+                  <div className="admin-card" style={{ maxWidth: '420px', width: '90%', padding: '1.5rem', position: 'relative' }}>
                     <button
                       onClick={() => setShowAddTopicModal(false)}
                       style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
@@ -656,8 +675,24 @@ export default function QuestionWizard({
                       ✕
                     </button>
                     <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Topic</h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Subject: {selectedSubject?.name}</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                      Creating a topic under a subject automatically adds it to all exam categories (JAMB, WAEC, NECO).
+                    </p>
                     <form onSubmit={handleAddTopic}>
+                      <div className="form-group" style={{ marginBottom: '1rem' }}>
+                        <label className="form-label">Subject</label>
+                        <select
+                          className="form-input"
+                          value={modalSubjectId}
+                          onChange={(e) => setModalSubjectId(Number(e.target.value))}
+                          required
+                        >
+                          <option value="">-- Select Subject --</option>
+                          {distinctSubjects.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="form-group" style={{ marginBottom: '1.2rem' }}>
                         <label className="form-label">Topic Name</label>
                         <input
