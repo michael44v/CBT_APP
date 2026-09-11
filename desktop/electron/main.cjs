@@ -89,6 +89,50 @@ function createMainWindow() {
   });
 }
 
+function checkAndHandleFreshInstallation() {
+  const currentVersion = app.getVersion();
+  const versionFilePath = path.join(app.getPath("userData"), "installed_version.json");
+
+  let installedVersion = null;
+  if (fs.existsSync(versionFilePath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(versionFilePath, "utf-8"));
+      installedVersion = data.version;
+    } catch (err) {
+      console.warn("[Main] Error reading installed_version.json:", err);
+    }
+  }
+
+  if (installedVersion !== currentVersion) {
+    console.log(`[Main] New installation or app update detected. Previous: ${installedVersion}, Current: ${currentVersion}`);
+    updateSplashStatus("Preparing database for new version...");
+
+    dbService.transaction(() => {
+      dbService.run("DELETE FROM questions");
+      dbService.run("DELETE FROM topics");
+      dbService.run("DELETE FROM subjects");
+      dbService.run("DELETE FROM news");
+      dbService.run("UPDATE sync_state SET last_version = 0 WHERE id = 1");
+    });
+
+    try {
+      fs.writeFileSync(
+        versionFilePath,
+        JSON.stringify({ version: currentVersion, installedAt: new Date().toISOString() }),
+        "utf-8"
+      );
+    } catch (err) {
+      console.error("[Main] Failed to write installed_version.json:", err);
+    }
+
+    syncService.logSyncEvent(
+      "FRESH_INSTALL",
+      "SUCCESS",
+      `New installation/update detected (v${currentVersion}). Cleared offline database content and force reset sync version to 0.`
+    );
+  }
+}
+
 async function initializeApp() {
   try {
     updateSplashStatus("Initializing local SQLite engine...");
@@ -97,6 +141,8 @@ async function initializeApp() {
     dbService.initDatabase(dbPath);
 
     await new Promise((resolve) => setTimeout(resolve, 600));
+
+    checkAndHandleFreshInstallation();
 
     const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
 
