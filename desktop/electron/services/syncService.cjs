@@ -166,11 +166,20 @@ async function downloadQuestions() {
 
       // 2. Process Topics
       for (const top of topics) {
-        run(
-          `INSERT OR REPLACE INTO topics (id, subject_id, name, description, content, sync_version, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM topics WHERE id = ?), CURRENT_TIMESTAMP))`,
-          [top.id, top.subject_id, top.name, top.description || null, top.content || null, top.sync_version || serverVersion, top.id]
-        );
+        // Use UPDATE if topic exists, or INSERT if new, so associated questions referencing topic.id remain intact
+        const existingTopic = get('SELECT id FROM topics WHERE id = ?', [top.id]);
+        if (existingTopic) {
+          run(
+            `UPDATE topics SET subject_id = ?, name = ?, description = ?, content = ?, sync_version = ? WHERE id = ?`,
+            [top.subject_id, top.name, top.description || null, top.content || null, top.sync_version || serverVersion, top.id]
+          );
+        } else {
+          run(
+            `INSERT INTO topics (id, subject_id, name, description, content, sync_version, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [top.id, top.subject_id, top.name, top.description || null, top.content || null, top.sync_version || serverVersion]
+          );
+        }
       }
 
       // 3. Process Deleted Questions
