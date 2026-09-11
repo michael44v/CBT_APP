@@ -167,9 +167,9 @@ async function downloadQuestions() {
       // 2. Process Topics
       for (const top of topics) {
         run(
-          `INSERT OR REPLACE INTO topics (id, subject_id, name, sync_version, created_at)
-           VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM topics WHERE id = ?), CURRENT_TIMESTAMP))`,
-          [top.id, top.subject_id, top.name, top.sync_version || serverVersion, top.id]
+          `INSERT OR REPLACE INTO topics (id, subject_id, name, description, content, sync_version, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM topics WHERE id = ?), CURRENT_TIMESTAMP))`,
+          [top.id, top.subject_id, top.name, top.description || null, top.content || null, top.sync_version || serverVersion, top.id]
         );
       }
 

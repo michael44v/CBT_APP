@@ -101,7 +101,7 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Handle Add Subject (Immutable name rule enforced)
+  // Handle Add Subject (Automatically creates for all categories JAMB, WAEC, NECO)
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubName.trim()) return;
@@ -116,13 +116,12 @@ export default function SubjectTopicManager({
         },
         body: JSON.stringify({
           action: 'create_subject',
-          name: newSubName.trim(),
-          exam_type: newSubExamType
+          name: newSubName.trim()
         }),
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Subject created successfully!');
+        showNotification(data.message || 'Subject created for all categories successfully!');
         setNewSubName('');
         onRefreshData();
       } else {
@@ -352,7 +351,10 @@ export default function SubjectTopicManager({
 
         {/* Create Subject Form */}
         <form onSubmit={handleCreateSubject} style={{ background: 'var(--primary-light)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1.25rem' }}>
-          <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '0.85rem', fontWeight: 800 }}>Add New Subject</h4>
+          <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.85rem', fontWeight: 800 }}>Add New Subject</h4>
+          <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Creating a subject automatically adds it to all exam categories (JAMB, WAEC, NECO).
+          </p>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <input
               type="text"
@@ -363,18 +365,8 @@ export default function SubjectTopicManager({
               style={{ flex: 1, minWidth: '130px', padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
               required
             />
-            <select
-              className="form-input"
-              value={newSubExamType}
-              onChange={(e) => setNewSubExamType(e.target.value)}
-              style={{ width: '95px', padding: '0.5rem 0.6rem', fontSize: '0.85rem' }}
-            >
-              <option value="JAMB">JAMB</option>
-              <option value="WAEC">WAEC</option>
-              <option value="NECO">NECO</option>
-            </select>
             <button type="submit" className="btn btn-primary" disabled={creatingSub} style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <Plus size={15} /> {creatingSub ? 'Saving...' : 'Add'}
+              <Plus size={15} /> {creatingSub ? 'Saving...' : 'Add to All Categories'}
             </button>
           </div>
         </form>
@@ -560,18 +552,18 @@ export default function SubjectTopicManager({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '650px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '850px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
             <button
               onClick={() => {
                 setShowAddTopicModal(false);
                 if (onModalClosed) onModalClosed();
               }}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create Topic for {activeSubject?.name}</h3>
-            <form onSubmit={handleCreateTopic} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1rem' }}>
+            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800 }}>Create Topic for {activeSubject?.name}</h3>
+            <form onSubmit={handleCreateTopic} style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem', marginTop: '1.2rem' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: 700 }}>Topic Name <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input
@@ -586,14 +578,15 @@ export default function SubjectTopicManager({
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Topic Description</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Description (Formatting Supported)</label>
                 <RichTextEditor
                   value={newTopicDesc}
                   onChange={setNewTopicDesc}
-                  placeholder="Brief summary or description of this topic..."
-                  rows={1}
+                  placeholder="Brief summary or description of this topic (supports bullet lists, bold, italics, line breaks)..."
+                  rows={4}
+                  showMathToolbar={true}
                   showPreview={true}
-                  previewTitle="Description Preview"
+                  previewTitle="Description Formatted Preview"
                 />
               </div>
 
@@ -603,14 +596,14 @@ export default function SubjectTopicManager({
                   value={newTopicContent}
                   onChange={setNewTopicContent}
                   placeholder="Detailed study content, formulas, or lesson material..."
-                  rows={5}
+                  rows={6}
                   showMathToolbar={true}
                   showPreview={true}
                   previewTitle="Content Preview"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '0.8rem' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -641,15 +634,15 @@ export default function SubjectTopicManager({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '650px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '850px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
             <button
               onClick={() => setEditingTopic(null)}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Edit Topic: {editingTopic.name}</h3>
-            <form onSubmit={handleSaveTopicEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1rem' }}>
+            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800 }}>Edit Topic: {editingTopic.name}</h3>
+            <form onSubmit={handleSaveTopicEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem', marginTop: '1.2rem' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: 700 }}>Topic Name <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input
@@ -663,14 +656,15 @@ export default function SubjectTopicManager({
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Topic Description</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>Topic Description (Formatting Supported)</label>
                 <RichTextEditor
                   value={editTopicDesc}
                   onChange={setEditTopicDesc}
-                  placeholder="Brief summary or description of this topic..."
-                  rows={3}
+                  placeholder="Brief summary or description of this topic (supports bullet lists, bold, italics, line breaks)..."
+                  rows={4}
+                  showMathToolbar={true}
                   showPreview={true}
-                  previewTitle="Description Preview"
+                  previewTitle="Description Formatted Preview"
                 />
               </div>
 
@@ -680,14 +674,14 @@ export default function SubjectTopicManager({
                   value={editTopicContent}
                   onChange={setEditTopicContent}
                   placeholder="Detailed study content, formulas, or lesson material..."
-                  rows={5}
+                  rows={6}
                   showMathToolbar={true}
                   showPreview={true}
                   previewTitle="Content Preview"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '0.8rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingTopic(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={savingTopic}>
                   {savingTopic ? 'Saving...' : 'Update Topic'}

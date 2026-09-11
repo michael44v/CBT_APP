@@ -24,16 +24,44 @@ export const renderLatexToString = (latex: string, displayMode: boolean = true):
 export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ text, inline = false }) => {
   if (!text) return null;
 
-  // Check if text contains LaTeX delimiters \(...\), \[...\], or $...$
-  const hasLatexDelimiters = /\\\(|\\\[|\$|\{|\^|_|\\frac|\\sqrt|\\times|\\pm|\\div/.test(text);
+  // Function to render text content that might contain HTML formatting tags (ul, li, br, b, i, u, h1-h6) or raw newlines
+  const renderFormattedText = (textContent: string, keyPrefix: string | number) => {
+    if (!textContent) return null;
+
+    // Check if text has HTML tags like <ul>, <li>, <br>, <b>, <i>, <u>, <h3>, etc.
+    const hasHtmlTags = /<[a-z][\s\S]*>/i.test(textContent);
+
+    if (hasHtmlTags) {
+      return <span key={keyPrefix} dangerouslySetInnerHTML={{ __html: textContent }} />;
+    }
+
+    // Handle plain newlines if no HTML tags are present
+    if (textContent.includes('\n')) {
+      const lines = textContent.split('\n');
+      return (
+        <span key={keyPrefix}>
+          {lines.map((line, idx) => (
+            <React.Fragment key={idx}>
+              {line}
+              {idx < lines.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    }
+
+    return <span key={keyPrefix}>{textContent}</span>;
+  };
+
+  // Check if text contains LaTeX delimiters or math expressions
+  const hasLatexDelimiters = /\\\(|\\\[|\$|\{|\^|_|\\frac|\\sqrt|\\times|\\pm|\\div|\\sum|\\int|\\pi|\\alpha|\\beta|\\theta/.test(text);
 
   if (!hasLatexDelimiters) {
-    return <span>{text}</span>;
+    return renderFormattedText(text, 'single');
   }
 
   // Parse text into plain text segments and LaTeX segments
   const segments: { type: 'text' | 'latex'; content: string; displayMode?: boolean }[] = [];
-  let remaining = text;
 
   const regex = /(\\\[[\s\S]*?\\\])|(\\\([\s\S]*?\\\))|(\$\$[\s\S]*?\$\$)|(\$[^\$]+?\$)/g;
   let lastIndex = 0;
@@ -61,7 +89,6 @@ export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ tex
   }
 
   if (segments.length === 0) {
-    // If no delimiters found but looks like raw LaTeX formula (e.g. R_T = \frac{R_1 \times R_2}{R_1 + R_2})
     const html = renderLatexToString(text, !inline);
     return <span dangerouslySetInnerHTML={{ __html: html }} />;
   }
@@ -70,7 +97,7 @@ export const MathRenderer: React.FC<{ text: string; inline?: boolean }> = ({ tex
     <span>
       {segments.map((seg, i) => {
         if (seg.type === 'text') {
-          return <span key={i}>{seg.content}</span>;
+          return renderFormattedText(seg.content, i);
         } else {
           const html = renderLatexToString(seg.content, seg.displayMode ?? !inline);
           return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
