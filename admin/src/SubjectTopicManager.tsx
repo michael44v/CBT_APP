@@ -22,10 +22,16 @@ export default function SubjectTopicManager({
   initialAddModalOpen = false,
   onModalClosed
 }: SubjectTopicManagerProps) {
-  // Add Subject State
+  // Add Subject State & Modal
+  const [showCreateSubjectModal, setShowCreateSubjectModal] = useState(false);
   const [newSubName, setNewSubName] = useState('');
-  const [newSubExamType, setNewSubExamType] = useState('JAMB');
+  const [newSubDesc, setNewSubDesc] = useState('');
   const [creatingSub, setCreatingSub] = useState(false);
+
+  // Edit Subject Description State & Modal
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editSubDesc, setEditSubDesc] = useState('');
+  const [savingSub, setSavingSub] = useState(false);
 
   // Distinct subjects list (1 entry per subject name for selection dropdowns)
   const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
@@ -118,7 +124,7 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Handle Add Subject (Automatically creates for all categories JAMB, WAEC, NECO)
+  // Handle Add Subject (Automatically creates for all categories JAMB, WAEC, NECO with description)
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubName.trim()) return;
@@ -133,13 +139,16 @@ export default function SubjectTopicManager({
         },
         body: JSON.stringify({
           action: 'create_subject',
-          name: newSubName.trim()
+          name: newSubName.trim(),
+          description: newSubDesc.trim()
         }),
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Subject created for all categories successfully!');
+        showNotification(data.message || 'Subject created across all categories successfully!');
         setNewSubName('');
+        setNewSubDesc('');
+        setShowCreateSubjectModal(false);
         onRefreshData();
       } else {
         showNotification(data.message || 'Failed to create subject.', 'error');
@@ -148,6 +157,41 @@ export default function SubjectTopicManager({
       showNotification('Error creating subject.', 'error');
     } finally {
       setCreatingSub(false);
+    }
+  };
+
+  // Handle Edit Subject Description across all categories
+  const handleSaveSubjectEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSubject) return;
+
+    setSavingSub(true);
+    try {
+      const res = await fetch(`${apiBase}/admin/questions.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
+        body: JSON.stringify({
+          action: 'edit_subject',
+          subject_id: editingSubject.id,
+          subject_name: editingSubject.name,
+          description: editSubDesc.trim()
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'Subject description updated across all categories!');
+        setEditingSubject(null);
+        onRefreshData();
+      } else {
+        showNotification(data.message || 'Failed to update subject description.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error updating subject description.', 'error');
+    } finally {
+      setSavingSub(false);
     }
   };
 
@@ -368,27 +412,23 @@ export default function SubjectTopicManager({
           <BookOpen size={20} /> Subjects (Select to view topics)
         </h2>
 
-        {/* Create Subject Form */}
-        <form onSubmit={handleCreateSubject} style={{ background: 'var(--primary-light)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1.25rem' }}>
-          <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.85rem', fontWeight: 800 }}>Add New Subject</h4>
-          <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Creating a subject automatically adds it to all exam categories (JAMB, WAEC, NECO).
-          </p>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Further Mathematics"
-              value={newSubName}
-              onChange={(e) => setNewSubName(e.target.value)}
-              style={{ flex: 1, minWidth: '130px', padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
-              required
-            />
-            <button type="submit" className="btn btn-primary" disabled={creatingSub} style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <Plus size={15} /> {creatingSub ? 'Saving...' : 'Add to All Categories'}
-            </button>
+        {/* Create Subject Header Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)', padding: '0.85rem 1rem', borderRadius: '12px', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h4 style={{ margin: '0 0 0.2rem 0', fontSize: '0.9rem', fontWeight: 800 }}>Create New Subject</h4>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Adds subject &amp; description automatically to all exam categories (JAMB, WAEC, NECO).
+            </p>
           </div>
-        </form>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowCreateSubjectModal(true)}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={15} /> Create Subject
+          </button>
+        </div>
 
         {/* Filter Bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
@@ -438,6 +478,19 @@ export default function SubjectTopicManager({
                     <td>{sub.topic_count ?? dbTopics.filter(t => t.subject_id === sub.id).length}</td>
                     <td>{sub.question_count ?? 0}</td>
                     <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', marginRight: '4px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingSubject(sub);
+                          setEditSubDesc(sub.description || '');
+                        }}
+                        title={`Edit description for ${sub.name}`}
+                      >
+                        <Edit size={12} /> Edit
+                      </button>
                       <button
                         type="button"
                         className="btn btn-secondary"
@@ -722,6 +775,113 @@ export default function SubjectTopicManager({
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingTopic(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={savingTopic}>
                   {savingTopic ? 'Saving...' : 'Update Topic'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE SUBJECT MODAL */}
+      {showCreateSubjectModal && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateSubjectModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', padding: '1.8rem', position: 'relative' }}>
+            <button
+              onClick={() => setShowCreateSubjectModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Create New Subject (All Exam Categories)</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+              Subject created here will be automatically registered across JAMB, WAEC, and NECO frameworks.
+            </p>
+
+            <form onSubmit={handleCreateSubject} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Subject Name <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Further Mathematics"
+                  value={newSubName}
+                  onChange={(e) => setNewSubName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Subject Description / Syllabus Overview</label>
+                <RichTextEditor
+                  value={newSubDesc}
+                  onChange={setNewSubDesc}
+                  placeholder="Summary or syllabus overview of this subject..."
+                  rows={4}
+                  showPreview={true}
+                  previewTitle="Description Preview"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateSubjectModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={creatingSub}>
+                  {creatingSub ? 'Creating...' : 'Create for All Categories'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT SUBJECT DESCRIPTION MODAL */}
+      {editingSubject && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingSubject(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', padding: '1.8rem', position: 'relative' }}>
+            <button
+              onClick={() => setEditingSubject(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Edit Subject Description: {editingSubject.name}</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+              Updates apply to "{editingSubject.name}" across all exam categories.
+            </p>
+
+            <form onSubmit={handleSaveSubjectEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Subject Description / Overview</label>
+                <RichTextEditor
+                  value={editSubDesc}
+                  onChange={setEditSubDesc}
+                  placeholder="Summary or syllabus overview of this subject..."
+                  rows={4}
+                  showPreview={true}
+                  previewTitle="Description Preview"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingSubject(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={savingSub}>
+                  {savingSub ? 'Saving...' : 'Update Subject Description'}
                 </button>
               </div>
             </form>

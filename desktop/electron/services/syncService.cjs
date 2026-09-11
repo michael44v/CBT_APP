@@ -158,9 +158,9 @@ async function downloadQuestions() {
       // 1. Process Subjects
       for (const sub of subjects) {
         run(
-          `INSERT OR REPLACE INTO subjects (id, name, exam_type, sync_version, created_at)
-           VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM subjects WHERE id = ?), CURRENT_TIMESTAMP))`,
-          [sub.id, sub.name, sub.exam_type, sub.sync_version || serverVersion, sub.id]
+          `INSERT OR REPLACE INTO subjects (id, name, exam_type, description, sync_version, created_at)
+           VALUES (?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM subjects WHERE id = ?), CURRENT_TIMESTAMP))`,
+          [sub.id, sub.name, sub.exam_type, sub.description || null, sub.sync_version || serverVersion, sub.id]
         );
       }
 

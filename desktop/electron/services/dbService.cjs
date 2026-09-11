@@ -86,6 +86,7 @@ function createTables() {
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         exam_type TEXT NOT NULL,
+        description TEXT,
         sync_version INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
@@ -250,6 +251,10 @@ function createTables() {
 
     try {
       exec(`ALTER TABLE subjects ADD COLUMN sync_version INTEGER DEFAULT 1`);
+    } catch (e) { /* Column already exists */ }
+
+    try {
+      exec(`ALTER TABLE subjects ADD COLUMN description TEXT`);
     } catch (e) { /* Column already exists */ }
 
     try {

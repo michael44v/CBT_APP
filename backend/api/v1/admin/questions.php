@@ -187,6 +187,7 @@ if ($method === 'POST') {
 
     if ($action === 'create_subject') {
         $name = trim($data['name'] ?? '');
+        $description = trim($data['description'] ?? '');
 
         if (empty($name)) {
             echo json_encode(["success" => false, "message" => "Subject name is required."]);
@@ -202,12 +203,20 @@ if ($method === 'POST') {
             $stmtCheck = $db->prepare("SELECT id FROM subjects WHERE LOWER(name) = LOWER(?) AND exam_type = ? LIMIT 1");
             $stmtCheck->bind_param("ss", $name, $cat);
             $stmtCheck->execute();
-            if ($stmtCheck->get_result()->fetch_assoc()) {
+            $existingRow = $stmtCheck->get_result()->fetch_assoc();
+            if ($existingRow) {
                 $existingCategories[] = $cat;
+                // Update description if provided
+                if (!empty($description)) {
+                    $sync_v = bumpSyncVersion($db);
+                    $stmtUpd = $db->prepare("UPDATE subjects SET description = ?, sync_version = ? WHERE id = ?");
+                    $stmtUpd->bind_param("sii", $description, $sync_v, $existingRow['id']);
+                    $stmtUpd->execute();
+                }
             } else {
                 $sync_version = bumpSyncVersion($db);
-                $stmtIns = $db->prepare("INSERT INTO subjects (name, exam_type, sync_version) VALUES (?, ?, ?)");
-                $stmtIns->bind_param("ssi", $name, $cat, $sync_version);
+                $stmtIns = $db->prepare("INSERT INTO subjects (name, exam_type, description, sync_version) VALUES (?, ?, ?, ?)");
+                $stmtIns->bind_param("sssi", $name, $cat, $description, $sync_version);
                 $stmtIns->execute();
                 $createdIds[$cat] = $db->insert_id;
                 $createdCategories[] = $cat;
@@ -216,8 +225,8 @@ if ($method === 'POST') {
 
         if (count($createdCategories) === 0) {
             echo json_encode([
-                "success" => false,
-                "message" => "Subject '{$name}' already exists in all categories (" . implode(", ", $existingCategories) . ")."
+                "success" => true,
+                "message" => "Subject '{$name}' description updated for categories (" . implode(", ", $existingCategories) . ")."
             ]);
             exit();
         }
@@ -235,6 +244,41 @@ if ($method === 'POST') {
             "existing_categories" => $existingCategories,
             "message" => $msg
         ]);
+        exit();
+    }
+
+    if ($action === 'edit_subject') {
+        $subject_id = intval($data['subject_id'] ?? 0);
+        $subject_name_input = trim($data['subject_name'] ?? '');
+        $description = trim($data['description'] ?? '');
+
+        if ($subject_id <= 0 && empty($subject_name_input)) {
+            echo json_encode(["success" => false, "message" => "Valid subject_id or subject_name is required."]);
+            exit();
+        }
+
+        $subName = $subject_name_input;
+        if (empty($subName) && $subject_id > 0) {
+            $stmtSubName = $db->prepare("SELECT name FROM subjects WHERE id = ? LIMIT 1");
+            $stmtSubName->bind_param("i", $subject_id);
+            $stmtSubName->execute();
+            $subRow = $stmtSubName->get_result()->fetch_assoc();
+            if ($subRow) {
+                $subName = $subRow['name'];
+            }
+        }
+
+        if (empty($subName)) {
+            echo json_encode(["success" => false, "message" => "Subject not found."]);
+            exit();
+        }
+
+        $sync_version = bumpSyncVersion($db);
+        $stmtUpd = $db->prepare("UPDATE subjects SET description = ?, sync_version = ? WHERE LOWER(name) = LOWER(?)");
+        $stmtUpd->bind_param("sis", $description, $sync_version, $subName);
+        $stmtUpd->execute();
+
+        echo json_encode(["success" => true, "message" => "Subject description updated across all exam categories."]);
         exit();
     }
 
