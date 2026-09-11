@@ -38,6 +38,22 @@ export default function SubjectTopicManager({
     return dbSubjects.find(s => s.name.trim().toLowerCase() === name.toLowerCase())!;
   }).filter(Boolean);
 
+  // Exam Type Filter & Master-Detail Selection
+  const [subjectFilterExam, setSubjectFilterExam] = useState<string>('ALL');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
+
+  const jambCount = dbSubjects.filter(s => s.exam_type === 'JAMB').length;
+  const waecCount = dbSubjects.filter(s => s.exam_type === 'WAEC').length;
+  const necoCount = dbSubjects.filter(s => s.exam_type === 'NECO').length;
+
+  const filteredSubjects = subjectFilterExam === 'ALL'
+    ? dbSubjects
+    : dbSubjects.filter(s => s.exam_type === subjectFilterExam);
+
+  // Auto-select first subject if none selected
+  const activeSubject = dbSubjects.find(s => s.id === selectedSubjectId) || filteredSubjects[0] || null;
+  const currentSubjectId = activeSubject ? activeSubject.id : null;
+
   // Add Topic State
   const [showAddTopicModal, setShowAddTopicModal] = useState(initialAddModalOpen);
   const [modalSubjectId, setModalSubjectId] = useState<number | ''>('');
@@ -82,22 +98,6 @@ export default function SubjectTopicManager({
   const [viewingSubjectQuestions, setViewingSubjectQuestions] = useState<Subject | null>(null);
   const [subjectQuestions, setSubjectQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
-
-  // Exam Type Filter & Master-Detail Selection
-  const [subjectFilterExam, setSubjectFilterExam] = useState<string>('ALL');
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
-
-  const jambCount = dbSubjects.filter(s => s.exam_type === 'JAMB').length;
-  const waecCount = dbSubjects.filter(s => s.exam_type === 'WAEC').length;
-  const necoCount = dbSubjects.filter(s => s.exam_type === 'NECO').length;
-
-  const filteredSubjects = subjectFilterExam === 'ALL'
-    ? dbSubjects
-    : dbSubjects.filter(s => s.exam_type === subjectFilterExam);
-
-  // Auto-select first subject if none selected
-  const activeSubject = dbSubjects.find(s => s.id === selectedSubjectId) || filteredSubjects[0] || null;
-  const currentSubjectId = activeSubject ? activeSubject.id : null;
 
   // Topics scoped to currently selected subject with search filter applied
   const scopedTopics = (currentSubjectId
