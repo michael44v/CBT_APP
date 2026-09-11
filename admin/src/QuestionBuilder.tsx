@@ -77,8 +77,25 @@ export default function QuestionBuilder({
   const [newSubjectExamType, setNewSubjectExamType] = useState<string>('JAMB');
   const [addingSubject, setAddingSubject] = useState<boolean>(false);
 
+  // Distinct subjects list (1 per subject name for selection dropdowns)
+  const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
+    return dbSubjects.find(s => s.name.trim().toLowerCase() === name.toLowerCase())!;
+  }).filter(Boolean);
+
   // Inline Topic Creation Modal State
   const [showAddTopicModal, setShowAddTopicModal] = useState<boolean>(false);
+  const [modalSubjectId, setModalSubjectId] = useState<number | ''>('');
+
+  useEffect(() => {
+    if (showAddTopicModal) {
+      if (targetSubjectForTopic) {
+        setModalSubjectId(targetSubjectForTopic.id);
+      } else if (distinctSubjects.length > 0) {
+        setModalSubjectId(distinctSubjects[0].id);
+      }
+    }
+  }, [showAddTopicModal, targetSubjectForTopic]);
+
   const [targetCardForTopic, setTargetCardForTopic] = useState<string | null>(null);
   const [targetSubjectForTopic, setTargetSubjectForTopic] = useState<Subject | null>(null);
   const [newTopicName, setNewTopicName] = useState<string>('');
@@ -162,7 +179,8 @@ export default function QuestionBuilder({
   // Inline Topic Creation Handler
   const handleAddTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetSubjectForTopic || !newTopicName.trim()) return;
+    const chosenSubject = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId)) || targetSubjectForTopic;
+    if (!chosenSubject || !newTopicName.trim()) return;
 
     setAddingTopic(true);
     try {
@@ -174,13 +192,14 @@ export default function QuestionBuilder({
         },
         body: JSON.stringify({
           action: 'create_topic',
-          subject_id: targetSubjectForTopic.id,
+          subject_id: chosenSubject.id,
+          subject_name: chosenSubject.name,
           topic_name: newTopicName.trim()
         })
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Topic created successfully!');
+        showNotification(data.message || 'Topic created across all categories successfully!');
         const createdTopicId = Number(data.topic_id);
         setNewTopicName('');
         setShowAddTopicModal(false);
@@ -1367,9 +1386,26 @@ export default function QuestionBuilder({
               ✕
             </button>
             <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Topic</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Subject: {targetSubjectForTopic?.name}</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              Creating a topic under a subject automatically adds it to all exam categories (JAMB, WAEC, NECO).
+            </p>
 
             <form onSubmit={handleAddTopic}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Subject</label>
+                <select
+                  className="form-input"
+                  value={modalSubjectId}
+                  onChange={(e) => setModalSubjectId(Number(e.target.value))}
+                  required
+                >
+                  <option value="">-- Select Subject --</option>
+                  {distinctSubjects.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-group" style={{ marginBottom: '1.2rem' }}>
                 <label className="form-label">Topic Name</label>
                 <input

@@ -27,14 +27,31 @@ export default function SubjectTopicManager({
   const [newSubExamType, setNewSubExamType] = useState('JAMB');
   const [creatingSub, setCreatingSub] = useState(false);
 
+  // Distinct subjects list (1 entry per subject name for selection dropdowns)
+  const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
+    return dbSubjects.find(s => s.name.trim().toLowerCase() === name.toLowerCase())!;
+  }).filter(Boolean);
+
   // Add Topic State
   const [showAddTopicModal, setShowAddTopicModal] = useState(initialAddModalOpen);
+  const [modalSubjectId, setModalSubjectId] = useState<number | ''>('');
 
   React.useEffect(() => {
     if (initialAddModalOpen) {
       setShowAddTopicModal(true);
     }
   }, [initialAddModalOpen]);
+
+  React.useEffect(() => {
+    if (showAddTopicModal) {
+      if (activeSubject) {
+        setModalSubjectId(activeSubject.id);
+      } else if (distinctSubjects.length > 0) {
+        setModalSubjectId(distinctSubjects[0].id);
+      }
+    }
+  }, [showAddTopicModal, selectedSubjectId]);
+
   const [newTopicName, setNewTopicName] = useState('');
   const [newTopicDesc, setNewTopicDesc] = useState('');
   const [newTopicContent, setNewTopicContent] = useState('');
@@ -134,10 +151,11 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Handle Add Topic
+  // Handle Add Topic (Creates topic for subject across ALL exam categories)
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeSubject || !newTopicName.trim()) return;
+    const chosenSubject = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId)) || activeSubject;
+    if (!chosenSubject || !newTopicName.trim()) return;
 
     setCreatingTopic(true);
     try {
@@ -149,7 +167,8 @@ export default function SubjectTopicManager({
         },
         body: JSON.stringify({
           action: 'create_topic',
-          subject_id: activeSubject.id,
+          subject_id: chosenSubject.id,
+          subject_name: chosenSubject.name,
           topic_name: newTopicName.trim(),
           description: newTopicDesc.trim(),
           content: newTopicContent.trim()
@@ -157,7 +176,7 @@ export default function SubjectTopicManager({
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Topic created successfully!');
+        showNotification(data.message || 'Topic created across all categories successfully!');
         setNewTopicName('');
         setNewTopicDesc('');
         setNewTopicContent('');
@@ -562,8 +581,26 @@ export default function SubjectTopicManager({
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800 }}>Create Topic for {activeSubject?.name}</h3>
+            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800 }}>Create Topic</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              Creating a topic under a subject automatically adds it to all exam categories (JAMB, WAEC, NECO) for that subject.
+            </p>
             <form onSubmit={handleCreateTopic} style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem', marginTop: '1.2rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Select Subject <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <select
+                  className="form-input"
+                  value={modalSubjectId}
+                  onChange={(e) => setModalSubjectId(Number(e.target.value))}
+                  required
+                >
+                  <option value="">-- Choose Subject --</option>
+                  {distinctSubjects.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: 700 }}>Topic Name <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input

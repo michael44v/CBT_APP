@@ -240,34 +240,97 @@ if ($method === 'POST') {
 
     if ($action === 'create_topic') {
         $subject_id = intval($data['subject_id'] ?? 0);
+        $subject_name_input = trim($data['subject_name'] ?? '');
         $topic_name = trim($data['topic_name'] ?? '');
         $description = trim($data['description'] ?? '');
         $content = trim($data['content'] ?? '');
 
-        if ($subject_id <= 0 || empty($topic_name)) {
-            echo json_encode(["success" => false, "message" => "Subject ID and topic_name are required."]);
+        if (empty($topic_name) || ($subject_id <= 0 && empty($subject_name_input))) {
+            echo json_encode(["success" => false, "message" => "Subject and topic_name are required."]);
             exit();
         }
 
-        // Check case-insensitive duplicate
-        $stmt = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?)");
-        $stmt->bind_param("is", $subject_id, $topic_name);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        $row = $res->fetch_assoc();
+        // Determine target subject name
+        $subName = $subject_name_input;
+        if (empty($subName) && $subject_id > 0) {
+            $stmtSubName = $db->prepare("SELECT name FROM subjects WHERE id = ? LIMIT 1");
+            $stmtSubName->bind_param("i", $subject_id);
+            $stmtSubName->execute();
+            $subRow = $stmtSubName->get_result()->fetch_assoc();
+            if ($subRow) {
+                $subName = $subRow['name'];
+            }
+        }
 
-        if ($row) {
-            echo json_encode(["success" => true, "topic_id" => intval($row['id']), "message" => "Topic already exists.", "warning" => "Topic with similar name exists."]);
+        if (empty($subName)) {
+            echo json_encode(["success" => false, "message" => "Subject not found."]);
             exit();
         }
 
-        $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("INSERT INTO topics (subject_id, name, description, content, sync_version) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssi", $subject_id, $topic_name, $description, $content, $sync_version);
-        $stmt->execute();
-        $new_topic_id = $db->insert_id;
+        // Find all subjects sharing this name across all exam categories (JAMB, WAEC, NECO)
+        $stmtFindSubs = $db->prepare("SELECT id, exam_type FROM subjects WHERE LOWER(name) = LOWER(?)");
+        $stmtFindSubs->bind_param("s", $subName);
+        $stmtFindSubs->execute();
+        $targetSubs = $stmtFindSubs->get_result()->fetch_all(MYSQLI_ASSOC);
 
-        echo json_encode(["success" => true, "topic_id" => $new_topic_id, "message" => "Topic created successfully."]);
+        if (empty($targetSubs)) {
+            echo json_encode(["success" => false, "message" => "No matching subjects found for '{$subName}'."]);
+            exit();
+        }
+
+        $createdTopicIds = [];
+        $createdCategories = [];
+        $existingCategories = [];
+
+        foreach ($targetSubs as $ts) {
+            $sId = intval($ts['id']);
+            $cat = $ts['exam_type'];
+
+            // Check if topic exists under this subject_id
+            $stmtCheck = $db->prepare("SELECT id FROM topics WHERE subject_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+            $stmtCheck->bind_param("is", $sId, $topic_name);
+            $stmtCheck->execute();
+            $existingRow = $stmtCheck->get_result()->fetch_assoc();
+
+            if ($existingRow) {
+                $existingCategories[] = $cat;
+                if (!isset($createdTopicIds[$cat])) {
+                    $createdTopicIds[$cat] = intval($existingRow['id']);
+                }
+            } else {
+                $sync_version = bumpSyncVersion($db);
+                $stmtIns = $db->prepare("INSERT INTO topics (subject_id, name, description, content, sync_version) VALUES (?, ?, ?, ?, ?)");
+                $stmtIns->bind_param("isssi", $sId, $topic_name, $description, $content, $sync_version);
+                $stmtIns->execute();
+                $newId = $db->insert_id;
+                $createdTopicIds[$cat] = $newId;
+                $createdCategories[] = $cat;
+            }
+        }
+
+        $primaryTopicId = !empty($createdTopicIds) ? reset($createdTopicIds) : 0;
+
+        if (count($createdCategories) === 0) {
+            echo json_encode([
+                "success" => true,
+                "topic_id" => $primaryTopicId,
+                "message" => "Topic '{$topic_name}' already exists for subject '{$subName}' in all categories (" . implode(", ", $existingCategories) . ")."
+            ]);
+            exit();
+        }
+
+        $msg = "Topic '{$topic_name}' created for '{$subName}' across categories: " . implode(", ", $createdCategories) . ".";
+        if (count($existingCategories) > 0) {
+            $msg .= " Already exists in: " . implode(", ", $existingCategories) . ".";
+        }
+
+        echo json_encode([
+            "success" => true,
+            "topic_id" => $primaryTopicId,
+            "created_categories" => $createdCategories,
+            "existing_categories" => $existingCategories,
+            "message" => $msg
+        ]);
         exit();
     }
 
