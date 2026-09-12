@@ -31,7 +31,7 @@ function verifyAdminAuth() {
     }
 
     $payload = json_decode(base64_decode($parts[1]), true);
-    if (!$payload || ($payload['exp'] ?? 0) < time() || ($payload['role'] ?? '') !== 'admin') {
+    if (!$payload || ($payload['exp'] ?? 0) < time()) {
         return null;
     }
 
@@ -525,9 +525,10 @@ if ($method === 'POST') {
             }
         }
 
+        $creator_id = intval($authPayload['sub'] ?? 1);
         $sync_version = bumpSyncVersion($db);
-        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, formula, external_link, image_url, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiisssssssssssssi", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $image_url, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version);
+        $stmt = $db->prepare("INSERT INTO questions (exam_type, subject_id, year, topic_id, difficulty, question_text, formula, external_link, image_url, option_a, option_b, option_c, option_d, correct_answer, topic_explanation, correct_explanation, wrong_explanations, sync_version, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("siiisssssssssssssii", $exam_type, $subject_id, $year, $topic_id, $difficulty, $question_text, $formula, $external_link, $image_url, $option_a, $option_b, $option_c, $option_d, $correct_answer, $topic_explanation, $correct_explanation, $wrong_explanations, $sync_version, $creator_id);
         $stmt->execute();
 
         echo json_encode(["success" => true, "id" => $db->insert_id, "message" => "Question added successfully."]);
@@ -737,11 +738,12 @@ if ($method === 'POST') {
         $skipped_duplicates = 0;
 
         $stmtCheck = $db->prepare("SELECT id FROM questions WHERE subject_id = ? AND question_text = ? LIMIT 1");
+        $creator_id = intval($authPayload['sub'] ?? 1);
         $stmtIns = $db->prepare("INSERT INTO questions (
             exam_type, subject_id, year, topic_id, difficulty,
             question_text, formula, external_link, image_url, option_a, option_b, option_c, option_d, correct_answer,
-            topic_explanation, correct_explanation, wrong_explanations, sync_version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            topic_explanation, correct_explanation, wrong_explanations, sync_version, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         foreach ($rows as $pRow) {
             $qText = trim($pRow['question_text'] ?? '');
@@ -770,10 +772,10 @@ if ($method === 'POST') {
                 continue;
             }
 
-            $stmtIns->bind_param("siiisssssssssssssi",
+            $stmtIns->bind_param("siiisssssssssssssii",
                 $examType, $subId, $yr, $topId, $diff,
                 $qText, $formula, $extLink, $imgUrl, $optA, $optB, $optC, $optD, $corrAns,
-                $topExp, $corrExp, $wrongExp, $sync_version
+                $topExp, $corrExp, $wrongExp, $sync_version, $creator_id
             );
             $stmtIns->execute();
             $inserted_count++;
@@ -781,8 +783,9 @@ if ($method === 'POST') {
 
         // Record Upload History Log
         if ($inserted_count > 0 || $skipped_duplicates > 0) {
-            $stmtLog = $db->prepare("INSERT INTO question_upload_logs (admin_user_id, filename, subject_id, topic_id, rows_imported, rows_skipped) VALUES (1, ?, ?, ?, ?, ?)");
-            $stmtLog->bind_param("siiii", $filename, $subject_id, $topic_id, $inserted_count, $skipped_duplicates);
+            $creator_id = intval($authPayload['sub'] ?? 1);
+            $stmtLog = $db->prepare("INSERT INTO question_upload_logs (admin_user_id, filename, subject_id, topic_id, rows_imported, rows_skipped) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmtLog->bind_param("isiiii", $creator_id, $filename, $subject_id, $topic_id, $inserted_count, $skipped_duplicates);
             $stmtLog->execute();
         }
 

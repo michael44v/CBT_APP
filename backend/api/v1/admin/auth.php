@@ -31,6 +31,22 @@ if ($action === 'login') {
     $admin = $res->fetch_assoc();
 
     if ($admin && password_verify($password, $admin['password_hash'])) {
+        if (($admin['status'] ?? 'active') === 'suspended') {
+            echo json_encode(["success" => false, "message" => "Your account has been suspended. Please contact Super Admin."]);
+            exit();
+        }
+
+        $perms = !empty($admin['permissions']) ? json_decode($admin['permissions'], true) : null;
+        if (!$perms) {
+            $perms = [
+                'can_upload_csv' => true,
+                'can_use_gui_builder' => true,
+                'can_manage_subjects_topics' => true,
+                'can_edit_questions' => true,
+                'can_delete_questions' => ($admin['role'] !== 'worker')
+            ];
+        }
+
         // Generate token header payload
         $header = base64_encode(json_encode(["alg" => "HS256", "typ" => "JWT"]));
         $payload = base64_encode(json_encode([
@@ -38,6 +54,7 @@ if ($action === 'login') {
             "username" => $admin['username'],
             "email" => $admin['email'],
             "role" => $admin['role'] ?: 'admin',
+            "permissions" => $perms,
             "iat" => time(),
             "exp" => time() + (86400 * 7) // 24 days
         ]));
@@ -53,7 +70,9 @@ if ($action === 'login') {
                 "id" => $admin['id'],
                 "username" => $admin['username'],
                 "email" => $admin['email'],
-                "role" => $admin['role']
+                "full_name" => $admin['full_name'] ?? '',
+                "role" => $admin['role'],
+                "permissions" => $perms
             ]
         ]);
         exit();

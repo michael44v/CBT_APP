@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Question, Subject, Topic } from './types';
 import { FormulaEditor, MathRenderer } from './FormulaEditor';
+import { RichTextEditor } from './RichTextEditor';
 
 interface QuestionBankBrowserProps {
   apiBase: string;
@@ -740,7 +741,7 @@ export default function QuestionBankBrowser({
         </div>
       )}
 
-      {/* SINGLE QUESTION INLINE EDIT MODAL */}
+      {/* ENHANCED WIDE SINGLE QUESTION INLINE EDIT MODAL WITH RICH TEXT & LIVE CBT PREVIEW */}
       {editingQuestion && (
         <div
           className="modal-overlay"
@@ -751,127 +752,248 @@ export default function QuestionBankBrowser({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '1150px', width: '95%', maxHeight: '92vh', overflowY: 'auto', padding: '1.75rem', position: 'relative' }}>
             <button
               onClick={() => setEditingQuestion(null)}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Edit Question #{editingQuestion.id}</h3>
-            <form onSubmit={handleSaveInlineEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Exam Type</label>
-                <select className="form-input" value={editingQuestion.exam_type} onChange={(e) => setEditingQuestion({ ...editingQuestion, exam_type: e.target.value })}>
-                  <option value="JAMB">JAMB</option>
-                  <option value="WAEC">WAEC</option>
-                  <option value="NECO">NECO</option>
-                </select>
-              </div>
 
-              <div className="form-group">
-                <label className="form-label">Subject</label>
-                <select className="form-input" value={editingQuestion.subject_id} onChange={(e) => setEditingQuestion({ ...editingQuestion, subject_id: Number(e.target.value) })}>
-                  {dbSubjects.filter(s => s.exam_type === editingQuestion.exam_type).map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.25rem' }}>
+              <BookOpen size={22} style={{ color: 'var(--accent)' }} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Edit Question #{editingQuestion.id}</h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Use the rich text editor to format question content and inspect the live student CBT view on the right.
+                </p>
               </div>
+            </div>
 
-              <div className="form-group">
-                <label className="form-label">Topic (Same Subject)</label>
-                <select className="form-input" value={editingQuestion.topic_id} onChange={(e) => setEditingQuestion({ ...editingQuestion, topic_id: Number(e.target.value) })}>
-                  {dbTopics.filter(t => t.subject_id === editingQuestion.subject_id).map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Year</label>
-                <input type="number" className="form-input" value={editingQuestion.year} onChange={(e) => setEditingQuestion({ ...editingQuestion, year: Number(e.target.value) })} />
-              </div>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">Question Text</label>
-                <textarea className="form-input" style={{ minHeight: '70px' }} value={editingQuestion.question_text} onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })} required />
-              </div>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">Formula Editor (LaTeX Supported)</label>
-                <FormulaEditor
-                  value={editingQuestion.formula || ''}
-                  onChange={(val) => setEditingQuestion({ ...editingQuestion, formula: val })}
-                />
-              </div>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">Attached Question Image (Optional Attachment)</label>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="form-input"
-                    disabled={uploadingImage}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleImageUpload(file, (imgUrl) => setEditingQuestion({ ...editingQuestion, image_url: imgUrl }));
-                      }
-                    }}
-                  />
-                  {editingQuestion.image_url && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--primary-light)', padding: '6px 12px', borderRadius: '8px' }}>
-                      <img
-                        src={editingQuestion.image_url.startsWith('http') ? editingQuestion.image_url : `https://cbt.filloptech.com/${editingQuestion.image_url}`}
-                        alt="Attached Question Visual"
-                        style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain', borderRadius: '4px' }}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-danger"
-                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-                        onClick={() => setEditingQuestion({ ...editingQuestion, image_url: '' })}
-                      >
-                        Remove
-                      </button>
+            <form onSubmit={handleSaveInlineEdit}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: '1.5rem', alignItems: 'start' }}>
+                {/* LEFT COLUMN: EDIT CONTROLS */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.8rem' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Exam Type</label>
+                      <select className="form-input" value={editingQuestion.exam_type} onChange={(e) => setEditingQuestion({ ...editingQuestion, exam_type: e.target.value })}>
+                        <option value="JAMB">JAMB</option>
+                        <option value="WAEC">WAEC</option>
+                        <option value="NECO">NECO</option>
+                      </select>
                     </div>
-                  )}
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Subject</label>
+                      <select className="form-input" value={editingQuestion.subject_id} onChange={(e) => setEditingQuestion({ ...editingQuestion, subject_id: Number(e.target.value) })}>
+                        {dbSubjects.filter(s => s.exam_type === editingQuestion.exam_type).map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Topic</label>
+                      <select className="form-input" value={editingQuestion.topic_id} onChange={(e) => setEditingQuestion({ ...editingQuestion, topic_id: Number(e.target.value) })}>
+                        {dbTopics.filter(t => t.subject_id === editingQuestion.subject_id).map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Year</label>
+                      <input type="number" className="form-input" value={editingQuestion.year} onChange={(e) => setEditingQuestion({ ...editingQuestion, year: Number(e.target.value) })} />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Difficulty</label>
+                      <select className="form-input" value={editingQuestion.difficulty} onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })}>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Correct Answer</label>
+                      <select className="form-input" value={editingQuestion.correct_answer} onChange={(e) => setEditingQuestion({ ...editingQuestion, correct_answer: e.target.value })}>
+                        <option value="A">Option A</option>
+                        <option value="B">Option B</option>
+                        <option value="C">Option C</option>
+                        <option value="D">Option D</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Question Text (Rich Formatted View)</label>
+                    <RichTextEditor
+                      value={editingQuestion.question_text || ''}
+                      onChange={(val) => setEditingQuestion({ ...editingQuestion, question_text: val })}
+                      placeholder="Type question text or format HTML..."
+                      rows={6}
+                      showMathToolbar
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Formula Editor (LaTeX Supported)</label>
+                    <FormulaEditor
+                      value={editingQuestion.formula || ''}
+                      onChange={(val) => setEditingQuestion({ ...editingQuestion, formula: val })}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Attached Question Image</label>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="form-input"
+                        disabled={uploadingImage}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImageUpload(file, (imgUrl) => setEditingQuestion({ ...editingQuestion, image_url: imgUrl }));
+                          }
+                        }}
+                      />
+                      {editingQuestion.image_url && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--primary-light)', padding: '6px 12px', borderRadius: '8px' }}>
+                          <img
+                            src={editingQuestion.image_url.startsWith('http') ? editingQuestion.image_url : `https://cbt.filloptech.com/${editingQuestion.image_url}`}
+                            alt="Attached Question Visual"
+                            style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain', borderRadius: '4px' }}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                            onClick={() => setEditingQuestion({ ...editingQuestion, image_url: '' })}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">External Link (Optional)</label>
+                    <input type="url" className="form-input" placeholder="https://..." value={editingQuestion.external_link || ''} onChange={(e) => setEditingQuestion({ ...editingQuestion, external_link: e.target.value })} />
+                  </div>
+
+                  {/* Option Choices */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Option A {editingQuestion.correct_answer === 'A' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
+                      <input type="text" className="form-input" value={editingQuestion.option_a} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_a: e.target.value })} required />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Option B {editingQuestion.correct_answer === 'B' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
+                      <input type="text" className="form-input" value={editingQuestion.option_b} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_b: e.target.value })} required />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Option C {editingQuestion.correct_answer === 'C' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
+                      <input type="text" className="form-input" value={editingQuestion.option_c} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_c: e.target.value })} required />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Option D {editingQuestion.correct_answer === 'D' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
+                      <input type="text" className="form-input" value={editingQuestion.option_d} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_d: e.target.value })} required />
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: LIVE STUDENT CBT PREVIEW BOX */}
+                <div style={{
+                  position: 'sticky', top: 0,
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '1.25rem',
+                  boxShadow: 'var(--card-shadow)',
+                  display: 'flex', flexDirection: 'column', gap: '1rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Zap size={16} style={{ color: 'var(--accent)' }} />
+                      <span style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--primary)' }}>Student CBT Screen Preview</span>
+                    </div>
+                    <span className="badge badge-primary">{editingQuestion.exam_type || 'JAMB'} &bull; {editingQuestion.year || 2024}</span>
+                  </div>
+
+                  {/* Question Content Surface */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--text-main)' }}>
+                      <MathRenderer text={editingQuestion.question_text || '<em>(Question text preview)</em>'} />
+                    </div>
+
+                    {editingQuestion.formula && (
+                      <div style={{ padding: '0.5rem', backgroundColor: 'var(--primary-light)', borderRadius: '6px', overflowX: 'auto' }}>
+                        <MathRenderer text={`\\[${editingQuestion.formula}\\]`} />
+                      </div>
+                    )}
+
+                    {editingQuestion.image_url && (
+                      <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: 'var(--bg-main)', borderRadius: '8px' }}>
+                        <img
+                          src={editingQuestion.image_url.startsWith('http') ? editingQuestion.image_url : `https://cbt.filloptech.com/${editingQuestion.image_url}`}
+                          alt="Question Visual Preview"
+                          style={{ maxHeight: '180px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px' }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Option Choices Preview */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.5rem' }}>
+                      {[
+                        { key: 'A', text: editingQuestion.option_a },
+                        { key: 'B', text: editingQuestion.option_b },
+                        { key: 'C', text: editingQuestion.option_c },
+                        { key: 'D', text: editingQuestion.option_d }
+                      ].map(opt => {
+                        const isCorrect = editingQuestion.correct_answer === opt.key;
+                        return (
+                          <div
+                            key={opt.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: isCorrect ? '2px solid var(--success)' : '1px solid var(--border-color)',
+                              backgroundColor: isCorrect ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-main)',
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            <span style={{
+                              width: '24px', height: '24px', borderRadius: '50%',
+                              backgroundColor: isCorrect ? 'var(--success)' : 'var(--border-color)',
+                              color: isCorrect ? '#ffffff' : 'var(--text-muted)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontWeight: 800, fontSize: '0.75rem'
+                            }}>
+                              {opt.key}
+                            </span>
+                            <span style={{ flex: 1, fontWeight: isCorrect ? 700 : 500, color: 'var(--text-main)' }}>
+                              <MathRenderer text={opt.text || `Option ${opt.key}`} />
+                            </span>
+                            {isCorrect && <CheckCircle size={16} style={{ color: 'var(--success)' }} />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">External Link (Optional)</label>
-                <input type="url" className="form-input" placeholder="https://..." value={editingQuestion.external_link || ''} onChange={(e) => setEditingQuestion({ ...editingQuestion, external_link: e.target.value })} />
-              </div>
-
-              <div className="form-group"><label className="form-label">Option A</label><input type="text" className="form-input" value={editingQuestion.option_a} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_a: e.target.value })} required /></div>
-              <div className="form-group"><label className="form-label">Option B</label><input type="text" className="form-input" value={editingQuestion.option_b} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_b: e.target.value })} required /></div>
-              <div className="form-group"><label className="form-label">Option C</label><input type="text" className="form-input" value={editingQuestion.option_c} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_c: e.target.value })} required /></div>
-              <div className="form-group"><label className="form-label">Option D</label><input type="text" className="form-input" value={editingQuestion.option_d} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_d: e.target.value })} required /></div>
-
-              <div className="form-group">
-                <label className="form-label">Correct Answer</label>
-                <select className="form-input" value={editingQuestion.correct_answer} onChange={(e) => setEditingQuestion({ ...editingQuestion, correct_answer: e.target.value })}>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Difficulty</label>
-                <select className="form-input" value={editingQuestion.difficulty} onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })}>
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-
-              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingQuestion(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Update Question</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1.5rem' }}>Save &amp; Update Question</button>
               </div>
             </form>
           </div>
