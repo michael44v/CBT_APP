@@ -905,6 +905,44 @@ export default function QuestionBankBrowser({
                       <input type="text" className="form-input" value={editingQuestion.option_d} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_d: e.target.value })} required />
                     </div>
                   </div>
+
+                  {/* Explanations Section */}
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: 'var(--primary)' }}>Question Explanations &amp; Solution Details</h4>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>Correct Answer Explanation (Optional)</label>
+                      <RichTextEditor
+                        value={editingQuestion.correct_explanation || ''}
+                        onChange={(val) => setEditingQuestion({ ...editingQuestion, correct_explanation: val })}
+                        placeholder="Explain why the selected correct answer option is right..."
+                        rows={3}
+                        showMathToolbar
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>Topic Concept Explanation (Optional)</label>
+                      <RichTextEditor
+                        value={editingQuestion.topic_explanation || ''}
+                        onChange={(val) => setEditingQuestion({ ...editingQuestion, topic_explanation: val })}
+                        placeholder="General overview or theory of the underlying topic/concept..."
+                        rows={3}
+                        showMathToolbar
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>Wrong Answer Explanations / Distractors (Optional)</label>
+                      <RichTextEditor
+                        value={editingQuestion.wrong_explanations || ''}
+                        onChange={(val) => setEditingQuestion({ ...editingQuestion, wrong_explanations: val })}
+                        placeholder="Explain common misconceptions or why incorrect options are wrong..."
+                        rows={3}
+                        showMathToolbar
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* RIGHT COLUMN: LIVE STUDENT CBT PREVIEW BOX */}
@@ -987,6 +1025,30 @@ export default function QuestionBankBrowser({
                         );
                       })}
                     </div>
+
+                    {/* Explanations Live Preview Box */}
+                    {(editingQuestion.correct_explanation || editingQuestion.topic_explanation || editingQuestion.wrong_explanations) && (
+                      <div style={{ marginTop: '0.75rem', padding: '0.85rem', backgroundColor: 'var(--primary-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--primary)', marginBottom: '0.4rem' }}>
+                          Answer Explanation &amp; Solution Preview:
+                        </div>
+                        {editingQuestion.correct_explanation && (
+                          <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                            <strong>Correct Explanation:</strong> <MathRenderer text={editingQuestion.correct_explanation} />
+                          </div>
+                        )}
+                        {editingQuestion.topic_explanation && (
+                          <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                            <strong>Concept Explanation:</strong> <MathRenderer text={editingQuestion.topic_explanation} />
+                          </div>
+                        )}
+                        {editingQuestion.wrong_explanations && (
+                          <div style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>
+                            <strong>Distractor Explanation:</strong> <MathRenderer text={editingQuestion.wrong_explanations} />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
