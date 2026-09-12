@@ -1204,7 +1204,7 @@ export default function QuestionBuilder({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '650px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.8rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '950px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.8rem', position: 'relative' }}>
             <button
               onClick={() => setPreviewCard(null)}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
@@ -1222,7 +1222,7 @@ export default function QuestionBuilder({
             </div>
 
             {/* Question Text & Formula */}
-            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-main)', marginBottom: '1rem', lineHeight: '1.5' }}>
+            <div style={{ fontWeight: 300, fontSize: '17px', color: 'var(--text-main)', marginBottom: '1rem', lineHeight: '1.5' }}>
               <MathRenderer text={previewCard.question_text || 'Sample Question Text'} />
             </div>
 
