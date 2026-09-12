@@ -88,6 +88,8 @@ export default function QuestionBuilder({
   const [targetCardForTopic, setTargetCardForTopic] = useState<string | null>(null);
   const [targetSubjectForTopic, setTargetSubjectForTopic] = useState<Subject | null>(null);
   const [newTopicName, setNewTopicName] = useState<string>('');
+  const [newTopicDescription, setNewTopicDescription] = useState<string>('');
+  const [newTopicContent, setNewTopicContent] = useState<string>('');
   const [addingTopic, setAddingTopic] = useState<boolean>(false);
 
   useEffect(() => {
@@ -193,7 +195,9 @@ export default function QuestionBuilder({
           action: 'create_topic',
           subject_id: chosenSubject.id,
           subject_name: chosenSubject.name,
-          topic_name: newTopicName.trim()
+          topic_name: newTopicName.trim(),
+          description: newTopicDescription.trim(),
+          content: newTopicContent.trim()
         })
       });
       const data = await res.json();
@@ -201,6 +205,8 @@ export default function QuestionBuilder({
         showNotification(data.message || 'Topic created across all categories successfully!');
         const createdTopicId = Number(data.topic_id);
         setNewTopicName('');
+        setNewTopicDescription('');
+        setNewTopicContent('');
         setShowAddTopicModal(false);
         await onRefreshData();
 
@@ -1379,51 +1385,77 @@ export default function QuestionBuilder({
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          <div className="admin-card" style={{ maxWidth: '420px', width: '90%', padding: '1.5rem', position: 'relative' }}>
+          <div className="admin-card" style={{ maxWidth: '680px', width: '92%', maxHeight: '88vh', overflowY: 'auto', padding: '1.75rem', position: 'relative' }}>
             <button
               onClick={() => setShowAddTopicModal(false)}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
             </button>
-            <h3 style={{ marginTop: 0, fontSize: '1.1rem', fontWeight: 800 }}>Create New Topic</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800 }}>Create New Topic</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
               Creating a topic under a subject automatically adds it to all exam categories (JAMB, WAEC, NECO).
             </p>
 
-            <form onSubmit={handleAddTopic}>
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Subject</label>
-                <select
-                  className="form-input"
-                  value={modalSubjectId}
-                  onChange={(e) => setModalSubjectId(Number(e.target.value))}
-                  required
-                >
-                  <option value="">-- Select Subject --</option>
-                  {distinctSubjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+            <form onSubmit={handleAddTopic} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Subject</label>
+                  <select
+                    className="form-input"
+                    value={modalSubjectId}
+                    onChange={(e) => setModalSubjectId(Number(e.target.value))}
+                    required
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {distinctSubjects.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Topic Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Data Structures"
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1.2rem' }}>
-                <label className="form-label">Topic Name</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Topic Description / Short Summary (Optional)</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="e.g. Data Structures"
-                  value={newTopicName}
-                  onChange={(e) => setNewTopicName(e.target.value)}
-                  required
-                  autoFocus
+                  placeholder="Brief overview or key focus of this topic..."
+                  value={newTopicDescription}
+                  onChange={(e) => setNewTopicDescription(e.target.value)}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Topic Study Material / Detailed Notes (Rich Text &amp; Formulas)</label>
+                <RichTextEditor
+                  value={newTopicContent}
+                  onChange={setNewTopicContent}
+                  placeholder="Write topic notes, key formulas, or lesson content..."
+                  rows={5}
+                  showMathToolbar
+                  showPreview
+                  previewTitle="Topic Study Notes Preview"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddTopicModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={addingTopic}>
-                  {addingTopic ? 'Creating...' : 'Create & Select'}
+                  {addingTopic ? 'Creating...' : 'Create & Select Topic'}
                 </button>
               </div>
             </form>
