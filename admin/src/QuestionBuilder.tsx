@@ -1108,13 +1108,14 @@ export default function QuestionBuilder({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>Topic Concept Explanation (Optional)</label>
-                      <textarea
-                        className="form-input"
-                        rows={2}
-                        placeholder="General explanation of the topic/concept..."
+                      <RichTextEditor
                         value={card.topic_explanation}
-                        onChange={(e) => updateCard(card.id, { topic_explanation: e.target.value })}
-                        style={{ resize: 'vertical' }}
+                        onChange={(val) => updateCard(card.id, { topic_explanation: val })}
+                        placeholder="General explanation of the topic/concept (supports rich text &amp; formulas)..."
+                        rows={3}
+                        showMathToolbar={true}
+                        showPreview={true}
+                        previewTitle="Concept KaTeX Preview"
                       />
                     </div>
 

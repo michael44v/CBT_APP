@@ -37,6 +37,11 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
+  EyeOff,
+  UserPlus,
+  Lock,
+  Unlock,
+  Check,
   Ban
 } from 'lucide-react';
 import fillopIcon from './icon.png';
@@ -44,7 +49,7 @@ import Login from './Login';
 import QuestionWizard from './QuestionWizard';
 import SubjectTopicManager from './SubjectTopicManager';
 import QuestionBankBrowser from './QuestionBankBrowser';
-import { Subject, Topic, Question, UploadLog } from './types';
+import { Subject, Topic, Question, UploadLog, WorkerUser, WorkerPermissions } from './types';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -79,7 +84,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES'
+    'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES' | 'WORKERS'
   >('DASHBOARD');
 
   const [openAddTopicDirectly, setOpenAddTopicDirectly] = useState<boolean>(false);
@@ -135,6 +140,38 @@ export default function App() {
   const [uploadLogs, setUploadLogs] = useState<UploadLog[]>([]);
   const [news, setNews] = useState<any[]>([]);
   const [updatesList, setUpdatesList] = useState<any[]>([]);
+
+  // Workers State
+  const [workers, setWorkers] = useState<WorkerUser[]>([]);
+  const [workerSearch, setWorkerSearch] = useState('');
+  const [showCreateWorkerModal, setShowCreateWorkerModal] = useState(false);
+  const [editingWorker, setEditingWorker] = useState<WorkerUser | null>(null);
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<number, boolean>>({});
+
+  const [workerForm, setWorkerForm] = useState<{
+    id?: number;
+    full_name: string;
+    email: string;
+    username: string;
+    password: string;
+    role: string;
+    status: string;
+    permissions: WorkerPermissions;
+  }>({
+    full_name: '',
+    email: '',
+    username: '',
+    password: '',
+    role: 'worker',
+    status: 'active',
+    permissions: {
+      can_upload_csv: true,
+      can_use_gui_builder: true,
+      can_manage_subjects_topics: true,
+      can_edit_questions: true,
+      can_delete_questions: false
+    }
+  });
 
   // Search/Filters
   const [dashboardSearch, setDashboardSearch] = useState('');
@@ -734,6 +771,150 @@ export default function App() {
     }
   };
 
+  const fetchWorkers = async () => {
+    if (!authToken) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/workers.php`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWorkers(data.workers || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch workers', e);
+    }
+  };
+
+  const handleSaveWorker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authToken) return;
+    try {
+      const isEdit = !!workerForm.id;
+      const payload = {
+        action: isEdit ? 'update_worker' : 'create_worker',
+        id: workerForm.id,
+        full_name: workerForm.full_name,
+        email: workerForm.email,
+        username: workerForm.username,
+        password: workerForm.password,
+        role: workerForm.role,
+        status: workerForm.status,
+        permissions: workerForm.permissions
+      };
+
+      const res = await fetch(`${API_BASE}/admin/workers.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'Worker account saved successfully.');
+        setShowCreateWorkerModal(false);
+        setEditingWorker(null);
+        fetchWorkers();
+      } else {
+        showNotification(data.message || 'Failed to save worker.', 'error');
+      }
+    } catch (err) {
+      showNotification('Server error while saving worker.', 'error');
+    }
+  };
+
+  const handleDeleteWorker = async (workerId: number, name: string) => {
+    if (!confirm(`Are you sure you want to delete worker account '${name}'? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/workers.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ action: 'delete_worker', id: workerId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || 'Worker account deleted successfully.');
+        fetchWorkers();
+      } else {
+        showNotification(data.message || 'Failed to delete worker.', 'error');
+      }
+    } catch (e) {
+      showNotification('Server error while deleting worker.', 'error');
+    }
+  };
+
+  const handleToggleWorkerStatus = async (worker: WorkerUser) => {
+    const newStatus = worker.status === 'active' ? 'suspended' : 'active';
+    try {
+      const res = await fetch(`${API_BASE}/admin/workers.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ action: 'update_worker', id: worker.id, status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(`Worker '${worker.full_name || worker.username}' ${newStatus === 'suspended' ? 'suspended' : 'reactivated'}.`);
+        fetchWorkers();
+      } else {
+        showNotification(data.message || 'Failed to update worker status.', 'error');
+      }
+    } catch (e) {
+      showNotification('Server error updating status.', 'error');
+    }
+  };
+
+  const openEditWorkerModal = (w: WorkerUser) => {
+    setEditingWorker(w);
+    setWorkerForm({
+      id: w.id,
+      full_name: w.full_name || '',
+      email: w.email || '',
+      username: w.username || '',
+      password: w.plain_password || '',
+      role: w.role || 'worker',
+      status: w.status || 'active',
+      permissions: w.permissions_parsed || {
+        can_upload_csv: true,
+        can_use_gui_builder: true,
+        can_manage_subjects_topics: true,
+        can_edit_questions: true,
+        can_delete_questions: w.role !== 'worker'
+      }
+    });
+    setShowCreateWorkerModal(true);
+  };
+
+  const openCreateWorkerModal = () => {
+    setEditingWorker(null);
+    setWorkerForm({
+      full_name: '',
+      email: '',
+      username: '',
+      password: '',
+      role: 'worker',
+      status: 'active',
+      permissions: {
+        can_upload_csv: true,
+        can_use_gui_builder: true,
+        can_manage_subjects_topics: true,
+        can_edit_questions: true,
+        can_delete_questions: false
+      }
+    });
+    setShowCreateWorkerModal(true);
+  };
+
   const isWorker = adminUser?.role === 'worker';
 
   useEffect(() => {
@@ -761,7 +942,8 @@ export default function App() {
         !isWorker ? fetchPasscodes() : Promise.resolve(),
         !isWorker ? fetchPromos() : Promise.resolve(),
         !isWorker ? fetchNews() : Promise.resolve(),
-        !isWorker ? fetchUpdates() : Promise.resolve()
+        !isWorker ? fetchUpdates() : Promise.resolve(),
+        !isWorker ? fetchWorkers() : Promise.resolve()
       ]);
     } catch (e) {
       console.error(e);
@@ -918,6 +1100,9 @@ export default function App() {
                     <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
                       <Key size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Passcodes &amp; Licensing
                     </button>
+                    <button className={`menu-btn ${activeTab === 'WORKERS' ? 'active' : ''}`} onClick={() => setActiveTab('WORKERS')}>
+                      <Shield size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Worker Management
+                    </button>
                   </div>
                 )}
               </div>
@@ -1006,10 +1191,28 @@ export default function App() {
       {activeTab === 'PROMOS' && 'Promo Codes'}
       {activeTab === 'NEWS' && 'Admin News'}
       {activeTab === 'UPDATES' && 'Software Release'}
+      {activeTab === 'WORKERS' && 'Worker Management & Privileges'}
     </h1>
-    <div className="admin-header-meta">
+    <div className="admin-header-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
       <span className="meta-dot" />
       <span>CBT Guru Central Cloud</span>
+      {!isWorker && (
+        <button
+          className="btn btn-primary"
+          onClick={() => setActiveTab('WORKERS')}
+          style={{
+            padding: '0.35rem 0.75rem',
+            fontSize: '0.8rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            borderRadius: '8px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
+          }}
+        >
+          <UserPlus size={14} /> Create Worker
+        </button>
+      )}
     </div>
   </div>
 
@@ -2524,7 +2727,437 @@ export default function App() {
           </div>
         )}
 
+        {/* WORKER MANAGEMENT TAB VIEW */}
+        {activeTab === 'WORKERS' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Worker Metric Stat Cards */}
+            <div className="dashboard-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
+              <div className="stat-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="stat-label">Total Admin Workers</span>
+                  <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent)' }}>
+                    <Users size={20} />
+                  </div>
+                </div>
+                <div className="stat-value">{workers.length}</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {workers.filter(w => w.status === 'active').length} Active &bull; {workers.filter(w => w.status === 'suspended').length} Suspended
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="stat-label">Worker Uploaded Qs</span>
+                  <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>
+                    <BookOpen size={20} />
+                  </div>
+                </div>
+                <div className="stat-value">
+                  {workers.reduce((acc, w) => acc + (w.uploaded_questions_count || 0), 0)}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Directly authored questions
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="stat-label">CSV Import Rows</span>
+                  <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>
+                    <Upload size={20} />
+                  </div>
+                </div>
+                <div className="stat-value">
+                  {workers.reduce((acc, w) => acc + (w.csv_uploaded_count || 0), 0)}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Total bulk imported rows
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="stat-label">Super Admins</span>
+                  <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+                    <Shield size={20} />
+                  </div>
+                </div>
+                <div className="stat-value">
+                  {workers.filter(w => w.role === 'super_admin' || w.role === 'admin').length}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Full control center access
+                </div>
+              </div>
+            </div>
+
+            {/* Workers Table Card */}
+            <div className="admin-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <Shield size={22} style={{ color: 'var(--accent)' }} />
+                  <div>
+                    <h2 className="card-title" style={{ margin: 0 }}>Question Management Workers &amp; Privileges</h2>
+                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      Manage worker credentials, view passwords, assign question bank permissions, and track content upload activity.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search by worker name, email, username..."
+                    value={workerSearch}
+                    onChange={(e) => setWorkerSearch(e.target.value)}
+                    style={{ width: '280px', margin: 0 }}
+                  />
+                  <button className="btn btn-primary" onClick={openCreateWorkerModal} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}>
+                    <UserPlus size={16} /> Create Worker
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Worker Account</th>
+                      <th>Role &amp; Status</th>
+                      <th>Password (Super Admin View)</th>
+                      <th>Upload Activity</th>
+                      <th>Assigned Privileges</th>
+                      <th style={{ textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {workers.length === 0 ? (
+                      <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No worker accounts found. Click 'Create Worker' to add your first content worker.</td></tr>
+                    ) : (
+                      workers
+                        .filter(w => !workerSearch ||
+                          (w.full_name || '').toLowerCase().includes(workerSearch.toLowerCase()) ||
+                          w.email.toLowerCase().includes(workerSearch.toLowerCase()) ||
+                          w.username.toLowerCase().includes(workerSearch.toLowerCase())
+                        )
+                        .map(w => {
+                          const isShowPass = !!showPasswordMap[w.id];
+                          const perms = w.permissions_parsed || {
+                            can_upload_csv: true,
+                            can_use_gui_builder: true,
+                            can_manage_subjects_topics: true,
+                            can_edit_questions: true,
+                            can_delete_questions: w.role !== 'worker'
+                          };
+
+                          return (
+                            <tr key={w.id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <div style={{
+                                    width: '36px', height: '36px', borderRadius: '50%',
+                                    backgroundColor: w.role === 'worker' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                    color: w.role === 'worker' ? 'var(--accent)' : 'var(--success)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 800, fontSize: '0.95rem'
+                                  }}>
+                                    {(w.full_name || w.username || 'W').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{w.full_name || w.username}</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{w.email} &bull; @{w.username}</div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                  <span className={`badge ${w.role === 'worker' ? 'badge-primary' : 'badge-success'}`}>
+                                    {w.role === 'worker' ? 'Content Worker' : 'Super Admin'}
+                                  </span>
+                                  <span className={`badge ${w.status === 'suspended' ? 'badge-danger' : 'badge-success'}`}>
+                                    {w.status === 'suspended' ? 'Suspended' : 'Active'}
+                                  </span>
+                                </div>
+                              </td>
+
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <code style={{
+                                    padding: '4px 8px', borderRadius: '6px',
+                                    backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                                    fontSize: '0.85rem', fontWeight: 600, minWidth: '100px', display: 'inline-block'
+                                  }}>
+                                    {isShowPass ? (w.plain_password || '(Encrypted)') : '••••••••••••'}
+                                  </code>
+                                  <button
+                                    type="button"
+                                    className="icon-btn"
+                                    onClick={() => setShowPasswordMap(prev => ({ ...prev, [w.id]: !prev[w.id] }))}
+                                    title={isShowPass ? "Hide password" : "View plain text password"}
+                                  >
+                                    {isShowPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                                  </button>
+                                </div>
+                              </td>
+
+                              <td>
+                                <div style={{ fontSize: '0.82rem' }}>
+                                  <div><strong>{w.uploaded_questions_count || 0}</strong> questions authored</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{w.csv_uploaded_count || 0} CSV rows imported</div>
+                                </div>
+                              </td>
+
+                              <td>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '300px' }}>
+                                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, backgroundColor: perms.can_upload_csv ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main)', color: perms.can_upload_csv ? 'var(--success)' : 'var(--text-muted)' }}>
+                                    CSV Upload
+                                  </span>
+                                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, backgroundColor: perms.can_use_gui_builder ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main)', color: perms.can_use_gui_builder ? 'var(--success)' : 'var(--text-muted)' }}>
+                                    GUI Builder
+                                  </span>
+                                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, backgroundColor: perms.can_manage_subjects_topics ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main)', color: perms.can_manage_subjects_topics ? 'var(--success)' : 'var(--text-muted)' }}>
+                                    Subjects/Topics
+                                  </span>
+                                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, backgroundColor: perms.can_edit_questions ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main)', color: perms.can_edit_questions ? 'var(--success)' : 'var(--text-muted)' }}>
+                                    Edit Questions
+                                  </span>
+                                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, backgroundColor: perms.can_delete_questions ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-main)', color: perms.can_delete_questions ? 'var(--danger)' : 'var(--text-muted)' }}>
+                                    Delete Questions
+                                  </span>
+                                </div>
+                              </td>
+
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                  <button
+                                    className="icon-btn"
+                                    onClick={() => openEditWorkerModal(w)}
+                                    title="Edit Worker Privileges & Account"
+                                  >
+                                    <Edit size={15} />
+                                  </button>
+                                  <button
+                                    className={`icon-btn ${w.status === 'suspended' ? '' : 'icon-btn-danger'}`}
+                                    onClick={() => handleToggleWorkerStatus(w)}
+                                    title={w.status === 'suspended' ? 'Reactivate Worker' : 'Suspend Worker'}
+                                  >
+                                    {w.status === 'suspended' ? <Check size={15} style={{ color: 'var(--success)' }} /> : <Ban size={15} />}
+                                  </button>
+                                  <button
+                                    className="icon-btn icon-btn-danger"
+                                    onClick={() => handleDeleteWorker(w.id, w.full_name || w.username)}
+                                    title="Delete Worker Account"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
+
+      {/* CREATE / EDIT WORKER MODAL */}
+      {showCreateWorkerModal && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateWorkerModal(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '640px', width: '92%', maxHeight: '88vh', overflowY: 'auto', padding: '1.75rem', position: 'relative' }}>
+            <button
+              onClick={() => setShowCreateWorkerModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shield size={20} style={{ color: 'var(--accent)' }} />
+              {editingWorker ? `Edit Worker: ${editingWorker.full_name || editingWorker.username}` : 'Create New Worker Account'}
+            </h3>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              Configure worker credentials, password, and granular permissions across the question management system.
+            </p>
+
+            <form onSubmit={handleSaveWorker} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Full Name / Role Title</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Victor Okafor (Physics Expert)"
+                    value={workerForm.full_name}
+                    onChange={(e) => setWorkerForm({ ...workerForm, full_name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="worker@filloptech.com"
+                    value={workerForm.email}
+                    onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Username (Login ID)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. vokafor"
+                    value={workerForm.username}
+                    onChange={(e) => setWorkerForm({ ...workerForm, username: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Account Password (Plain Text Viewable)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Set account password"
+                    value={workerForm.password}
+                    onChange={(e) => setWorkerForm({ ...workerForm, password: e.target.value })}
+                    required={!editingWorker}
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">System Role</label>
+                  <select
+                    className="form-input"
+                    value={workerForm.role}
+                    onChange={(e) => setWorkerForm({ ...workerForm, role: e.target.value })}
+                  >
+                    <option value="worker">Content Worker</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Account Status</label>
+                  <select
+                    className="form-input"
+                    value={workerForm.status}
+                    onChange={(e) => setWorkerForm({ ...workerForm, status: e.target.value })}
+                  >
+                    <option value="active">Active (Allowed Access)</option>
+                    <option value="suspended">Suspended (Blocked Access)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Granular Privileges Configuration */}
+              <div style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                padding: '1.2rem',
+                backgroundColor: 'var(--bg-main)'
+              }}>
+                <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary)' }}>
+                  Question Management System Privileges
+                </h4>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Toggle specific capabilities assigned to this worker:
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.8rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={workerForm.permissions.can_upload_csv}
+                      onChange={(e) => setWorkerForm({
+                        ...workerForm,
+                        permissions: { ...workerForm.permissions, can_upload_csv: e.target.checked }
+                      })}
+                    />
+                    <span>Can Upload Questions via CSV</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={workerForm.permissions.can_use_gui_builder}
+                      onChange={(e) => setWorkerForm({
+                        ...workerForm,
+                        permissions: { ...workerForm.permissions, can_use_gui_builder: e.target.checked }
+                      })}
+                    />
+                    <span>Can Use GUI Question Builder</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={workerForm.permissions.can_manage_subjects_topics}
+                      onChange={(e) => setWorkerForm({
+                        ...workerForm,
+                        permissions: { ...workerForm.permissions, can_manage_subjects_topics: e.target.checked }
+                      })}
+                    />
+                    <span>Can Manage Subjects &amp; Topics</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={workerForm.permissions.can_edit_questions}
+                      onChange={(e) => setWorkerForm({
+                        ...workerForm,
+                        permissions: { ...workerForm.permissions, can_edit_questions: e.target.checked }
+                      })}
+                    />
+                    <span>Can Edit Questions</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={workerForm.permissions.can_delete_questions}
+                      onChange={(e) => setWorkerForm({
+                        ...workerForm,
+                        permissions: { ...workerForm.permissions, can_delete_questions: e.target.checked }
+                      })}
+                    />
+                    <span style={{ color: workerForm.permissions.can_delete_questions ? 'var(--danger)' : 'inherit' }}>
+                      Can Delete Questions
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateWorkerModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editingWorker ? 'Save Worker Privileges' : 'Create Worker Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* EXAM RESULT DETAILS MODAL */}
       {selectedResultDetails && (

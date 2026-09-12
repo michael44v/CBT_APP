@@ -44,6 +44,29 @@ export interface Question {
   created_at?: string;
 }
 
+export interface WorkerPermissions {
+  can_upload_csv: boolean;
+  can_use_gui_builder: boolean;
+  can_manage_subjects_topics: boolean;
+  can_edit_questions: boolean;
+  can_delete_questions: boolean;
+}
+
+export interface WorkerUser {
+  id: number;
+  username: string;
+  email: string;
+  full_name?: string;
+  role: 'super_admin' | 'admin' | 'worker' | string;
+  plain_password?: string;
+  permissions?: string;
+  permissions_parsed?: WorkerPermissions;
+  status: 'active' | 'suspended' | string;
+  uploaded_questions_count?: number;
+  csv_uploaded_count?: number;
+  created_at?: string;
+}
+
 export interface UploadLog {
   id: number;
   admin_user_id?: number;
