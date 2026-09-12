@@ -1223,7 +1223,7 @@ export default function QuestionBuilder({
 
             {/* Question Text & Formula */}
             <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-main)', marginBottom: '1rem', lineHeight: '1.5' }}>
-              {previewCard.question_text || 'Sample Question Text'}
+              <MathRenderer text={previewCard.question_text || 'Sample Question Text'} />
             </div>
 
             {previewCard.formula && (
@@ -1274,14 +1274,15 @@ export default function QuestionBuilder({
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontWeight: 800,
-                        fontSize: '0.8rem'
+                        fontSize: '0.8rem',
+                        flexShrink: 0
                       }}
                     >
                       {optKey}
                     </span>
-                    <span>{String(optVal || '')}</span>
+                    <span><MathRenderer text={String(optVal || '')} inline={true} /></span>
                     {isCorrect && (
-                      <span className="badge badge-success" style={{ marginLeft: 'auto', fontSize: '0.75rem' }}>Correct Answer</span>
+                      <span className="badge badge-success" style={{ marginLeft: 'auto', fontSize: '0.75rem', flexShrink: 0 }}>Correct Answer</span>
                     )}
                   </div>
                 );
@@ -1295,7 +1296,7 @@ export default function QuestionBuilder({
                   Explanation:
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {previewCard.correct_explanation || previewCard.topic_explanation}
+                  <MathRenderer text={previewCard.correct_explanation || previewCard.topic_explanation} />
                 </div>
               </div>
             )}
