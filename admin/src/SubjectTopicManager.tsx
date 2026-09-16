@@ -27,8 +27,16 @@ export default function SubjectTopicManager({
   const [newSubName, setNewSubName] = useState('');
   const [creatingSub, setCreatingSub] = useState(false);
 
+  // Edit Subject State & Modal
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editSubName, setEditSubName] = useState('');
+  const [editSubDesc, setEditSubDesc] = useState('');
+  const [savingSub, setSavingSub] = useState(false);
 
-  // Distinct subjects list (1 entry per subject name for selection dropdowns)
+  // Subject View Mode: 'category' (by Exam Type) vs 'all_subjects' (Distinct List)
+  const [subjectViewMode, setSubjectViewMode] = useState<'category' | 'all_subjects'>('category');
+
+  // Distinct subjects list (1 entry per subject name for selection dropdowns & distinct subject view)
   const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
     return dbSubjects.find(s => s.name.trim().toLowerCase() === name.toLowerCase())!;
   }).filter(Boolean);
@@ -153,10 +161,10 @@ export default function SubjectTopicManager({
     }
   };
 
-  // Handle Edit Subject Description across all categories
+  // Handle Edit Subject Name & Description across all categories
   const handleSaveSubjectEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSubject) return;
+    if (!editingSubject || !editSubName.trim()) return;
 
     setSavingSub(true);
     try {
@@ -170,19 +178,20 @@ export default function SubjectTopicManager({
           action: 'edit_subject',
           subject_id: editingSubject.id,
           subject_name: editingSubject.name,
+          new_name: editSubName.trim(),
           description: editSubDesc.trim()
         }),
       });
       const data = await res.json();
       if (data.success) {
-        showNotification(data.message || 'Subject description updated across all categories!');
+        showNotification(data.message || 'Subject updated across all exam categories!');
         setEditingSubject(null);
         onRefreshData();
       } else {
-        showNotification(data.message || 'Failed to update subject description.', 'error');
+        showNotification(data.message || 'Failed to update subject.', 'error');
       }
     } catch (err) {
-      showNotification('Error updating subject description.', 'error');
+      showNotification('Error updating subject.', 'error');
     } finally {
       setSavingSub(false);
     }
@@ -423,72 +432,159 @@ export default function SubjectTopicManager({
           </button>
         </div>
 
-        {/* Filter Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Filter Category:</span>
-          <select
-            className="form-input"
-            value={subjectFilterExam}
-            onChange={(e) => setSubjectFilterExam(e.target.value)}
-            style={{ width: '160px', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
-          >
-            <option value="ALL">All Categories</option>
-            <option value="JAMB">JAMB</option>
-            <option value="WAEC">WAEC</option>
-            <option value="NECO">NECO</option>
-          </select>
+        {/* View Mode & Filter Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'inline-flex', background: 'var(--primary-light)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              onClick={() => setSubjectViewMode('category')}
+              style={{
+                border: 'none', padding: '4px 10px', fontSize: '0.78rem', fontWeight: 700, borderRadius: '6px', cursor: 'pointer',
+                backgroundColor: subjectViewMode === 'category' ? 'var(--accent)' : 'transparent',
+                color: subjectViewMode === 'category' ? '#ffffff' : 'var(--text-muted)'
+              }}
+            >
+              By Category
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubjectViewMode('all_subjects')}
+              style={{
+                border: 'none', padding: '4px 10px', fontSize: '0.78rem', fontWeight: 700, borderRadius: '6px', cursor: 'pointer',
+                backgroundColor: subjectViewMode === 'all_subjects' ? 'var(--accent)' : 'transparent',
+                color: subjectViewMode === 'all_subjects' ? '#ffffff' : 'var(--text-muted)'
+              }}
+            >
+              All Subjects (Unified Edit)
+            </button>
+          </div>
+
+          {subjectViewMode === 'category' && (
+            <select
+              className="form-input"
+              value={subjectFilterExam}
+              onChange={(e) => setSubjectFilterExam(e.target.value)}
+              style={{ width: '150px', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+            >
+              <option value="ALL">All Categories</option>
+              <option value="JAMB">JAMB</option>
+              <option value="WAEC">WAEC</option>
+              <option value="NECO">NECO</option>
+            </select>
+          )}
         </div>
 
         {/* Subject Table */}
         <div style={{ maxHeight: '480px', overflowY: 'auto' }}>
-          <table style={{ fontSize: '0.85rem', width: '100%' }}>
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Subject Name</th>
-                <th>Topics</th>
-                <th>Questions</th>
-                <th style={{ textAlign: 'center' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSubjects.map(sub => {
-                const isSelected = activeSubject && activeSubject.id === sub.id;
-                return (
-                  <tr
-                    key={sub.id}
-                    onClick={() => setSelectedSubjectId(sub.id)}
-                    style={{
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? 'var(--accent-light)' : undefined,
-                      borderLeft: isSelected ? '4px solid var(--accent)' : '4px solid transparent'
-                    }}
-                  >
-                    <td><span className="badge badge-info">{sub.exam_type}</span></td>
-                    <td style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? 'var(--accent)' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {sub.name} <Lock size={12} title="Subject names are immutable" style={{ color: 'var(--text-muted)' }} />
-                    </td>
-                    <td>{sub.topic_count ?? dbTopics.filter(t => t.subject_id === sub.id).length}</td>
-                    <td>{sub.question_count ?? 0}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewSubjectQuestions(sub);
-                        }}
-                        title={`View all available questions for ${sub.name}`}
-                      >
-                        <Eye size={12} /> Questions
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {subjectViewMode === 'all_subjects' ? (
+            <table style={{ fontSize: '0.85rem', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Distinct Subject Name</th>
+                  <th>Categories</th>
+                  <th style={{ textAlign: 'center' }}>Edit Subject</th>
+                </tr>
+              </thead>
+              <tbody>
+                {distinctSubjects.map(dSub => {
+                  const categories = dbSubjects.filter(s => s.name.trim().toLowerCase() === dSub.name.trim().toLowerCase()).map(s => s.exam_type);
+                  return (
+                    <tr key={dSub.name}>
+                      <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>{dSub.name}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {categories.map(c => (
+                            <span key={c} className="badge badge-info" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>{c}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSubject(dSub);
+                            setEditSubName(dSub.name);
+                            setEditSubDesc(dSub.description || '');
+                          }}
+                          title={`Edit ${dSub.name} across all categories`}
+                        >
+                          <Edit size={13} /> Edit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <table style={{ fontSize: '0.85rem', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Subject Name</th>
+                  <th>Topics</th>
+                  <th>Questions</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSubjects.map(sub => {
+                  const isSelected = activeSubject && activeSubject.id === sub.id;
+                  return (
+                    <tr
+                      key={sub.id}
+                      onClick={() => setSelectedSubjectId(sub.id)}
+                      style={{
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? 'var(--accent-light)' : undefined,
+                        borderLeft: isSelected ? '4px solid var(--accent)' : '4px solid transparent'
+                      }}
+                    >
+                      <td><span className="badge badge-info">{sub.exam_type}</span></td>
+                      <td style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? 'var(--accent)' : 'var(--text-main)' }}>
+                        {sub.name}
+                      </td>
+                      <td>{sub.topic_count ?? dbTopics.filter(t => t.subject_id === sub.id).length}</td>
+                      <td>{sub.question_count ?? 0}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '3px 6px', fontSize: '0.75rem' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingSubject(sub);
+                              setEditSubName(sub.name);
+                              setEditSubDesc(sub.description || '');
+                            }}
+                            title={`Edit ${sub.name} across all categories`}
+                          >
+                            <Edit size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '3px 6px', fontSize: '0.75rem' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewSubjectQuestions(sub);
+                            }}
+                            title={`View questions for ${sub.name}`}
+                          >
+                            <Eye size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -755,6 +851,64 @@ export default function SubjectTopicManager({
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingTopic(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={savingTopic}>
                   {savingTopic ? 'Saving...' : 'Update Topic'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT SUBJECT MODAL */}
+      {editingSubject && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingSubject(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '540px', width: '92%', padding: '1.8rem', position: 'relative' }}>
+            <button
+              onClick={() => setEditingSubject(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0, fontSize: '1.2rem', fontWeight: 800 }}>Edit Subject Across All Categories</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+              Renaming or editing description will apply changes across JAMB, WAEC, and NECO.
+            </p>
+
+            <form onSubmit={handleSaveSubjectEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Subject Name <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editSubName}
+                  onChange={(e) => setEditSubName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Subject Description (Optional)</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="Enter subject overview or description..."
+                  value={editSubDesc}
+                  onChange={(e) => setEditSubDesc(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingSubject(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={savingSub}>
+                  {savingSub ? 'Saving...' : 'Update Subject (All Categories)'}
                 </button>
               </div>
             </form>

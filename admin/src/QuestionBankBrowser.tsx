@@ -91,7 +91,7 @@ export default function QuestionBankBrowser({
     option_b: '',
     option_c: '',
     option_d: '',
-    correct_answer: 'A',
+    correct_answer: '',
     topic_explanation: '',
     correct_explanation: '',
     wrong_explanations: ''
@@ -149,6 +149,10 @@ export default function QuestionBankBrowser({
   // Quick Single Question Save
   const handleSaveQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!quickForm.correct_answer || !['A', 'B', 'C', 'D'].includes(quickForm.correct_answer)) {
+      showNotification('Please select the Correct Answer option (A, B, C, or D).', 'error');
+      return;
+    }
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
         method: 'POST',
@@ -715,11 +719,12 @@ export default function QuestionBankBrowser({
 
               <div className="form-group">
                 <label className="form-label">Correct Answer</label>
-                <select className="form-input" value={quickForm.correct_answer} onChange={(e) => setQuickForm({ ...quickForm, correct_answer: e.target.value })}>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
+                <select className="form-input" value={quickForm.correct_answer} onChange={(e) => setQuickForm({ ...quickForm, correct_answer: e.target.value })} required>
+                  <option value="" disabled>-- Select Option --</option>
+                  <option value="A">Option A</option>
+                  <option value="B">Option B</option>
+                  <option value="C">Option C</option>
+                  <option value="D">Option D</option>
                 </select>
               </div>
 

@@ -54,7 +54,7 @@ export default function QuestionBuilder({
     option_b: '',
     option_c: '',
     option_d: '',
-    correct_answer: 'A',
+    correct_answer: '',
     topic_explanation: '',
     correct_explanation: '',
     wrong_explanations: '',
@@ -288,7 +288,7 @@ export default function QuestionBuilder({
       option_b: '',
       option_c: '',
       option_d: '',
-      correct_answer: 'A',
+      correct_answer: '',
       topic_explanation: '',
       correct_explanation: '',
       wrong_explanations: '',
@@ -990,6 +990,7 @@ export default function QuestionBuilder({
                       onChange={(e) => updateCard(card.id, { correct_answer: e.target.value as any })}
                       style={{ fontWeight: 800 }}
                     >
+                      <option value="" disabled>-- Select Option --</option>
                       <option value="A">Option A</option>
                       <option value="B">Option B</option>
                       <option value="C">Option C</option>
@@ -1139,16 +1140,17 @@ export default function QuestionBuilder({
                     </div>
                   </div>
 
-                  {/* Single text field for Wrong Answer Explanations */}
+                  {/* Rich Text Editor for Wrong Answer Explanations */}
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 700 }}>Wrong Answer Explanations (Optional)</label>
-                    <textarea
-                      className="form-input"
-                      rows={2}
-                      placeholder="Explain common misconceptions or why incorrect options are wrong..."
+                    <RichTextEditor
                       value={card.wrong_explanations}
-                      onChange={(e) => updateCard(card.id, { wrong_explanations: e.target.value })}
-                      style={{ resize: 'vertical' }}
+                      onChange={(val) => updateCard(card.id, { wrong_explanations: val })}
+                      placeholder="Explain common misconceptions or why incorrect options are wrong..."
+                      rows={3}
+                      showMathToolbar={true}
+                      showPreview={true}
+                      previewTitle="Wrong Answer Explanation KaTeX Preview"
                     />
                   </div>
                 </div>
