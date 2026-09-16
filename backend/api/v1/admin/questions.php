@@ -249,7 +249,8 @@ if ($method === 'POST') {
 
     if ($action === 'edit_subject') {
         $subject_id = intval($data['subject_id'] ?? 0);
-        $subject_name_input = trim($data['subject_name'] ?? '');
+        $subject_name_input = trim($data['subject_name'] ?? $data['name'] ?? '');
+        $new_name = trim($data['new_name'] ?? '');
         $description = trim($data['description'] ?? '');
 
         if ($subject_id <= 0 && empty($subject_name_input)) {
@@ -273,12 +274,14 @@ if ($method === 'POST') {
             exit();
         }
 
+        $targetNewName = !empty($new_name) ? $new_name : $subName;
         $sync_version = bumpSyncVersion($db);
-        $stmtUpd = $db->prepare("UPDATE subjects SET description = ?, sync_version = ? WHERE LOWER(name) = LOWER(?)");
-        $stmtUpd->bind_param("sis", $description, $sync_version, $subName);
+
+        $stmtUpd = $db->prepare("UPDATE subjects SET name = ?, description = ?, sync_version = ? WHERE LOWER(name) = LOWER(?)");
+        $stmtUpd->bind_param("ssis", $targetNewName, $description, $sync_version, $subName);
         $stmtUpd->execute();
 
-        echo json_encode(["success" => true, "message" => "Subject description updated across all exam categories."]);
+        echo json_encode(["success" => true, "message" => "Subject updated across all exam categories successfully."]);
         exit();
     }
 

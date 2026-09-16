@@ -1054,31 +1054,33 @@ export default function App() {
         <nav className="sidebar-menu">
           {/* Top Level Item */}
           <button className={`menu-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>
-            <LayoutDashboard size={18} style={{ marginRight: 10, verticalAlign: 'middle' }} /> Dashboard
+            <div className="nav-icon-box"><LayoutDashboard size={17} /></div> <span>Dashboard</span>
           </button>
+
+          <div className="sidebar-divider" />
 
           {/* Group 1: Content */}
           <div className="sidebar-group">
             <div className="sidebar-group-header" onClick={() => toggleGroup('content')}>
-              <span>Content</span>
+              <span>CONTENT</span>
               {openGroups.content ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </div>
             {openGroups.content && (
               <div className="sidebar-group-items">
                 <button className={`menu-btn ${activeTab === 'UPLOAD_WIZARD' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_WIZARD')}>
-                  <Upload size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Upload Questions
+                  <div className="nav-icon-box"><Upload size={16} /></div> <span>Upload Questions</span>
                 </button>
                 <button className={`menu-btn ${activeTab === 'QUESTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('QUESTIONS')}>
-                  <BookOpen size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Question Bank Browser
+                  <div className="nav-icon-box"><BookOpen size={16} /></div> <span>Question Bank</span>
                 </button>
                 <button className={`menu-btn ${activeTab === 'TOPICS' ? 'active' : ''}`} onClick={() => { setActiveTab('TOPICS'); setOpenAddTopicDirectly(false); }}>
-                  <Layers size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Subjects &amp; Topics
+                  <div className="nav-icon-box"><Layers size={16} /></div> <span>Subjects &amp; Topics</span>
                 </button>
                 <button className="menu-btn" onClick={() => { setActiveTab('TOPICS'); setOpenAddTopicDirectly(true); }}>
-                  <Plus size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Create New Topic
+                  <div className="nav-icon-box"><Plus size={16} /></div> <span>Create Topic</span>
                 </button>
                 <button className={`menu-btn ${activeTab === 'UPLOAD_LOGS' ? 'active' : ''}`} onClick={() => setActiveTab('UPLOAD_LOGS')}>
-                  <History size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Upload History Log
+                  <div className="nav-icon-box"><History size={16} /></div> <span>Upload Logs</span>
                 </button>
               </div>
             )}
@@ -1086,73 +1088,81 @@ export default function App() {
 
           {!isWorker && (
             <>
+              <div className="sidebar-divider" />
+
               {/* Group 2: Users & Access */}
               <div className="sidebar-group">
                 <div className="sidebar-group-header" onClick={() => toggleGroup('users')}>
-                  <span>Users &amp; Access</span>
+                  <span>USERS &amp; ACCESS</span>
                   {openGroups.users ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </div>
                 {openGroups.users && (
                   <div className="sidebar-group-items">
                     <button className={`menu-btn ${activeTab === 'USERS' ? 'active' : ''}`} onClick={() => setActiveTab('USERS')}>
-                      <Users size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Candidates
+                      <div className="nav-icon-box"><Users size={16} /></div> <span>Candidates</span>
                     </button>
                     <button className={`menu-btn ${activeTab === 'PASSCODES' ? 'active' : ''}`} onClick={() => setActiveTab('PASSCODES')}>
-                      <Key size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Passcodes &amp; Licensing
+                      <div className="nav-icon-box"><Key size={16} /></div> <span>Passcodes</span>
                     </button>
                     <button className={`menu-btn ${activeTab === 'WORKERS' ? 'active' : ''}`} onClick={() => setActiveTab('WORKERS')}>
-                      <Shield size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Worker Management
+                      <div className="nav-icon-box"><Shield size={16} /></div> <span>Workers</span>
                     </button>
                   </div>
                 )}
               </div>
 
+              <div className="sidebar-divider" />
+
               {/* Group 3: Reports */}
               <div className="sidebar-group">
                 <div className="sidebar-group-header" onClick={() => toggleGroup('reports')}>
-                  <span>Reports</span>
+                  <span>REPORTS</span>
                   {openGroups.reports ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </div>
                 {openGroups.reports && (
                   <div className="sidebar-group-items">
                     <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
-                      <BarChart3 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Exam Results &amp; Analytics
+                      <div className="nav-icon-box"><BarChart3 size={16} /></div> <span>Exam Analytics</span>
                     </button>
                   </div>
                 )}
               </div>
 
+              <div className="sidebar-divider" />
+
               {/* Group 4: Monetization */}
               <div className="sidebar-group">
                 <div className="sidebar-group-header" onClick={() => toggleGroup('monetization')}>
-                  <span>Monetization</span>
+                  <span>MONETIZATION</span>
                   {openGroups.monetization ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </div>
                 {openGroups.monetization && (
                   <div className="sidebar-group-items">
                     <button className={`menu-btn ${activeTab === 'PRICING' ? 'active' : ''}`} onClick={() => setActiveTab('PRICING')}>
-                      <DollarSign size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Pricing Settings
+                      <div className="nav-icon-box"><DollarSign size={16} /></div> <span>Pricing Settings</span>
                     </button>
                     <button className={`menu-btn ${activeTab === 'PROMOS' ? 'active' : ''}`} onClick={() => setActiveTab('PROMOS')}>
-                      <Tag size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Promo Codes
+                      <div className="nav-icon-box"><Tag size={16} /></div> <span>Promo Codes</span>
                     </button>
                   </div>
                 )}
               </div>
 
+              <div className="sidebar-divider" />
+
               {/* Group 5: System */}
               <div className="sidebar-group">
                 <div className="sidebar-group-header" onClick={() => toggleGroup('system')}>
-                  <span>System</span>
+                  <span>SYSTEM</span>
                   {openGroups.system ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </div>
                 {openGroups.system && (
                   <div className="sidebar-group-items">
                     <button className={`menu-btn ${activeTab === 'NEWS' ? 'active' : ''}`} onClick={() => setActiveTab('NEWS')}>
-                      <Newspaper size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Admin News
+                      <div className="nav-icon-box"><Newspaper size={16} /></div> <span>Admin News</span>
                     </button>
                     <button className={`menu-btn ${activeTab === 'UPDATES' ? 'active' : ''}`} onClick={() => setActiveTab('UPDATES')}>
-                      <Settings size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Software Release
+                      <div className="nav-icon-box"><Settings size={16} /></div> <span>Software Release</span>
                     </button>
                   </div>
                 )}
