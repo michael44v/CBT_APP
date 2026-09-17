@@ -2762,7 +2762,13 @@ export default function App() {
 
                   {curQ.correct_explanation && (
                     <div style={{ marginBottom: '8px' }}>
-                      <strong>Explanation:</strong> <MathRenderer text={curQ.correct_explanation} />
+                      <strong>Correct Answer Explanation:</strong> <MathRenderer text={curQ.correct_explanation} />
+                    </div>
+                  )}
+
+                  {curQ.wrong_explanations && (
+                    <div style={{ marginBottom: '8px', color: '#991b1b' }}>
+                      <strong>Wrong Answer Explanation:</strong> <MathRenderer text={curQ.wrong_explanations} />
                     </div>
                   )}
 
@@ -3225,11 +3231,16 @@ export default function App() {
                               })}
                             </div>
 
-                            {!isQuizMode && (q.correct_explanation || q.topic_explanation || q.external_link) && (
+                            {!isQuizMode && (q.correct_explanation || q.wrong_explanations || q.topic_explanation || q.external_link) && (
                               <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
                                 {q.correct_explanation && (
                                   <div style={{ marginBottom: '6px' }}>
-                                    <strong>Explanation:</strong> <MathRenderer text={q.correct_explanation} />
+                                    <strong>Correct Answer Explanation:</strong> <MathRenderer text={q.correct_explanation} />
+                                  </div>
+                                )}
+                                {q.wrong_explanations && (
+                                  <div style={{ marginBottom: '6px', color: colors.danger }}>
+                                    <strong>Wrong Answer Explanation:</strong> <MathRenderer text={q.wrong_explanations} />
                                   </div>
                                 )}
                                 {q.topic_explanation && (

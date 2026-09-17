@@ -644,13 +644,30 @@ export default function App() {
     localStorage.removeItem('admin_user');
   };
 
+  const handleUnauthorized = () => {
+    showNotification('Session expired or unauthorized access. Please log in again.', 'error');
+    handleLogout();
+  };
+
+  const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    const headers = new Headers(options.headers || {});
+    if (authToken) {
+      headers.set('Authorization', `Bearer ${authToken}`);
+    }
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+      handleUnauthorized();
+      throw new Error('Unauthorized');
+    }
+    return response;
+  };
+
   const fetchSubjectsAndTopics = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/questions.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/questions.php`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authToken ? `Bearer ${authToken}` : ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'get_subjects_and_topics' }),
       });
@@ -666,7 +683,7 @@ export default function App() {
 
   const fetchQuestions = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/questions.php`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/questions.php`);
       const data = await res.json();
       if (data.success) {
         setQuestions(data.questions || []);
@@ -678,7 +695,7 @@ export default function App() {
 
   const fetchUploadLogs = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/questions.php?action=upload_logs`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/questions.php?action=upload_logs`);
       const data = await res.json();
       if (data.success) {
         setUploadLogs(data.logs || []);
@@ -690,7 +707,7 @@ export default function App() {
 
   const fetchStatsAndAnalytics = async (range: 'week' | 'month' | 'year' = revenueRange) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/analytics.php?range=${range}`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/analytics.php?range=${range}`);
       const data = await res.json();
       if (data.success) {
         setStats(prev => ({ ...prev, ...data.analytics }));
@@ -707,7 +724,7 @@ export default function App() {
 
   const fetchPricing = async () => {
     try {
-      const res = await fetch(`${API_BASE}/pricing.php`);
+      const res = await authenticatedFetch(`${API_BASE}/pricing.php`);
       const data = await res.json();
       if (data.success && data.pricing) {
         setPricingForm({
@@ -723,7 +740,7 @@ export default function App() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/users.php?search=${encodeURIComponent(userSearch)}`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/users.php?search=${encodeURIComponent(userSearch)}`);
       const data = await res.json();
       if (data.success) setUsers(data.users || []);
     } catch (e) {
@@ -733,7 +750,7 @@ export default function App() {
 
   const fetchPasscodes = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/passcodes.php`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/passcodes.php`);
       const data = await res.json();
       if (data.success) setPasscodes(data.passcodes || []);
     } catch (e) {
@@ -743,7 +760,7 @@ export default function App() {
 
   const fetchPromos = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/promo_codes.php`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/promo_codes.php`);
       const data = await res.json();
       if (data.success) setPromos(data.promo_codes || []);
     } catch (e) {
@@ -753,7 +770,7 @@ export default function App() {
 
   const fetchNews = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/news.php`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/news.php`);
       const data = await res.json();
       if (data.success) setNews(data.news || []);
     } catch (e) {
@@ -763,7 +780,7 @@ export default function App() {
 
   const fetchUpdates = async () => {
     try {
-      const res = await fetch(`${API_BASE}/admin/updates.php`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/updates.php`);
       const data = await res.json();
       if (data.success) setUpdatesList(data.updates || []);
     } catch (e) {
@@ -774,11 +791,7 @@ export default function App() {
   const fetchWorkers = async () => {
     if (!authToken) return;
     try {
-      const res = await fetch(`${API_BASE}/admin/workers.php`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
+      const res = await authenticatedFetch(`${API_BASE}/admin/workers.php`);
       const data = await res.json();
       if (data.success) {
         setWorkers(data.workers || []);
