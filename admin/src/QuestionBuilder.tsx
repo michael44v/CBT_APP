@@ -1112,14 +1112,14 @@ export default function QuestionBuilder({
                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>5. Concept &amp; Answer Explanations</h3>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>Topic Concept Explanation (Optional)</label>
                       <RichTextEditor
                         value={card.topic_explanation}
                         onChange={(val) => updateCard(card.id, { topic_explanation: val })}
                         placeholder="General explanation of the topic/concept (supports rich text &amp; formulas)..."
-                        rows={3}
+                        rows={6}
                         showMathToolbar={true}
                         showPreview={true}
                         previewTitle="Concept KaTeX Preview"
@@ -1132,7 +1132,7 @@ export default function QuestionBuilder({
                         value={card.correct_explanation}
                         onChange={(val) => updateCard(card.id, { correct_explanation: val })}
                         placeholder="Why the selected correct answer option is right (supports formulas, e.g. \( x = \pm 2 \))..."
-                        rows={3}
+                        rows={6}
                         showMathToolbar={true}
                         showPreview={true}
                         previewTitle="Explanation KaTeX Preview"
@@ -1147,7 +1147,7 @@ export default function QuestionBuilder({
                       value={card.wrong_explanations}
                       onChange={(val) => updateCard(card.id, { wrong_explanations: val })}
                       placeholder="Explain common misconceptions or why incorrect options are wrong..."
-                      rows={3}
+                      rows={6}
                       showMathToolbar={true}
                       showPreview={true}
                       previewTitle="Wrong Answer Explanation KaTeX Preview"
