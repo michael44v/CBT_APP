@@ -732,9 +732,17 @@ export default function App() {
   const handleLogout = async () => {
     if (!window.confirm('Are you sure you want to log out from this device terminal?')) return;
     if (window.api && window.api.logoutApp) {
-      await window.api.logoutApp();
+      try {
+        await window.api.logoutApp();
+      } catch (err) {
+        console.warn('Logout error:', err);
+      }
       setActivation(null);
       setIsFreeMode(false);
+      setActEmail('');
+      setActPasscode('');
+      setActError('');
+      setActLoading(false);
       setScreen('ACTIVATION');
     }
   };
