@@ -334,6 +334,7 @@ export default function App() {
   // Practice Selection Form
   const [practiceSubject, setPracticeSubject] = useState<number | ''>('');
   const [practiceTopic, setPracticeTopic] = useState<number | ''>('');
+  const [practiceTopics, setPracticeTopics] = useState<number[]>([]);
   const [practiceYear, setPracticeYear] = useState<number | ''>('');
   const [practiceTimed, setPracticeTimed] = useState<boolean>(true);
 
@@ -665,6 +666,7 @@ export default function App() {
       setTopicsList(tops || []);
       setYearsList(yrs || []);
       setPracticeTopic('');
+      setPracticeTopics([]);
       setPracticeYear('');
     }
   };
@@ -789,6 +791,7 @@ export default function App() {
         examType,
         subjectId: Number(practiceSubject),
         topicId: practiceTopic ? Number(practiceTopic) : undefined,
+        topicIds: practiceTopics.length > 0 ? practiceTopics : undefined,
         year: practiceYear ? Number(practiceYear) : undefined,
         limit: 30,
       });
@@ -1580,6 +1583,55 @@ export default function App() {
                 </div>
 
                 <form onSubmit={handleActivateSubmit}>
+                  {/* Saved Profile Suggestions / Quick Login Chips */}
+                  {savedLoginsList.length > 0 && (
+                    <div style={{ marginBottom: '20px', backgroundColor: colors.bg, padding: '14px', borderRadius: '12px', border: `1px solid ${colors.border}` }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <User size={13} color={colors.primary} /> Saved Profiles on Device
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                        {savedLoginsList.map(item => {
+                          const isSelected = actEmail.trim().toLowerCase() === item.email.toLowerCase() && actPasscode.trim() === item.passcode;
+                          const displayName = item.user_name || item.email.split('@')[0];
+                          return (
+                            <div
+                              key={item.passcode}
+                              onClick={() => {
+                                setActEmail(item.email);
+                                setActPasscode(item.passcode);
+                                setActError('');
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                backgroundColor: isSelected ? colors.primaryLight : colors.surface,
+                                border: `1px solid ${isSelected ? colors.primary : colors.border}`,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, flexShrink: 0 }}>
+                                  {displayName.charAt(0).toUpperCase()}
+                                </div>
+                                <div style={{ textAlign: 'left' }}>
+                                  <div style={{ fontSize: '13px', fontWeight: 700, color: colors.text }}>{displayName}</div>
+                                  <div style={{ fontSize: '11px', color: colors.textMuted }}>{item.email}</div>
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '12px', fontFamily: 'monospace', fontWeight: 800, color: colors.primary, backgroundColor: colors.bg, padding: '2px 6px', borderRadius: '4px' }}>
+                                {item.passcode}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div style={styles.formGroup}>
                     <label style={styles.label}>Email Address</label>
                     <input
@@ -1849,13 +1901,74 @@ export default function App() {
                         </div>
 
                         <div style={styles.formGroup}>
-                          <label style={styles.label}>Topic Filter (Optional)</label>
-                          <select style={styles.select} value={practiceTopic} onChange={(e) => setPracticeTopic(Number(e.target.value))} disabled={!practiceSubject}>
-                            <option value="">All Topics</option>
-                            {topicsList.map(t => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                          </select>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <label style={{ ...styles.label, margin: 0 }}>Specific Topics Filter (Optional - Select multiple)</label>
+                            {topicsList.length > 0 && practiceSubject && (
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setPracticeTopics(topicsList.map(t => t.id))}
+                                  style={{ background: 'none', border: 'none', color: colors.primary, fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                >
+                                  Select All
+                                </button>
+                                <span style={{ color: colors.textMuted, fontSize: '11px' }}>•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPracticeTopics([])}
+                                  style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {!practiceSubject ? (
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontStyle: 'italic', padding: '10px 14px', backgroundColor: colors.bg, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+                              Select a subject above to view available topics.
+                            </div>
+                          ) : topicsList.length === 0 ? (
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontStyle: 'italic', padding: '10px 14px', backgroundColor: colors.bg, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+                              All topics for this subject will be included.
+                            </div>
+                          ) : (
+                            <div style={{ ...styles.checkboxGrid, maxHeight: '200px' }}>
+                              {topicsList.map(t => {
+                                const isChecked = practiceTopics.includes(t.id);
+                                return (
+                                  <label
+                                    key={t.id}
+                                    style={{
+                                      ...styles.checkboxLabel,
+                                      backgroundColor: isChecked ? colors.primaryLight : colors.surface,
+                                      borderColor: isChecked ? colors.primary : colors.border,
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      border: `1px solid ${isChecked ? colors.primary : colors.border}`,
+                                      fontWeight: isChecked ? 700 : 500,
+                                      color: colors.text,
+                                      fontSize: '13px'
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setPracticeTopics(prev => prev.filter(id => id !== t.id));
+                                        } else {
+                                          setPracticeTopics(prev => [...prev, t.id]);
+                                        }
+                                      }}
+                                      style={{ width: '16px', height: '16px', accentColor: colors.primary, cursor: 'pointer' }}
+                                    />
+                                    <span>{t.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
 
                         <div style={styles.formGroup}>
@@ -2355,6 +2468,74 @@ export default function App() {
                 </div>
 
                 <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '20px' }}>
+                    <div style={{ position: 'relative', width: '90px', height: '90px', borderRadius: '50%', overflow: 'hidden', border: `3px solid ${colors.primary}`, backgroundColor: colors.surface, flexShrink: 0 }}>
+                      <img
+                        src={activation?.profile_picture || "https://th.bing.com/th/id/OIP.7O4_GREtLbxqPdJCTmfatQHaHa?r=0&o=7rm=3&rs=1&pid=ImgDetMain&o=7&rm=3"}
+                        alt="Profile Avatar"
+                        onError={(e) => {
+                          (e.target as HTMLElement).setAttribute('src', "https://i.pravatar.cc/150?img=12");
+                        }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 4px', color: colors.text }}>
+                        {activation ? (activation.user_name || activation.email) : 'Candidate (Free Mode)'}
+                      </h3>
+                      <p style={{ fontSize: '12px', color: colors.textMuted, margin: '0 0 10px' }}>
+                        Upload or change your profile picture to customize your candidate identity across exams and reports.
+                      </p>
+                      {activation && (
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            id="profilePicUpload"
+                            style={{ display: 'none' }}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              if (file.size > 5 * 1024 * 1024) {
+                                alert("Image size exceeds 5MB limit.");
+                                return;
+                              }
+
+                              try {
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                formData.append('upload_preset', 'futyApp');
+
+                                const cRes = await fetch('https://api.cloudinary.com/v1_1/dguvkirdr/image/upload', {
+                                  method: 'POST',
+                                  body: formData
+                                });
+                                const cData = await cRes.json();
+                                const uploadedUrl = cData.secure_url;
+
+                                if (uploadedUrl && window.api && window.api.updateProfilePicture) {
+                                  const res = await window.api.updateProfilePicture(uploadedUrl);
+                                  if (res.success) {
+                                    setActivation(prev => prev ? { ...prev, profile_picture: uploadedUrl } : null);
+                                    alert("Profile picture updated and synced successfully!");
+                                  }
+                                }
+                              } catch (err: any) {
+                                alert("Failed to upload image: " + err.message);
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor="profilePicUpload"
+                            style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm, cursor: 'pointer' }}
+                          >
+                            📷 Upload Profile Photo
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <h3 style={{ fontSize: '15px', fontWeight: 700, color: colors.primary, marginBottom: '12px' }}>Current Active Session</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px', marginBottom: '16px' }}>
                     <div><strong>Account Email:</strong> {activation ? activation.email : 'Free Mode (Unactivated)'}</div>

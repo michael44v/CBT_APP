@@ -55,15 +55,35 @@ if ($method === 'POST') {
         exit();
     }
 
+    if ($action === 'update_profile_picture') {
+        $profile_picture = trim($data['profile_picture'] ?? '');
+        if (empty($profile_picture)) {
+            echo json_encode(["success" => false, "message" => "Profile picture URL is required."]);
+            exit();
+        }
+        $stmt = $db->prepare("UPDATE users SET profile_picture = ? WHERE email = ?");
+        $stmt->bind_param("ss", $profile_picture, $email);
+        $stmt->execute();
+
+        echo json_encode(["success" => true, "message" => "Profile picture updated successfully.", "profile_picture" => $profile_picture]);
+        exit();
+    }
+
     if ($action === 'update_user' || $action === 'edit_user') {
         $user_id = intval($data['id'] ?? 0);
         $name = trim($data['name'] ?? '');
         $phone = trim($data['phone'] ?? '');
         $school = trim($data['school'] ?? '');
+        $profile_picture = trim($data['profile_picture'] ?? '');
 
         if ($user_id > 0 && !empty($name)) {
-            $stmt = $db->prepare("UPDATE users SET name = ?, phone = ?, school = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $name, $phone, $school, $user_id);
+            if (!empty($profile_picture)) {
+                $stmt = $db->prepare("UPDATE users SET name = ?, phone = ?, school = ?, profile_picture = ? WHERE id = ?");
+                $stmt->bind_param("ssssi", $name, $phone, $school, $profile_picture, $user_id);
+            } else {
+                $stmt = $db->prepare("UPDATE users SET name = ?, phone = ?, school = ? WHERE id = ?");
+                $stmt->bind_param("sssi", $name, $phone, $school, $user_id);
+            }
             $stmt->execute();
             echo json_encode(["success" => true, "message" => "Candidate details updated successfully."]);
             exit();

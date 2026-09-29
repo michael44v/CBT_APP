@@ -100,9 +100,34 @@ if ($since_version > 0) {
     }
 }
 
-// Pull news
-$news_res = $db->query("SELECT * FROM news ORDER BY created_at DESC");
-$news = $news_res ? $news_res->fetch_all(MYSQLI_ASSOC) : [];
+// External news endpoint URL placeholder
+// Plug your new news endpoint URL here (e.g. "https://news.filloptech.com/api/v1/news")
+define('EXTERNAL_NEWS_ENDPOINT', '');
+
+// Pull news (from external endpoint if configured, or from local news table)
+$news = [];
+if (defined('EXTERNAL_NEWS_ENDPOINT') && !empty(EXTERNAL_NEWS_ENDPOINT)) {
+    try {
+        $ch = curl_init(EXTERNAL_NEWS_ENDPOINT);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        $ext_data_raw = curl_exec($ch);
+        curl_close($ch);
+        if ($ext_data_raw) {
+            $ext_data = json_decode($ext_data_raw, true);
+            if (is_array($ext_data)) {
+                $news = $ext_data['news'] ?? $ext_data;
+            }
+        }
+    } catch (Throwable $e) {
+        error_log("Failed to fetch external news endpoint: " . $e->getMessage());
+    }
+}
+
+if (empty($news)) {
+    $news_res = $db->query("SELECT * FROM news ORDER BY created_at DESC");
+    $news = $news_res ? $news_res->fetch_all(MYSQLI_ASSOC) : [];
+}
 
 $settings = [
     "latest_version" => "1.0.0",

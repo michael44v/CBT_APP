@@ -7,6 +7,9 @@ const {
   transaction
 } = require('./dbService.cjs');
 
+// External news endpoint placeholder for direct client fetch if needed
+const EXTERNAL_NEWS_ENDPOINT = '';
+
 let simulateOnline = true;
 let syncTimer = null;
 let changeCallback = null;

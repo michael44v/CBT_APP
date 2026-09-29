@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../db.php';
+require_once '../mailer.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 $reference = trim($data['reference'] ?? '');
@@ -102,6 +103,23 @@ if (!empty($details['promo_id'])) {
     $stmt = $db->prepare("UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id = ?");
     $stmt->bind_param("i", $promo_id);
     $stmt->execute();
+}
+
+// Send receipt email to purchaser via FillopMailer
+if (!empty($email)) {
+    try {
+        FillopMailer::sendPasscodeReceipt(
+            $email,
+            !empty($name) ? $name : 'Candidate',
+            $generated_passcodes,
+            $exam_category,
+            $quantity,
+            $total_final_amount,
+            $reference
+        );
+    } catch (Throwable $e) {
+        error_log("Failed to dispatch passcode receipt email: " . $e->getMessage());
+    }
 }
 
 unset($pending[$reference]);

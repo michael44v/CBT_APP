@@ -89,7 +89,13 @@ if ($quantity >= 10) {
 }
 
 $duration_mult = ($duration_months >= 12) ? 2.0 : 1.0;
-$unit_price_per_passcode = $unit_base * $category_count * $duration_mult;
+
+$device_mult = 1.0;
+if ($max_devices > 2) {
+    $device_mult = 1.0 + ($max_devices - 2) * 0.5;
+}
+
+$unit_price_per_passcode = $unit_base * $category_count * $duration_mult * $device_mult;
 $total_amount = $unit_price_per_passcode * $quantity;
 
 // Check promo code if any
