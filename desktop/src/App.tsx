@@ -2527,7 +2527,7 @@ export default function App() {
                             htmlFor="profilePicUpload"
                             style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm, cursor: 'pointer' }}
                           >
-                            📷 Upload Profile Photo
+                             Upload Profile Photo
                           </label>
                         </div>
                       )}
@@ -2670,14 +2670,15 @@ export default function App() {
         <h1 style={{ fontSize: '26px', color: '#1a1a1a', marginBottom: '20px', marginTop: 0, fontWeight: 400, borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '12px' }}>
           Instructions
         </h1>
-        <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.85', fontFamily: 'Georgia, serif' }}>
-          <p style={{ margin: '0 0 14px' }}>The Buyer shall provide an LPO that will last for three weeks interval.</p>
-          <p style={{ margin: '0 0 14px' }}>The LPO shall be raised with the name Masterpiece Energies Ltd (The Seller)</p>
-          <p style={{ margin: '0 0 14px' }}>The Buyer shall provide a Bank Guarantee or a Post-Dated Cheque equivalent to the value of the Purchase Order.</p>
-          <p style={{ margin: '0 0 14px' }}>Payment shall be made via e-payment to the Seller's designated account. The Seller reserves the right to suspend further deliveries if payments are outstanding beyond the due date.</p>
-          <p style={{ margin: 0 }}>Any disputes on invoices must be raised within 5 business days from the date of receipt.</p>
-          {/* replace the paragraphs above with your real instructions data */}
-        </div>
+       <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.85', fontFamily: 'Georgia, serif' }}>
+  <p style={{ margin: '0 0 14px' }}>Read the instructions below carefully before you begin.</p>
+  <p style={{ margin: '0 0 14px' }}>1. The time limit is shown at the top right of your screen. The timer starts when you click Start Quiz and cannot be paused.</p>
+  <p style={{ margin: '0 0 14px' }}>2. Each question has four options (A, B, C, D). Click an option or press A, B, C, or D to select it. You can change your answer before you submit.</p>
+  <p style={{ margin: '0 0 14px' }}>3. Use N to move to the next question and P to go back. Use the ↑ and ↓ keys to scroll.</p>
+  <p style={{ margin: '0 0 14px' }}>4. Answer every question. Unanswered questions score zero.</p>
+  <p style={{ margin: '0 0 14px' }}>5. When you finish, press S to submit, then Y to confirm. The quiz also submits automatically when time runs out.</p>
+  <p style={{ margin: 0 }}>Click Start Quiz when you are ready. Good luck!</p>
+</div>
       </div>
 
       <div style={{ width: '280px', flexShrink: 0 }}>
