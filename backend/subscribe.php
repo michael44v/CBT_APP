@@ -313,6 +313,7 @@ if (empty($dbSubjectsMap['NECO'])) {
             <div class="summary-row"><span>Unit Price per Passcode (6m Base):</span> <strong id="sumUnitPrice">₦1,400</strong></div>
             <div class="summary-row"><span>Selected Categories Count:</span> <strong id="sumCatCount">1 Category</strong></div>
             <div class="summary-row"><span>Duration Multiplier:</span> <strong id="sumDurMult">1.0× (6 Months)</strong></div>
+            <div class="summary-row"><span>Devices Multiplier:</span> <strong id="sumDeviceMult">1.0× (1 Device)</strong></div>
             <div class="summary-row"><span>Quantity:</span> <strong id="sumQty">1 Passcode</strong></div>
             <div class="summary-row total"><span>Total Payable Amount:</span> <strong id="sumTotal">₦1,400</strong></div>
         </div>
@@ -576,7 +577,13 @@ if (empty($dbSubjectsMap['NECO'])) {
         const catCount = selectedCategories.length || 1;
         const qty = parseInt(document.getElementById("passcodeQty").value) || 1;
         const durationMonths = parseInt(document.getElementById("subDuration").value) || 6;
+        const maxDevices = parseInt(document.getElementById("maxDevices").value) || 1;
         const durMultiplier = (durationMonths >= 12) ? 2.0 : 1.0;
+
+        let deviceMult = 1.0;
+        if (maxDevices > 2) {
+            deviceMult = 1.0 + (maxDevices - 2) * 0.5;
+        }
 
         let unitPrice6m = pricingSettings.single_passcode_price_6m;
         if (qty >= 10) {
@@ -585,16 +592,17 @@ if (empty($dbSubjectsMap['NECO'])) {
             unitPrice6m = pricingSettings.small_bulk_price_6m;
         }
 
-        const totalPerPasscode = unitPrice6m * catCount * durMultiplier;
+        const totalPerPasscode = unitPrice6m * catCount * durMultiplier * deviceMult;
         const grandTotal = totalPerPasscode * qty;
 
         document.getElementById("sumUnitPrice").innerText = `₦${unitPrice6m.toLocaleString()}`;
         document.getElementById("sumCatCount").innerText = `${catCount} ${catCount === 1 ? 'Category' : 'Categories'}`;
         document.getElementById("sumDurMult").innerText = `${durMultiplier}× (${durationMonths} Months)`;
+        document.getElementById("sumDeviceMult").innerText = `${deviceMult.toFixed(1)}× (${maxDevices} ${maxDevices === 1 ? 'Device' : 'Devices'})`;
         document.getElementById("sumQty").innerText = `${qty} ${qty === 1 ? 'Passcode' : 'Passcodes'}`;
         document.getElementById("sumTotal").innerText = `₦${grandTotal.toLocaleString()}`;
 
-        return { catCount, qty, durationMonths, selectedCategories, selections, grandTotal };
+        return { catCount, qty, durationMonths, maxDevices, selectedCategories, selections, grandTotal };
     }
 
     document.getElementById("subscribeForm").addEventListener("submit", async (e) => {

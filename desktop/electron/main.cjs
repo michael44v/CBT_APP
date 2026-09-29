@@ -309,6 +309,37 @@ ipcMain.handle("auth:logout", async () => {
   return { success: true };
 });
 
+ipcMain.handle("auth:update-profile-picture", async (event, { profilePictureUrl }) => {
+  const act = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
+  if (!act) {
+    return { success: false, error: "No active session found." };
+  }
+
+  dbService.run("UPDATE activation SET profile_picture = ? WHERE email = ?", [profilePictureUrl, act.email]);
+  dbService.run("UPDATE saved_logins SET profile_picture = ? WHERE email = ?", [profilePictureUrl, act.email]);
+
+  // If online, sync to central server
+  if (syncService.checkInternet()) {
+    try {
+      const response = await fetch("https://cbt.filloptech.com/api/v1/admin/users.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_profile_picture",
+          email: act.email,
+          profile_picture: profilePictureUrl
+        })
+      });
+      const resData = await response.json();
+      console.log("[Main] Profile picture synced to cloud:", resData);
+    } catch (err) {
+      console.warn("[Main] Cloud sync for profile picture failed:", err);
+    }
+  }
+
+  return { success: true, profile_picture: profilePictureUrl };
+});
+
 ipcMain.handle("auth:get-saved-logins", async () => {
   return dbService.all("SELECT * FROM saved_logins ORDER BY last_used_at DESC");
 });
@@ -416,18 +447,22 @@ ipcMain.handle("exam:set-active", async (event, isActive) => {
   return { success: true, examActive: isActive };
 });
 
-ipcMain.handle("db:generate-practice-questions", async (event, { examType, subjectId, topicId, year, limit }) => {
+ipcMain.handle("db:generate-practice-questions", async (event, { examType, subjectId, topicId, topicIds, year, limit }) => {
   const actRow = dbService.get("SELECT * FROM activation WHERE is_active = 1 LIMIT 1");
   const isFree = !actRow;
 
-  // First try querying with the specific topic/year filters if requested
   let sql = "SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ?";
   const params = [examType, subjectId];
 
-  if (topicId) {
+  if (Array.isArray(topicIds) && topicIds.length > 0) {
+    const placeholders = topicIds.map(() => "?").join(",");
+    sql += ` AND q.topic_id IN (${placeholders})`;
+    params.push(...topicIds);
+  } else if (topicId) {
     sql += " AND q.topic_id = ?";
     params.push(topicId);
   }
+
   if (year) {
     sql += " AND q.year = ?";
     params.push(year);
@@ -446,8 +481,9 @@ ipcMain.handle("db:generate-practice-questions", async (event, { examType, subje
   let questions = dbService.all(sql, params);
 
   // Fallback: If topic or year filter was specific and returned 0 questions, query all questions under that subject
-  if ((!questions || questions.length === 0) && (topicId || year)) {
-    console.log(`[Practice Session] 0 questions found for topicId ${topicId}/year ${year}. Falling back to general subject questions.`);
+  const hasTopicFilter = (Array.isArray(topicIds) && topicIds.length > 0) || Boolean(topicId);
+  if ((!questions || questions.length === 0) && (hasTopicFilter || year)) {
+    console.log(`[Practice Session] 0 questions found for requested topic/year filters. Falling back to general subject questions.`);
     let fallbackSql = "SELECT q.*, t.name as topic_name, t.description as topic_description, t.content as topic_content FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.exam_type = ? AND q.subject_id = ? ORDER BY RANDOM() LIMIT ?";
     questions = dbService.all(fallbackSql, [examType, subjectId, maxLimit]);
   }

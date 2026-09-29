@@ -103,9 +103,9 @@ export default function QuestionBuilder({
   }, [showAddTopicModal, targetSubjectForTopic]);
 
   // Accordion Section Toggle State per Card
-  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, { formula?: boolean; media?: boolean }>>({});
+  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, { media?: boolean }>>({});
 
-  const toggleAccordion = (cardId: string, section: 'formula' | 'media') => {
+  const toggleAccordion = (cardId: string, section: 'media') => {
     setExpandedAccordions(prev => ({
       ...prev,
       [cardId]: {
@@ -878,107 +878,40 @@ export default function QuestionBuilder({
                   </div>
                 </div>
 
-                {/* SECTION 2: Formula Editor (Collapsible Accordion Dropdown) */}
-                {(() => {
-                  const isFormulaExpanded = expandedAccordions[card.id]?.formula || Boolean(card.formula.trim());
-                  return (
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
-                      <div
-                        onClick={() => toggleAccordion(card.id, 'formula')}
-                        style={{
-                          padding: '0.8rem 1rem',
-                          backgroundColor: 'var(--primary-light)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          justify: 'space-between',
-                          alignItems: 'center',
-                          userSelect: 'none'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Sparkles size={18} style={{ color: 'var(--accent)' }} />
-                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
-                            2. Mathematical Formula (LaTeX) Dropdown
-                          </h3>
-                          {card.formula.trim() && (
-                            <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>Formula Attached</span>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          <span>{isFormulaExpanded ? 'Collapse' : 'Expand'}</span>
-                          {isFormulaExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </div>
-                      </div>
-
-                      {isFormulaExpanded && (
-                        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', backgroundColor: 'var(--bg-card)' }}>
-                          <FormulaEditor
-                            value={card.formula}
-                            onChange={(val) => updateCard(card.id, { formula: val })}
-                            placeholder="Enter mathematical formula using LaTeX (e.g. x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a})"
-                          />
-                          {errors.formula && <span style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>{errors.formula}</span>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* SECTION 3: Answer Options */}
+                {/* SECTION 2: Answer Options */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
                     <CheckCircle2 size={18} style={{ color: 'var(--accent)' }} />
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>3. Answer Options &amp; Correct Key</h3>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>2. Answer Options &amp; Correct Key</h3>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>Option A <span style={{ color: 'var(--danger)' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Enter Option A value"
-                        value={card.option_a}
-                        onChange={(e) => updateCard(card.id, { option_a: e.target.value })}
-                      />
-                      {errors.option_a && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.option_a}</span>}
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>Option B <span style={{ color: 'var(--danger)' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Enter Option B value"
-                        value={card.option_b}
-                        onChange={(e) => updateCard(card.id, { option_b: e.target.value })}
-                      />
-                      {errors.option_b && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.option_b}</span>}
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>Option C <span style={{ color: 'var(--danger)' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Enter Option C value"
-                        value={card.option_c}
-                        onChange={(e) => updateCard(card.id, { option_c: e.target.value })}
-                      />
-                      {errors.option_c && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.option_c}</span>}
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>Option D <span style={{ color: 'var(--danger)' }}>*</span></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Enter Option D value"
-                        value={card.option_d}
-                        onChange={(e) => updateCard(card.id, { option_d: e.target.value })}
-                      />
-                      {errors.option_d && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors.option_d}</span>}
-                    </div>
+                    {(['a', 'b', 'c', 'd'] as const).map(optKey => {
+                      const keyUpper = optKey.toUpperCase();
+                      const val = card[`option_${optKey}` as keyof BuilderQuestionCard] as string;
+                      const hasFormula = val.includes('\\') || val.includes('$') || val.includes('^');
+                      return (
+                        <div key={optKey} className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontWeight: 700 }}>Option {keyUpper} <span style={{ color: 'var(--danger)' }}>*</span></label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder={`Enter Option ${keyUpper} value (LaTeX supported)...`}
+                            value={val}
+                            onChange={(e) => updateCard(card.id, { [`option_${optKey}`]: e.target.value })}
+                          />
+                          {hasFormula && (
+                            <div style={{ marginTop: '4px', padding: '6px 10px', backgroundColor: 'var(--primary-light)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', display: 'block', marginBottom: '2px' }}>Preview:</span>
+                              <MathRenderer text={val} inline={true} />
+                            </div>
+                          )}
+                          {errors[`option_${optKey}` as keyof BuilderFieldErrorMap] && (
+                            <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors[`option_${optKey}` as keyof BuilderFieldErrorMap]}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Correct Answer Select Dropdown */}
@@ -1000,7 +933,7 @@ export default function QuestionBuilder({
                   </div>
                 </div>
 
-                {/* SECTION 4: Media & Resources (Image + External Link Accordion Dropdown) */}
+                {/* SECTION 3: Media & Resources (Image + External Link Accordion Dropdown) */}
                 {(() => {
                   const isMediaExpanded = expandedAccordions[card.id]?.media || Boolean(card.image_url.trim() || card.external_link.trim());
                   return (
@@ -1020,7 +953,7 @@ export default function QuestionBuilder({
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <ImageIcon size={18} style={{ color: 'var(--accent)' }} />
                           <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
-                            4. Image &amp; Media Attachments Dropdown
+                            3. Image &amp; Media Attachments Dropdown
                           </h3>
                           {card.image_url.trim() && (
                             <span className="badge badge-success" style={{ fontSize: '0.75rem' }}>Image Attached</span>
@@ -1105,11 +1038,11 @@ export default function QuestionBuilder({
                   );
                 })()}
 
-                {/* SECTION 5: Explanations */}
+                {/* SECTION 4: Explanations */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
                     <HelpCircle size={18} style={{ color: 'var(--accent)' }} />
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>5. Concept &amp; Answer Explanations</h3>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>4. Concept &amp; Answer Explanations</h3>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
