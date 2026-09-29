@@ -916,9 +916,7 @@ export default function App() {
       setAnswers({});
       setFlagged({});
 
-      const examCategories: ('JAMB' | 'WAEC' | 'NECO')[] = ['JAMB', 'WAEC', 'NECO'];
-      const targetCategory = examCategories[Math.floor(Math.random() * examCategories.length)];
-      setExamType(targetCategory);
+      const targetCategory = examType; // Use the currently selected exam category
 
       const subs = await window.api.getSubjects(targetCategory);
       const unlockedSubs = Array.isArray(subs) ? subs.filter((s: any) => !s.is_locked) : [];
@@ -2866,11 +2864,11 @@ export default function App() {
 
         {/* Question + options */}
         <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
-          <div style={{ fontSize: '17px', lineHeight: 1.7, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '18px', marginBottom: curQ.image_url ? '12px' : '32px' }}>
+          <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
+
+          <div style={{ fontSize: '17px', lineHeight: 1.7, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '18px', marginBottom: '32px' }}>
             <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
           </div>
-
-          <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {[
@@ -3371,11 +3369,11 @@ export default function App() {
                               </div>
                             </div>
 
-                            <div style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: q.image_url ? '12px' : '20px' }}>
+                            <QuestionImage key={`review-img-${q.id}`} imageUrl={q.image_url} isDarkMode={isDarkMode} />
+
+                            <div style={{ fontSize: '16px', fontWeight: 600, lineHeight: 1.6, marginBottom: '20px' }}>
                               <MathRenderer text={formatQuestionWithFormula(q.question_text, q.formula)} />
                             </div>
-
-                            <QuestionImage key={`review-img-${q.id}`} imageUrl={q.image_url} isDarkMode={isDarkMode} />
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                               {[
