@@ -1515,7 +1515,7 @@ export default function App() {
                 View All →
               </button>
             </div>
-            {newsList.slice(0, 2).map((item) => {
+            {newsList.slice(0, 1).map((item) => {
               const pubDate = item.published_at
                 ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
                 : (item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently Published');
@@ -1947,29 +1947,16 @@ export default function App() {
                           </div>
 
                           <div style={{ display: 'flex', gap: '8px', paddingTop: '12px', borderTop: `1px solid ${colors.border}` }}>
-                            <button
-                              style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm, flex: 1, fontSize: '12px', fontWeight: 700 }}
-                              onClick={() => {
-                                setSelectedNews(item);
-                                setScreen('NEWS_DETAIL');
-                              }}
-                            >
-                              Read Article
-                            </button>
-                            {item.url && (
-                              <button
-                                style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontSize: '12px', fontWeight: 700 }}
-                                onClick={() => {
-                                  if (window.api && window.api.openExternal) {
-                                    window.api.openExternal(item.url);
-                                  } else {
-                                    window.open(item.url, '_blank');
-                                  }
-                                }}
-                              >
-                                Web Link ↗
-                              </button>
-                            )}
+                           <button
+  style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm, fontSize: '12px', fontWeight: 700, padding: '8px 16px' }}
+  onClick={() => {
+    setSelectedNews(item);
+    setScreen('NEWS_DETAIL');
+  }}
+>
+  Read Article
+</button>
+                            
                           </div>
                         </div>
                       </div>
