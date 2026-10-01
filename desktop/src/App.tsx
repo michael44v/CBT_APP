@@ -408,12 +408,32 @@ export default function App() {
     loadSavedLogins();
 
     if (window.api && window.api.onSyncStatusChanged) {
-      window.api.onSyncStatusChanged(() => {
+      window.api.onSyncStatusChanged(async () => {
         loadSyncLogs();
         loadResultsHistory();
         loadNewsList();
         loadReadNewsIds();
         loadSoftwareUpdates();
+        if (window.api && window.api.getActivationStatus) {
+          const act = await window.api.getActivationStatus();
+          if (act && act.is_active) {
+            setActivation({
+              email: act.email,
+              passcode: act.passcode,
+              user_name: act.user_name,
+              profile_picture: act.profile_picture,
+              activated_at: act.activated_at,
+              expiry_date: act.expiry_date,
+              exam_category: act.exam_category,
+              allowed_subjects: act.allowed_subjects
+            });
+            const singleCat = parseSingleCategory(act.exam_category);
+            if (singleCat) {
+              setExamType(singleCat);
+            }
+          }
+        }
+        await loadSyllabusData();
       });
     }
 
@@ -580,6 +600,15 @@ export default function App() {
     setLeaderboardLoading(false);
   };
 
+  const parseSingleCategory = (catStr?: string): 'JAMB' | 'WAEC' | 'NECO' | null => {
+    if (!catStr) return null;
+    const cats = catStr.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+    if (cats.length === 1 && (cats[0] === 'JAMB' || cats[0] === 'WAEC' || cats[0] === 'NECO')) {
+      return cats[0] as 'JAMB' | 'WAEC' | 'NECO';
+    }
+    return null;
+  };
+
   const checkActivation = async () => {
     if (window.api && window.api.getActivationStatus) {
       const act = await window.api.getActivationStatus();
@@ -594,6 +623,10 @@ export default function App() {
           exam_category: act.exam_category,
           allowed_subjects: act.allowed_subjects
         });
+        const singleCat = parseSingleCategory(act.exam_category);
+        if (singleCat) {
+          setExamType(singleCat);
+        }
         setIsFreeMode(false);
         setScreen('DASHBOARD');
       } else {
@@ -638,8 +671,17 @@ export default function App() {
           return a.name.localeCompare(b.name);
         }) : [];
         setSubjectsList(sortedSubs);
-        setMockSelectedSubjects([]);
-        setPracticeSubject('');
+
+        setMockSelectedSubjects(prev => prev.filter(id => {
+          const s = sortedSubs.find(sub => sub.id === id);
+          return s && !(s as any).is_locked;
+        }));
+
+        setPracticeSubject(prev => {
+          if (!prev) return '';
+          const s = sortedSubs.find(sub => sub.id === Number(prev));
+          return (s && !(s as any).is_locked) ? prev : '';
+        });
 
         // Preload subjects for all exam categories (JAMB, WAEC, NECO) for Profile table lookup
         const catMap: Record<string, Subject[]> = {};
@@ -706,6 +748,10 @@ export default function App() {
           exam_category: res.exam_category,
           allowed_subjects: res.allowed_subjects
         });
+        const singleCat = parseSingleCategory(res.exam_category);
+        if (singleCat) {
+          setExamType(singleCat);
+        }
         setIsFreeMode(false);
         setScreen('DASHBOARD');
 
