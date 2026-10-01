@@ -100,9 +100,8 @@ if ($since_version > 0) {
     }
 }
 
-// External news endpoint URL placeholder
-// Plug your new news endpoint URL here (e.g. "https://news.filloptech.com/api/v1/news")
-define('EXTERNAL_NEWS_ENDPOINT', '');
+// External news endpoint URL
+define('EXTERNAL_NEWS_ENDPOINT', 'https://studyapi.filloptech.com/api/blog?page=1&limit=10&category=WAEC');
 
 // Pull news (from external endpoint if configured, or from local news table)
 $news = [];
@@ -116,7 +115,22 @@ if (defined('EXTERNAL_NEWS_ENDPOINT') && !empty(EXTERNAL_NEWS_ENDPOINT)) {
         if ($ext_data_raw) {
             $ext_data = json_decode($ext_data_raw, true);
             if (is_array($ext_data)) {
-                $news = $ext_data['news'] ?? $ext_data;
+                $raw_blogs = $ext_data['data']['blogs'] ?? $ext_data['news'] ?? (isset($ext_data[0]) ? $ext_data : []);
+                if (is_array($raw_blogs)) {
+                    foreach ($raw_blogs as $b) {
+                        $news[] = [
+                            'id' => $b['id'] ?? null,
+                            'title' => $b['title'] ?? '',
+                            'content' => $b['preview'] ?? $b['content'] ?? '',
+                            'icon_name' => 'newspaper',
+                            'thumbnail_url' => $b['coverImage'] ?? $b['thumbnail_url'] ?? null,
+                            'published_at' => $b['publishedAt'] ?? $b['published_at'] ?? date('Y-m-d H:i:s'),
+                            'created_at' => $b['publishedAt'] ?? $b['published_at'] ?? $b['created_at'] ?? date('Y-m-d H:i:s'),
+                            'url' => isset($b['slug']) ? 'https://filloptech.com/blog/' . $b['slug'] : ($b['url'] ?? ''),
+                            'category' => $b['category'] ?? 'WAEC'
+                        ];
+                    }
+                }
             }
         }
     } catch (Throwable $e) {

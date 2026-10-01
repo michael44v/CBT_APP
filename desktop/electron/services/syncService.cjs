@@ -8,7 +8,7 @@ const {
 } = require('./dbService.cjs');
 
 // External news endpoint placeholder for direct client fetch if needed
-const EXTERNAL_NEWS_ENDPOINT = '';
+const EXTERNAL_NEWS_ENDPOINT = 'https://studyapi.filloptech.com/api/blog?page=1&limit=10&category=WAEC';
 
 let simulateOnline = true;
 let syncTimer = null;

@@ -8,7 +8,7 @@ import { QuestionImage } from './QuestionImage';
 import "katex/dist/katex.min.css";
 
 
-type Screen = 'ACTIVATION' | 'DASHBOARD' | 'PROFILE' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS_DETAIL';
+type Screen = 'ACTIVATION' | 'DASHBOARD' | 'PROFILE' | 'INSTRUCTIONS' | 'EXAM' | 'RESULT' | 'REVIEW' | 'NEWS' | 'NEWS_DETAIL';
 
 interface ActiveActivation {
   email: string;
@@ -50,6 +50,14 @@ export default function App() {
   const [newsList, setNewsList] = useState<any[]>([]);
   const [readNewsIds, setReadNewsIds] = useState<number[]>([]);
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
+
+  // External News State & Pagination
+  const [newsCategory, setNewsCategory] = useState<string>('ALL');
+  const [newsPage, setNewsPage] = useState<number>(1);
+  const [newsTotalPages, setNewsTotalPages] = useState<number>(1);
+  const [newsTotalItems, setNewsTotalItems] = useState<number>(0);
+  const [newsCategories, setNewsCategories] = useState<string[]>(['ALL', 'WAEC', 'JAMB', 'GCE', 'News']);
+  const [newsLoading, setNewsLoading] = useState<boolean>(false);
 
 
 
@@ -370,15 +378,61 @@ export default function App() {
   // Active Exam Subjects
   const [examSubjects, setExamSubjects] = useState<Subject[]>([]);
 
-  const loadNewsList = async () => {
-    if (window.api && window.api.getNews) {
-      try {
-        const list = await window.api.getNews();
-        setNewsList(list || []);
-      } catch (e) {
-        console.error('Failed to load news:', e);
+  const fetchExternalNews = async (page: number = 1, category: string = 'ALL') => {
+    setNewsLoading(true);
+    try {
+      let url = `https://studyapi.filloptech.com/api/blog?page=${page}&limit=10`;
+      if (category && category !== 'ALL') {
+        url += `&category=${encodeURIComponent(category)}`;
       }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP status ${res.status}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const blogs = json.data.blogs || [];
+        const mappedBlogs = blogs.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          content: b.preview || b.content || '',
+          preview: b.preview || '',
+          thumbnail_url: b.coverImage || b.thumbnail_url || '',
+          published_at: b.publishedAt || b.published_at || '',
+          category: b.category || '',
+          slug: b.slug || '',
+          url: b.slug ? `https://filloptech.com/blog/${b.slug}` : (b.url || ''),
+          metaDescription: b.metaDescription || '',
+          author: b.author ? `${b.author.firstName || ''} ${b.author.lastName || ''}`.trim() : ''
+        }));
+        setNewsList(mappedBlogs);
+
+        if (json.data.categories && Array.isArray(json.data.categories)) {
+          const uniqueCats = Array.from(new Set(['ALL', ...json.data.categories]));
+          setNewsCategories(uniqueCats);
+        }
+
+        if (json.data.pagination) {
+          setNewsPage(json.data.pagination.page || page);
+          setNewsTotalPages(json.data.pagination.pages || 1);
+          setNewsTotalItems(json.data.pagination.total || mappedBlogs.length);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch direct external news:", err);
+      if (window.api && window.api.getNews) {
+        try {
+          const local = await window.api.getNews();
+          setNewsList(local || []);
+        } catch (e) {
+          console.error("Local news load error:", e);
+        }
+      }
+    } finally {
+      setNewsLoading(false);
     }
+  };
+
+  const loadNewsList = async () => {
+    await fetchExternalNews(1, 'ALL');
   };
 
   const loadSavedLogins = async () => {
@@ -1340,6 +1394,7 @@ export default function App() {
 
   const sidebarNavItems = [
     { id: 'DASHBOARD', label: 'Dashboard', icon: 'D' },
+    { id: 'NEWS', label: 'News & Updates', icon: '📰' },
     { id: 'PROFILE', label: 'Profile', icon: 'P' },
     { id: 'ANALYTICS', label: 'Analytics', icon: 'A' },
     { id: 'EXAM_TRICK', label: 'Exam Tricks', icon: '💡' },
@@ -1347,6 +1402,7 @@ export default function App() {
 
   const isSidebarActive = (id: string) => {
     if (id === 'DASHBOARD' && screen === 'DASHBOARD' && dashboardMode !== 'ANALYTICS') return true;
+    if (id === 'NEWS' && (screen === 'NEWS' || screen === 'NEWS_DETAIL')) return true;
     if (id === 'PROFILE' && screen === 'PROFILE') return true;
     if (id === 'ANALYTICS' && screen === 'DASHBOARD' && dashboardMode === 'ANALYTICS') return true;
     return false;
@@ -1356,6 +1412,10 @@ export default function App() {
     if (id === 'DASHBOARD') {
       setDashboardMode('DAILY_QUIZ');
       setScreen('DASHBOARD');
+    }
+    if (id === 'NEWS') {
+      setScreen('NEWS');
+      fetchExternalNews(newsPage, newsCategory);
     }
     if (id === 'PROFILE') {
       setScreen('PROFILE');
@@ -1443,17 +1503,25 @@ export default function App() {
 
           {/* Sidebar Latest News Widgets */}
           <div style={{ padding: '0 16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Latest News</span>
+              <button
+                onClick={() => {
+                  setScreen('NEWS');
+                  fetchExternalNews(1, newsCategory);
+                }}
+                style={{ background: 'none', border: 'none', color: '#93c5fd', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+              >
+                View All →
+              </button>
+            </div>
             {newsList.slice(0, 2).map((item) => {
               const pubDate = item.published_at
                 ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                : new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                : (item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently Published');
               const handleSidebarNewsClick = () => {
-                const targetUrl = item.url || 'https://news.filloptech.com';
-                if (window.api && window.api.openExternal) {
-                  window.api.openExternal(targetUrl);
-                } else {
-                  window.open(targetUrl, '_blank');
-                }
+                setSelectedNews(item);
+                setScreen('NEWS_DETAIL');
               };
 
               return (
@@ -1739,6 +1807,222 @@ export default function App() {
             </div>
           )}
 
+          {/* ================= NEWS LIST SCREEN ================= */}
+          {screen === 'NEWS' && (
+            <div style={{ maxWidth: '1100px', margin: '30px auto', padding: '0 24px' }}>
+              {/* Header section */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: colors.text, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Newspaper size={28} color={colors.primary} /> News &amp; Educational Updates
+                  </h1>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px', margin: '6px 0 0' }}>
+                    Stay informed with official examination announcements, timetable releases, and blog news from Fillop Technologies.
+                  </p>
+                </div>
+                <button
+                  style={{ ...styles.btn, ...styles.btnSecondary }}
+                  onClick={() => setScreen('DASHBOARD')}
+                >
+                  ← Back to Dashboard
+                </button>
+              </div>
+
+              {/* Category Filter Bar */}
+              <div style={{ backgroundColor: colors.surface, borderRadius: '12px', padding: '16px 20px', border: `1px solid ${colors.border}`, marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Filter by Category:
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {newsCategories.map((cat) => {
+                      const isSelected = newsCategory === cat;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setNewsCategory(cat);
+                            setNewsPage(1);
+                            fetchExternalNews(1, cat);
+                          }}
+                          style={{
+                            padding: '6px 16px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: isSelected ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                            backgroundColor: isSelected ? colors.primary : 'transparent',
+                            color: isSelected ? '#ffffff' : colors.text,
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '13px', color: colors.textSecondary, fontWeight: 600 }}>
+                  Showing {newsList.length} {newsTotalItems > 0 ? `of ${newsTotalItems}` : ''} Articles
+                </div>
+              </div>
+
+              {/* News Items Grid / List */}
+              {newsLoading ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: colors.surface, borderRadius: '16px', border: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: colors.primary }}>Fetching latest news updates...</div>
+                </div>
+              ) : newsList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: colors.surface, borderRadius: '16px', border: `1px solid ${colors.border}` }}>
+                  <Newspaper size={48} color={colors.textMuted} style={{ marginBottom: '12px' }} />
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: colors.text, margin: '0 0 6px' }}>No news articles found</h3>
+                  <p style={{ color: colors.textSecondary, fontSize: '14px', margin: 0 }}>Try selecting a different category filter or check back later.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                  {newsList.map((item) => {
+                    const pubDate = item.published_at
+                      ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'Recently Published';
+
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          backgroundColor: colors.surface,
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          border: `1px solid ${colors.border}`,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                        }}
+                      >
+                        {/* Article Image Header */}
+                        <div style={{ width: '100%', height: '180px', backgroundColor: colors.bg, overflow: 'hidden', position: 'relative' }}>
+                          <img
+                            src={item.thumbnail_url || item.coverImage || "./icon.png"}
+                            alt={item.title}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "./icon.png";
+                            }}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          {item.category && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: '12px',
+                                right: '12px',
+                                backgroundColor: colors.primary,
+                                color: '#ffffff',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                              }}
+                            >
+                              {item.category}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Article Content */}
+                        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '12px', color: colors.textMuted, fontWeight: 600, marginBottom: '6px' }}>
+                              {pubDate} {item.author ? `• By ${item.author}` : ''}
+                            </div>
+                            <h3 style={{ fontSize: '16px', fontWeight: 800, color: colors.text, lineHeight: 1.4, margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                              {item.title}
+                            </h3>
+                            <p style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                              {item.preview || item.content}
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', paddingTop: '12px', borderTop: `1px solid ${colors.border}` }}>
+                            <button
+                              style={{ ...styles.btn, ...styles.btnPrimary, ...styles.btnSm, flex: 1, fontSize: '12px', fontWeight: 700 }}
+                              onClick={() => {
+                                setSelectedNews(item);
+                                setScreen('NEWS_DETAIL');
+                              }}
+                            >
+                              Read Article
+                            </button>
+                            {item.url && (
+                              <button
+                                style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontSize: '12px', fontWeight: 700 }}
+                                onClick={() => {
+                                  if (window.api && window.api.openExternal) {
+                                    window.api.openExternal(item.url);
+                                  } else {
+                                    window.open(item.url, '_blank');
+                                  }
+                                }}
+                              >
+                                Web Link ↗
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {newsTotalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
+                  <button
+                    disabled={newsPage <= 1 || newsLoading}
+                    onClick={() => {
+                      const prev = newsPage - 1;
+                      setNewsPage(prev);
+                      fetchExternalNews(prev, newsCategory);
+                    }}
+                    style={{
+                      ...styles.btn,
+                      ...styles.btnSecondary,
+                      opacity: newsPage <= 1 || newsLoading ? 0.5 : 1,
+                      cursor: newsPage <= 1 || newsLoading ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    ← Previous Page
+                  </button>
+
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: colors.text, padding: '0 12px' }}>
+                    Page {newsPage} of {newsTotalPages}
+                  </span>
+
+                  <button
+                    disabled={newsPage >= newsTotalPages || newsLoading}
+                    onClick={() => {
+                      const next = newsPage + 1;
+                      setNewsPage(next);
+                      fetchExternalNews(next, newsCategory);
+                    }}
+                    style={{
+                      ...styles.btn,
+                      ...styles.btnSecondary,
+                      opacity: newsPage >= newsTotalPages || newsLoading ? 0.5 : 1,
+                      cursor: newsPage >= newsTotalPages || newsLoading ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Next Page →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ================= NEWS DETAIL SCREEN ================= */}
           {screen === 'NEWS_DETAIL' && selectedNews && (
             <div style={{ maxWidth: '720px', margin: '40px auto', padding: '0 20px' }}>
@@ -1746,10 +2030,10 @@ export default function App() {
                 style={{ ...styles.btn, ...styles.btnSecondary, marginBottom: '24px' }}
                 onClick={() => {
                   setSelectedNews(null);
-                  setScreen('DASHBOARD');
+                  setScreen('NEWS');
                 }}
               >
-                ← Back to Dashboard
+                ← Back to News
               </button>
 
               <article style={{ backgroundColor: colors.surface, borderRadius: '16px', overflow: 'hidden', border: `1px solid ${colors.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
