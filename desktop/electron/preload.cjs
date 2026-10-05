@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld("api", {
 
 contextBridge.exposeInMainWorld("updater", {
   check: () => ipcRenderer.invoke("update:check"),
+  download: () => ipcRenderer.invoke("update:download"),
   install: () => ipcRenderer.invoke("update:install"),
   onStatus: (callback) => {
     const subscription = (event, data) => callback(data);
