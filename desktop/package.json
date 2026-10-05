@@ -30,6 +30,8 @@
 
     "dist:mac": "npm run build:react && electron-builder --mac",
 
+    "dist:win": "npm run build:react && electron-builder --win --x64 --ia32",
+
     "dist:win:x64": "npm run build:react && electron-builder --win --x64",
 
     "dist:win:ia32": "npm run build:react && electron-builder --win --ia32"
@@ -55,6 +57,13 @@
     "appId": "com.filloptech.cbtguru",
     "productName": "Fillop CBT Guru",
     "copyright": "Copyright © 2025 Fillop Technologies",
+
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://cbt.filloptech.com/downloads/"
+      }
+    ],
 
     "npmRebuild": false,
 
@@ -92,7 +101,7 @@
       "publisherName": "Fillop Technologies",
       "verifyUpdateCodeSignature": false,
       "legalTrademarks": "Fillop CBT Guru",
-      "artifactName": "${productName} ${version}-${arch}.${ext}"
+      "artifactName": "${name}-${version}-${arch}.${ext}"
     },
 
     "nsis": {
@@ -110,6 +119,7 @@
 
   "dependencies": {
     "better-sqlite3": "^13.0.3",
+    "electron-updater": "^6.3.9",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

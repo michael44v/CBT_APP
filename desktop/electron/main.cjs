@@ -1,11 +1,70 @@
 const { app, BrowserWindow, ipcMain, net, powerMonitor } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { autoUpdater } = require("electron-updater");
 const dbService = require("./services/dbService.cjs");
 const syncService = require("./services/syncService.cjs");
 
 let mainWindow = null;
 let splashWindow = null;
+
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function setupAutoUpdater() {
+  autoUpdater.on("checking-for-update", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", { event: "checking-for-update" });
+    }
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", {
+        event: "update-available",
+        version: info.version
+      });
+    }
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", { event: "update-not-available" });
+    }
+  });
+
+  autoUpdater.on("download-progress", (progressObj) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", {
+        event: "download-progress",
+        percent: Math.round(progressObj.percent || 0),
+        bytesPerSecond: progressObj.bytesPerSecond || 0,
+        transferred: progressObj.transferred || 0,
+        total: progressObj.total || 0
+      });
+    }
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", {
+        event: "update-downloaded",
+        version: info.version
+      });
+    }
+  });
+
+  autoUpdater.on("error", (err) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update:status", {
+        event: "error",
+        message: err ? (err.message || String(err)) : "Unknown update error"
+      });
+    }
+  });
+}
+
+setupAutoUpdater();
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -163,6 +222,12 @@ async function initializeApp() {
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     createMainWindow();
+
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.warn("[AutoUpdater] Initial update check failed:", err);
+      });
+    }
 
     syncService.startBackgroundSync();
 
@@ -669,6 +734,24 @@ ipcMain.handle("sync:trigger", async () => {
 ipcMain.handle("sync:set-online", async (event, isOnline) => {
   syncService.setOnlineStatus(isOnline);
   return { isOnline: syncService.checkInternet() };
+});
+
+// ================= IPC HANDLERS: AUTO UPDATER =================
+
+ipcMain.handle("update:check", async () => {
+  if (app.isPackaged) {
+    try {
+      return await autoUpdater.checkForUpdates();
+    } catch (err) {
+      console.warn("[AutoUpdater] Manual check failed:", err);
+      return null;
+    }
+  }
+  return null;
+});
+
+ipcMain.handle("update:install", () => {
+  autoUpdater.quitAndInstall();
 });
 
 // Bootstrap application
