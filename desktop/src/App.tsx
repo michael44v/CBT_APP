@@ -2976,7 +2976,7 @@ export default function App() {
                     {softwareUpdates.length === 0 ? (
                       <div style={{ padding: '16px 12px', textAlign: 'center', backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: colors.success }}>
-                          <Trophy size={16} /> Software is Up to Date
+                           Software is Up to Date
                         </div>
                         <p style={{ color: colors.textMuted, fontSize: '12px', margin: '6px 0 0', lineHeight: 1.4 }}>
                           You are currently running the latest version of Fillop CBT Guru.

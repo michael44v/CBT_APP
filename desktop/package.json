@@ -1,7 +1,7 @@
 {
   "name": "cbt-app",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "Fillop CBT Guru - Offline Computer Based Test Practice Software",
   "author": {
     "name": "Fillop Technologies",

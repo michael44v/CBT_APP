@@ -98,7 +98,7 @@ export const UpdateBanner: React.FC<{ currentScreen: string }> = ({ currentScree
             }}
           />
           <strong style={{ fontSize: '13px', letterSpacing: '0.2px' }}>
-            {updateState.status === 'available' && `Update ${updateState.version || ''} found, starting download`}
+            {updateState.status === 'available' && `Update ${updateState.version || ''} found.`}
             {updateState.status === 'downloading' && `Downloading update ${updateState.version ? `(${updateState.version})` : ''}...`}
             {updateState.status === 'ready' && `Version ${updateState.version || ''} is ready`}
           </strong>
