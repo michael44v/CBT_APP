@@ -47,6 +47,15 @@ export default function App() {
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(navigator.onLine);
   const [softwareUpdates, setSoftwareUpdates] = useState<any[]>([]);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState<boolean>(false);
+  const [updateModalData, setUpdateModalData] = useState<{
+    hasUpdate: boolean;
+    currentVersion: string;
+    latestVersion: string;
+    sizeMb?: number | string;
+    releaseDate?: string;
+    downloadUrl?: string;
+  } | null>(null);
 
   // News State & Read Tracking
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -106,14 +115,50 @@ export default function App() {
     try {
       const updates = await loadSoftwareUpdates();
       console.log('[Dev Terminal] [Software Update Check] Detected software updates:', updates);
+
+      let checkRes: any = null;
       if (window.updater && window.updater.check) {
-        const updaterRes = await window.updater.check();
-        console.log('[Dev Terminal] [Software Update Check] autoUpdater check response:', updaterRes);
+        checkRes = await window.updater.check();
+        console.log('[Dev Terminal] [Software Update Check] autoUpdater check response:', checkRes);
       }
+
+      const latestVer = checkRes?.latestVersion || (updates[0]?.version ? updates[0].version.replace(/^v/, '') : '');
+      const curVer = checkRes?.currentVersion || '1.0.2';
+      const hasUpd = checkRes?.hasUpdate || (latestVer && latestVer !== curVer);
+
+      setUpdateModalData({
+        hasUpdate: !!hasUpd,
+        currentVersion: curVer,
+        latestVersion: latestVer || curVer,
+        sizeMb: checkRes?.ymlResult?.sizeMb || updates[0]?.size || '104',
+        releaseDate: checkRes?.ymlResult?.releaseDate || updates[0]?.firmware || '',
+        downloadUrl: checkRes?.ymlResult?.downloadUrl || updates[0]?.url || 'https://cbt.filloptech.com/downloads/'
+      });
     } catch (err) {
       console.warn('[Dev Terminal] [Software Update Check] Realtime software update check error:', err);
     } finally {
-      setTimeout(() => setIsCheckingUpdates(false), 800);
+      setTimeout(() => setIsCheckingUpdates(false), 600);
+    }
+  };
+
+  const handleStartUpdateDownload = async () => {
+    setIsDownloadingUpdate(true);
+    console.log('[Dev Terminal] [Software Update Download] User confirmed download. Triggering update download...');
+    try {
+      if (window.updater && window.updater.download) {
+        await window.updater.download();
+      } else if (updateModalData?.downloadUrl) {
+        if (window.api && window.api.openExternal) {
+          window.api.openExternal(updateModalData.downloadUrl);
+        } else {
+          window.open(updateModalData.downloadUrl, '_blank');
+        }
+      }
+    } catch (err) {
+      console.error('[Dev Terminal] [Software Update Download] Error initiating download:', err);
+    } finally {
+      setIsDownloadingUpdate(false);
+      setUpdateModalData(null);
     }
   };
 
@@ -4296,6 +4341,163 @@ export default function App() {
       )}
 
       {/* ================= UPGRADE / SUBSCRIBE MODAL ================= */}
+      {/* Software Update Modal */}
+      {updateModalData && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999999,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setUpdateModalData(null); }}
+        >
+          <div
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+              border: `1px solid ${colors.border}`,
+              position: 'relative'
+            }}
+          >
+            <button
+              onClick={() => setUpdateModalData(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                fontSize: '18px',
+                color: colors.textMuted,
+                cursor: 'pointer',
+                fontWeight: 700
+              }}
+            >
+              ✕
+            </button>
+
+            {updateModalData.hasUpdate ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: colors.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary }}>
+                    <Zap size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>Software Update Available!</h3>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>A new version of Fillop CBT Guru is ready</p>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                    <span style={{ color: colors.textMuted }}>Current Version:</span>
+                    <strong style={{ color: colors.text }}>v{updateModalData.currentVersion}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                    <span style={{ color: colors.textMuted }}>New Version:</span>
+                    <strong style={{ color: colors.primary, fontWeight: 800 }}>v{updateModalData.latestVersion}</strong>
+                  </div>
+                  {updateModalData.sizeMb && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span style={{ color: colors.textMuted }}>Download Size:</span>
+                      <strong style={{ color: colors.text }}>{updateModalData.sizeMb} MB</strong>
+                    </div>
+                  )}
+                </div>
+
+                <p style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '24px' }}>
+                  Would you like to automatically download and install this new update now?
+                </p>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setUpdateModalData(null)}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      border: `1px solid ${colors.border}`,
+                      backgroundColor: 'transparent',
+                      color: colors.text,
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Later
+                  </button>
+                  <button
+                    onClick={handleStartUpdateDownload}
+                    disabled={isDownloadingUpdate}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: isDownloadingUpdate ? 'not-allowed' : 'pointer',
+                      opacity: isDownloadingUpdate ? 0.7 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {isDownloadingUpdate ? 'Downloading...' : 'Yes, Download Now'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: colors.successLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.success }}>
+                    <Trophy size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>Up to Date!</h3>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>You are running the latest version</p>
+                  </div>
+                </div>
+
+                <p style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '24px' }}>
+                  Your software is currently running version <strong>v{updateModalData.currentVersion}</strong>. No new updates are required at this time.
+                </p>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setUpdateModalData(null)}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Exam Trick Modal */}
       {showExamTrickModal && (
         <div

@@ -95,6 +95,7 @@ export interface UpdateStatusData {
 
 export interface DesktopUpdaterAPI {
   check: () => Promise<any>;
+  download: () => Promise<any>;
   install: () => Promise<void>;
   onStatus: (callback: (data: UpdateStatusData) => void) => () => void;
 }

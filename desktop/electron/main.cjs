@@ -10,7 +10,7 @@ let splashWindow = null;
 let updateCheckTimer = null;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
-autoUpdater.autoDownload = true;
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
 function checkForSoftwareUpdates() {
@@ -796,15 +796,91 @@ ipcMain.handle("app:open-external", async (event, url) => {
 // ================= IPC HANDLERS: AUTO UPDATER =================
 
 ipcMain.handle("update:check", async () => {
+  const currentVersion = app.getVersion();
+  console.log(`[AutoUpdater] Check initiated. Current installed version: v${currentVersion}`);
+
+  let ymlResult = null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let res;
+    try {
+      res = await fetch("https://cbt.filloptech.com/downloads/latest.yml", { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (res && res.ok) {
+      const text = await res.text();
+      console.log("[AutoUpdater] Fetched latest.yml from server:\n" + text);
+      const verMatch = text.match(/^version:\s*(.+)$/m);
+      const latestVersion = verMatch ? verMatch[1].trim().replace(/^['"]|['"]$/g, "") : "";
+
+      const sizeMatch = text.match(/size:\s*(\d+)/);
+      const bytes = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+      const pathMatch = text.match(/path:\s*(.+)$/m);
+      const filePath = pathMatch ? pathMatch[1].trim().replace(/^['"]|['"]$/g, "") : "";
+      const dateMatch = text.match(/releaseDate:\s*['"]?([^'"\n]+)['"]?/);
+      const releaseDate = dateMatch ? dateMatch[1].trim() : "";
+
+      if (latestVersion) {
+        const hasUpdate = latestVersion !== currentVersion;
+        console.log(`[AutoUpdater] Comparison result: Installed=v${currentVersion}, Latest=v${latestVersion}, HasUpdate=${hasUpdate}`);
+
+        ymlResult = {
+          hasUpdate,
+          currentVersion,
+          latestVersion,
+          releaseDate,
+          sizeMb: bytes > 0 ? Math.round(bytes / (1000 * 1000)) : 104,
+          downloadUrl: filePath.startsWith("http") ? filePath : `https://cbt.filloptech.com/downloads/${filePath || ""}`
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[AutoUpdater] Fetching latest.yml failed:", err.message);
+  }
+
   if (app.isPackaged) {
     try {
-      return await autoUpdater.checkForUpdates();
+      const updaterRes = await autoUpdater.checkForUpdates();
+      if (updaterRes && updaterRes.updateInfo) {
+        const updaterVersion = updaterRes.updateInfo.version;
+        const hasUpdate = updaterVersion !== currentVersion;
+        return {
+          hasUpdate,
+          currentVersion,
+          latestVersion: updaterVersion,
+          info: updaterRes.updateInfo,
+          ymlResult
+        };
+      }
     } catch (err) {
-      console.warn("[AutoUpdater] Manual check failed:", err);
-      return null;
+      console.warn("[AutoUpdater] autoUpdater.checkForUpdates failed:", err.message);
     }
   }
-  return null;
+
+  return {
+    hasUpdate: ymlResult ? ymlResult.hasUpdate : false,
+    currentVersion,
+    latestVersion: ymlResult ? ymlResult.latestVersion : currentVersion,
+    ymlResult
+  };
+});
+
+ipcMain.handle("update:download", async () => {
+  console.log("[AutoUpdater] User accepted update download. Starting downloadUpdate()...");
+  if (app.isPackaged) {
+    try {
+      return await autoUpdater.downloadUpdate();
+    } catch (err) {
+      console.error("[AutoUpdater] downloadUpdate failed:", err);
+      throw err;
+    }
+  } else {
+    console.log("[AutoUpdater] Simulated update download in dev environment.");
+    return { success: true, simulated: true };
+  }
 });
 
 ipcMain.handle("update:install", () => {
