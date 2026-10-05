@@ -155,6 +155,7 @@ export interface DesktopAPI {
   onSyncStatusChanged: (callback: () => void) => void;
   onPasscodeRevoked?: (callback: () => void) => void;
   setExamActive?: (isActive: boolean) => Promise<{ success: boolean; examActive: boolean }>;
+  getVersion?: () => Promise<string>;
   openExternal?: (url: string) => Promise<void>;
 
   // Temporary/Backwards compatibility support
