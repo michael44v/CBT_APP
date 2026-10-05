@@ -83,8 +83,8 @@
       "artifactName": "${name}-${version}-${arch}.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "createDesktopShortcut": true,
