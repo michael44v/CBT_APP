@@ -11,7 +11,6 @@
   "type": "module",
   "main": "electron/main.cjs",
   "productName": "Fillop CBT Guru",
-
   "scripts": {
     "dev": "vite",
     "build:react": "vite build",
@@ -25,7 +24,6 @@
     "dist:win:x64": "npm run build:react && electron-builder --win --x64",
     "dist:win:ia32": "npm run build:react && electron-builder --win --ia32"
   },
-
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",
     "@types/node": "^26.2.0",
@@ -41,49 +39,42 @@
     "vite": "^8.2.0",
     "wait-on": "^9.1.0"
   },
-
   "build": {
     "appId": "com.filloptech.cbtguru",
     "productName": "Fillop CBT Guru",
     "copyright": "Copyright © 2025 Fillop Technologies",
-
     "publish": [
       {
         "provider": "generic",
         "url": "https://cbt.filloptech.com/downloads/"
       }
     ],
-
     "npmRebuild": false,
-
     "files": [
       "dist/**/*",
       "electron/**/*",
       "node_modules/**/*"
     ],
-
     "asar": true,
-
     "asarUnpack": [
       "**/*.node"
     ],
-
     "directories": {
       "buildResources": "build",
       "output": "release"
     },
-
     "mac": {
       "target": "dmg",
       "category": "public.app-category.education",
       "icon": "build/icon.icns"
     },
-
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["ia32"]
+          "arch": [
+            "ia32"
+          ]
         }
       ],
       "icon": "build/icon.ico",
@@ -91,7 +82,6 @@
       "legalTrademarks": "Fillop CBT Guru",
       "artifactName": "${name}-${version}-${arch}.${ext}"
     },
-
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
@@ -106,10 +96,10 @@
       "warningsAsErrors": false
     }
   },
-
   "dependencies": {
     "better-sqlite3": "^12.0.0",
     "electron-updater": "^6.8.9",
+    "katex": "^0.19.0",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

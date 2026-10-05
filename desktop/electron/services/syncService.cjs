@@ -37,6 +37,7 @@ function notifyChange(reason) {
 
 function setExamActive(active) {
   examActive = !!active;
+  module.exports.examActive = examActive;
   console.log(`[Sync Service] Exam active state set to: ${examActive}`);
 }
 
@@ -488,6 +489,7 @@ module.exports = {
   startBackgroundSync,
   stopBackgroundSync,
   setExamActive,
+  examActive,
   setSyncIntervalMinutes,
   logSyncEvent
 };

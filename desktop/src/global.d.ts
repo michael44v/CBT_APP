@@ -144,8 +144,8 @@ export interface DesktopAPI {
   getResults: (userName?: string) => Promise<Result[]>;
 
   getNews: () => Promise<any[]>;
-  markNewsAsRead: (newsId: number, userName?: string) => Promise<{ success: boolean }>;
-  getReadNewsIds: (userName?: string) => Promise<number[]>;
+  markNewsAsRead: (newsId: string | number, userName?: string) => Promise<{ success: boolean }>;
+  getReadNewsIds: (userName?: string) => Promise<(string | number)[]>;
 
   // Sync API
   getSyncStatus: () => Promise<SyncStatus>;
