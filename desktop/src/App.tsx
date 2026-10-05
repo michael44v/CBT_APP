@@ -864,6 +864,9 @@ export default function App() {
       loadResultsHistory();
       loadSoftwareUpdates();
     }
+    if (window.updater && window.updater.check) {
+      window.updater.check().catch(() => {});
+    }
   };
 
   const startPracticeSession = async () => {
@@ -2690,11 +2693,23 @@ export default function App() {
                 <div style={styles.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: colors.textMuted, margin: 0, letterSpacing: '0.5px' }}>UPDATES</h3>
-                    {softwareUpdates.length > 0 && (
-                      <span style={{ fontSize: '11px', fontWeight: 800, backgroundColor: colors.primary, color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
-                        {softwareUpdates.length} New
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          if (window.updater && window.updater.check) {
+                            window.updater.check().then(() => alert("Checking for application updates...")).catch(() => {});
+                          }
+                        }}
+                        style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, fontSize: '11px', fontWeight: 700 }}
+                      >
+                        Check Updates
+                      </button>
+                      {softwareUpdates.length > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 800, backgroundColor: colors.primary, color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
+                          {softwareUpdates.length} New
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
