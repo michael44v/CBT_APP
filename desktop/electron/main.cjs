@@ -126,6 +126,15 @@ const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+try {
+  autoUpdater.setFeedURL({
+    provider: "generic",
+    url: "https://cbt.filloptech.com/downloads/"
+  });
+} catch (e) {
+  console.warn("[AutoUpdater] setFeedURL error:", e);
+}
+
 function checkForSoftwareUpdates() {
   if (!app.isPackaged) {
     console.log("[AutoUpdater] Software update check skipped: App not packaged.");
@@ -984,6 +993,15 @@ ipcMain.handle("update:check", async () => {
 ipcMain.handle("update:download", async (event, params) => {
   console.log("[AutoUpdater] User accepted update download. Params:", params);
 
+  if (app.isPackaged) {
+    try {
+      console.log("[AutoUpdater] Packaged mode: Initiating autoUpdater.downloadUpdate()...");
+      return await autoUpdater.downloadUpdate();
+    } catch (err) {
+      console.warn("[AutoUpdater] autoUpdater.downloadUpdate failed, using direct stream downloader fallback:", err);
+    }
+  }
+
   let targetUrl = "https://cbt.filloptech.com/downloads/cbt-app-1.0.3-ia32.exe";
   let version = "1.0.4";
 
@@ -998,22 +1016,39 @@ ipcMain.handle("update:download", async (event, params) => {
 });
 
 ipcMain.handle("update:install", async () => {
-  console.log("[AutoUpdater] Silent install requested. Executing installer silently...");
+  console.log("[AutoUpdater] Install and relaunch requested...");
+
+  if (app.isPackaged) {
+    try {
+      console.log("[AutoUpdater] Packaged mode: Calling autoUpdater.quitAndInstall(false, true)...");
+      autoUpdater.quitAndInstall(false, true);
+      return;
+    } catch (err) {
+      console.warn("[AutoUpdater] autoUpdater.quitAndInstall failed, using fallback installer launcher:", err);
+    }
+  }
+
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
-    console.log(`[AutoUpdater] Executing silent background installer: ${downloadedInstallerPath} /S`);
-    const { execFile } = require("child_process");
-    execFile(downloadedInstallerPath, ["/S"], (execErr) => {
-      if (execErr) console.error("[AutoUpdater] Silent installer execFile failed:", execErr);
-    });
+    console.log(`[AutoUpdater] Executing silent installer detached: ${downloadedInstallerPath} /S`);
+    try {
+      const { spawn } = require("child_process");
+      const installerProcess = spawn(downloadedInstallerPath, ["/S"], {
+        detached: true,
+        stdio: "ignore"
+      });
+      installerProcess.unref();
+    } catch (e) {
+      console.error("[AutoUpdater] Spawn installer error:", e);
+    }
+
     setTimeout(() => {
-      app.quit();
+      app.exit(0);
     }, 800);
     return;
   }
 
-  if (app.isPackaged) {
-    autoUpdater.quitAndInstall(true, true);
-  }
+  app.relaunch();
+  app.exit(0);
 });
 
 // Bootstrap application
