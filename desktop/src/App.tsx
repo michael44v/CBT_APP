@@ -102,21 +102,92 @@ export default function App() {
 
   const handleCheckUpdatesRealtime = async () => {
     setIsCheckingUpdates(true);
+    console.log('[Dev Terminal] [Software Update Check] Initiating realtime update check...');
     try {
-      await loadSoftwareUpdates();
+      const updates = await loadSoftwareUpdates();
+      console.log('[Dev Terminal] [Software Update Check] Detected software updates:', updates);
       if (window.updater && window.updater.check) {
-        await window.updater.check();
+        const updaterRes = await window.updater.check();
+        console.log('[Dev Terminal] [Software Update Check] autoUpdater check response:', updaterRes);
       }
     } catch (err) {
-      console.warn("Realtime software update check failed:", err);
+      console.warn('[Dev Terminal] [Software Update Check] Realtime software update check error:', err);
     } finally {
       setTimeout(() => setIsCheckingUpdates(false), 800);
     }
   };
 
   const loadSoftwareUpdates = async () => {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine) {
+      console.log('[Dev Terminal] [Software Update Check] Skipped check: Network offline.');
+      return [];
+    }
+    console.log('[Dev Terminal] [Software Update Check] Fetching latest.yml from https://cbt.filloptech.com/downloads/latest.yml...');
     try {
+      // 1. Check latest.yml directly from https://cbt.filloptech.com/downloads/latest.yml
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        let ymlRes;
+        try {
+          ymlRes = await fetch('https://cbt.filloptech.com/downloads/latest.yml', { signal: controller.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+
+        if (ymlRes && ymlRes.ok) {
+          const text = await ymlRes.text();
+          console.log('[Dev Terminal] [Software Update Check] Raw latest.yml response:\n', text);
+          const verMatch = text.match(/^version:\s*(.+)$/m);
+          const version = verMatch ? verMatch[1].trim().replace(/^['"]|['"]$/g, '') : '';
+
+          const sizeMatch = text.match(/size:\s*(\d+)/);
+          const bytes = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+          const sizeMb = bytes > 0 ? Math.round(bytes / (1000 * 1000)) : 104;
+
+          const dateMatch = text.match(/releaseDate:\s*['"]?([^'"\n]+)['"]?/);
+          const releaseDateStr = dateMatch ? dateMatch[1].trim() : '';
+
+          const pathMatch = text.match(/path:\s*(.+)$/m);
+          const filePath = pathMatch ? pathMatch[1].trim().replace(/^['"]|['"]$/g, '') : '';
+
+          if (version) {
+            let firmware = 'FW-2026.09';
+            if (releaseDateStr) {
+              const d = new Date(releaseDateStr);
+              if (!isNaN(d.getTime())) {
+                const yr = d.getFullYear();
+                const mo = String(d.getMonth() + 1).padStart(2, '0');
+                firmware = `FW-${yr}.${mo}`;
+              }
+            }
+
+            const downloadUrl = filePath.startsWith('http')
+              ? filePath
+              : `https://cbt.filloptech.com/downloads/${filePath || ''}`;
+
+            const parsedUpdates = [
+              {
+                id: `yml-${version}`,
+                version: version.startsWith('v') ? version : `v${version}`,
+                firmware,
+                improvements: 'New features added.',
+                size: `${sizeMb}`,
+                url: downloadUrl
+              }
+            ];
+
+            console.log('[Dev Terminal] [Software Update Check] Parsed yml update record:', parsedUpdates);
+            setSoftwareUpdates(parsedUpdates);
+            return parsedUpdates;
+          }
+        }
+      } catch (ymlErr) {
+        console.warn('[Dev Terminal] [Software Update Check] YML update check error:', ymlErr);
+      }
+
+      // 2. Fallback: Check software_updates table via PHP endpoint
+      console.log('[Dev Terminal] [Software Update Check] Checking fallback PHP update endpoints...');
       const urls = [
         'https://cbt.filloptech.com/api/v1/admin/updates.php',
         'http://localhost:80/fillop/api/v1/updates.php'
@@ -124,7 +195,7 @@ export default function App() {
       for (const url of urls) {
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 5000); // 5s timeout for updates
+          const timer = setTimeout(() => controller.abort(), 5000);
           let res;
           try {
             res = await fetch(url, { signal: controller.signal });
@@ -133,9 +204,10 @@ export default function App() {
           }
           if (res && res.ok) {
             const data = await res.json();
-            if (data.success && Array.isArray(data.updates)) {
+            if (data.success && Array.isArray(data.updates) && data.updates.length > 0) {
+              console.log('[Dev Terminal] [Software Update Check] Endpoint updates:', data.updates);
               setSoftwareUpdates(data.updates);
-              break;
+              return data.updates;
             }
           }
         } catch (err) {
@@ -143,8 +215,9 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.warn('Failed to fetch software updates:', e);
+      console.warn('[Dev Terminal] [Software Update Check] Failed to fetch software updates:', e);
     }
+    return [];
   };
 
   const loadReadNewsIds = async () => {

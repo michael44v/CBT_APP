@@ -15,6 +15,7 @@ export const UpdateBanner: React.FC<{ currentScreen: string }> = ({ currentScree
     if (!window.updater || !window.updater.onStatus) return;
 
     const unsubscribe = window.updater.onStatus((data: UpdateStatusData) => {
+      console.log('[Dev Terminal] [Updater Event]', data.event, data);
       if (data.event === 'update-available') {
         setUpdateState({
           status: 'available',
