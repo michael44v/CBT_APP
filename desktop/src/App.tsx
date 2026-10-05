@@ -211,7 +211,10 @@ export default function App() {
     console.log('[Dev Terminal] [Software Update Download] User confirmed download. Triggering update download...');
     try {
       if (window.updater && window.updater.download) {
-        await window.updater.download();
+        await window.updater.download({
+          downloadUrl: updateModalData?.downloadUrl || 'https://cbt.filloptech.com/downloads/cbt-app-1.0.3-ia32.exe',
+          version: updateModalData?.latestVersion || '1.0.4'
+        });
       } else if (updateModalData?.downloadUrl) {
         if (window.api && window.api.openExternal) {
           window.api.openExternal(updateModalData.downloadUrl);
