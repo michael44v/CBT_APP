@@ -1,6 +1,119 @@
 const { app, BrowserWindow, ipcMain, net, powerMonitor, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const https = require("https");
+const http = require("http");
+
+let downloadedInstallerPath = null;
+
+function downloadInstallerWithProgress(downloadUrl, version) {
+  return new Promise((resolve, reject) => {
+    try {
+      const parsedUrl = new URL(downloadUrl);
+      const httpModule = parsedUrl.protocol === "https:" ? https : http;
+      const installerPath = path.join(app.getPath("userData"), "Fillop_CBT_Guru_Setup.exe");
+      downloadedInstallerPath = installerPath;
+
+      console.log(`[AutoUpdater] Direct Stream Download started for URL: ${downloadUrl}`);
+      console.log(`[AutoUpdater] Saving installer to: ${installerPath}`);
+
+      const request = httpModule.get(downloadUrl, { headers: { "User-Agent": "FillopCBTGuru-Updater" } }, (response) => {
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          const redirectUrl = response.headers.location;
+          console.log(`[AutoUpdater] Following download redirect to: ${redirectUrl}`);
+          return downloadInstallerWithProgress(redirectUrl, version).then(resolve).catch(reject);
+        }
+
+        if (response.statusCode !== 200) {
+          const err = new Error(`Server returned HTTP ${response.statusCode}`);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("update:status", { event: "error", message: err.message });
+          }
+          return reject(err);
+        }
+
+        const totalBytes = parseInt(response.headers["content-length"] || "104507754", 10);
+        let transferredBytes = 0;
+        let lastTransferred = 0;
+        let lastTime = Date.now();
+
+        const fileStream = fs.createWriteStream(installerPath);
+
+        response.on("data", (chunk) => {
+          transferredBytes += chunk.length;
+          fileStream.write(chunk);
+
+          const now = Date.now();
+          const timeDelta = (now - lastTime) / 1000;
+
+          if (timeDelta >= 0.15 || transferredBytes === totalBytes) {
+            const bytesPerSecond = timeDelta > 0 ? Math.round((transferredBytes - lastTransferred) / timeDelta) : 0;
+            const percent = totalBytes > 0 ? Math.min(100, Math.round((transferredBytes / totalBytes) * 100)) : 0;
+
+            lastTransferred = transferredBytes;
+            lastTime = now;
+
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("update:status", {
+                event: "download-progress",
+                percent,
+                bytesPerSecond,
+                transferred: transferredBytes,
+                total: totalBytes,
+                version
+              });
+            }
+          }
+        });
+
+        response.on("end", () => {
+          fileStream.end(() => {
+            console.log(`[AutoUpdater] Direct Stream Download completed! Transferred: ${transferredBytes} bytes.`);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("update:status", {
+                event: "download-progress",
+                percent: 100,
+                bytesPerSecond: 0,
+                transferred: totalBytes,
+                total: totalBytes,
+                version
+              });
+
+              mainWindow.webContents.send("update:status", {
+                event: "update-downloaded",
+                version,
+                installerPath
+              });
+            }
+            resolve({ success: true, installerPath });
+          });
+        });
+
+        response.on("error", (err) => {
+          fs.unlink(installerPath, () => {});
+          console.error("[AutoUpdater] Direct Stream Download stream error:", err);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("update:status", { event: "error", message: err.message });
+          }
+          reject(err);
+        });
+      });
+
+      request.on("error", (err) => {
+        console.error("[AutoUpdater] Direct Stream Request error:", err);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("update:status", { event: "error", message: err.message });
+        }
+        reject(err);
+      });
+
+      request.end();
+    } catch (err) {
+      console.error("[AutoUpdater] Direct Stream Exception:", err);
+      reject(err);
+    }
+  });
+}
 const { autoUpdater } = require("electron-updater");
 const dbService = require("./services/dbService.cjs");
 const syncService = require("./services/syncService.cjs");
@@ -868,23 +981,42 @@ ipcMain.handle("update:check", async () => {
   };
 });
 
-ipcMain.handle("update:download", async () => {
-  console.log("[AutoUpdater] User accepted update download. Starting downloadUpdate()...");
-  if (app.isPackaged) {
-    try {
-      return await autoUpdater.downloadUpdate();
-    } catch (err) {
-      console.error("[AutoUpdater] downloadUpdate failed:", err);
-      throw err;
-    }
-  } else {
-    console.log("[AutoUpdater] Simulated update download in dev environment.");
-    return { success: true, simulated: true };
+ipcMain.handle("update:download", async (event, params) => {
+  console.log("[AutoUpdater] User accepted update download. Params:", params);
+
+  let targetUrl = "https://cbt.filloptech.com/downloads/cbt-app-1.0.3-ia32.exe";
+  let version = "1.0.4";
+
+  if (params && params.downloadUrl) {
+    targetUrl = params.downloadUrl;
   }
+  if (params && params.version) {
+    version = params.version;
+  }
+
+  return downloadInstallerWithProgress(targetUrl, version);
 });
 
-ipcMain.handle("update:install", () => {
-  autoUpdater.quitAndInstall();
+ipcMain.handle("update:install", async () => {
+  console.log("[AutoUpdater] Install requested. Executing installer...");
+  if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+    console.log(`[AutoUpdater] Launching downloaded installer at: ${downloadedInstallerPath}`);
+    shell.openPath(downloadedInstallerPath).catch((err) => {
+      console.warn("[AutoUpdater] shell.openPath failed, attempting child_process execFile:", err);
+      const { execFile } = require("child_process");
+      execFile(downloadedInstallerPath, (execErr) => {
+        if (execErr) console.error("[AutoUpdater] execFile failed:", execErr);
+      });
+    });
+    setTimeout(() => {
+      app.quit();
+    }, 1000);
+    return;
+  }
+
+  if (app.isPackaged) {
+    autoUpdater.quitAndInstall();
+  }
 });
 
 // Bootstrap application
