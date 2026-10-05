@@ -4,6 +4,7 @@ import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, 
 import { MathRenderer, formatQuestionWithFormula } from './MathRenderer';
 
 import { QuestionImage } from './QuestionImage';
+import { UpdateBanner } from './UpdateBanner';
 
 import "katex/dist/katex.min.css";
 
@@ -1456,6 +1457,7 @@ export default function App() {
 
   return (
     <div style={styles.app}>
+      <UpdateBanner currentScreen={screen} />
       {/* Sidebar - Hidden in Mock Exam Room to prevent distractions */}
       {screen !== 'ACTIVATION' && !(screen === 'EXAM' && !isPracticeMode && !isQuizMode) && !(screen === 'INSTRUCTIONS' && !isPracticeMode && !isQuizMode) && (
         <aside style={styles.sidebar}>

@@ -61,3 +61,15 @@ contextBridge.exposeInMainWorld("api", {
   },
   setExamActive: (isActive) => ipcRenderer.invoke("exam:set-active", isActive)
 });
+
+contextBridge.exposeInMainWorld("updater", {
+  check: () => ipcRenderer.invoke("update:check"),
+  install: () => ipcRenderer.invoke("update:install"),
+  onStatus: (callback) => {
+    const subscription = (event, data) => callback(data);
+    ipcRenderer.on("update:status", subscription);
+    return () => {
+      ipcRenderer.removeListener("update:status", subscription);
+    };
+  }
+});

@@ -83,6 +83,22 @@ export interface SavedLogin {
   last_used_at: string;
 }
 
+export interface UpdateStatusData {
+  event: 'checking-for-update' | 'update-available' | 'update-not-available' | 'download-progress' | 'update-downloaded' | 'error';
+  version?: string;
+  percent?: number;
+  bytesPerSecond?: number;
+  transferred?: number;
+  total?: number;
+  message?: string;
+}
+
+export interface DesktopUpdaterAPI {
+  check: () => Promise<any>;
+  install: () => Promise<void>;
+  onStatus: (callback: (data: UpdateStatusData) => void) => () => void;
+}
+
 export interface DesktopAPI {
   // Activation / Auth
   getActivationStatus: () => Promise<LocalActivation | null>;
@@ -148,6 +164,7 @@ export interface DesktopAPI {
 declare global {
   interface Window {
     api: DesktopAPI;
+    updater?: DesktopUpdaterAPI;
   }
 }
 
