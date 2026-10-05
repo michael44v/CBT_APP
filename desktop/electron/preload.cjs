@@ -59,7 +59,8 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.removeAllListeners("auth:revoked");
     ipcRenderer.on("auth:revoked", () => callback());
   },
-  setExamActive: (isActive) => ipcRenderer.invoke("exam:set-active", isActive)
+  setExamActive: (isActive) => ipcRenderer.invoke("exam:set-active", isActive),
+  openExternal: (url) => ipcRenderer.invoke("app:open-external", url)
 });
 
 contextBridge.exposeInMainWorld("updater", {

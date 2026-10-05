@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net, powerMonitor } = require("electron");
+const { app, BrowserWindow, ipcMain, net, powerMonitor, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
@@ -178,6 +178,13 @@ function createMainWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
 
   mainWindow.once("ready-to-show", () => {
     if (splashWindow) {
@@ -776,6 +783,14 @@ ipcMain.handle("sync:trigger", async () => {
 ipcMain.handle("sync:set-online", async (event, isOnline) => {
   syncService.setOnlineStatus(isOnline);
   return { isOnline: syncService.checkInternet() };
+});
+
+// ================= IPC HANDLERS: UTILITY =================
+
+ipcMain.handle("app:open-external", async (event, url) => {
+  if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+    await shell.openExternal(url);
+  }
 });
 
 // ================= IPC HANDLERS: AUTO UPDATER =================
