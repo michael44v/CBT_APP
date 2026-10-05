@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on("auth:revoked", () => callback());
   },
   setExamActive: (isActive) => ipcRenderer.invoke("exam:set-active", isActive),
+  getVersion: () => ipcRenderer.invoke("app:get-version"),
   openExternal: (url) => ipcRenderer.invoke("app:open-external", url)
 });
 

@@ -174,7 +174,7 @@ export default function App() {
 
       const latestVer = checkRes?.latestVersion || (updates[0]?.version ? updates[0].version.replace(/^v/, '') : '');
       const curVer = checkRes?.currentVersion || '1.0.2';
-      const hasUpd = checkRes?.hasUpdate || (latestVer && latestVer !== curVer);
+      const hasUpd = checkRes?.hasUpdate || isVersionNewer(curVer, latestVer);
 
       setUpdateModalData({
         hasUpdate: !!hasUpd,
@@ -198,6 +198,24 @@ export default function App() {
       return (kbPerSec / 1024).toFixed(1) + ' MB/s';
     }
     return Math.round(kbPerSec) + ' KB/s';
+  };
+
+  const isVersionNewer = (installedVer: string, latestVer: string): boolean => {
+    if (!latestVer) return false;
+    const cleanInst = installedVer.replace(/^v/, '').trim();
+    const cleanLatest = latestVer.replace(/^v/, '').trim();
+    if (cleanInst === cleanLatest) return false;
+
+    const pInst = cleanInst.split('.').map(n => parseInt(n, 10) || 0);
+    const pLatest = cleanLatest.split('.').map(n => parseInt(n, 10) || 0);
+
+    for (let i = 0; i < Math.max(pInst.length, pLatest.length); i++) {
+      const vInst = pInst[i] || 0;
+      const vLatest = pLatest[i] || 0;
+      if (vLatest > vInst) return true;
+      if (vLatest < vInst) return false;
+    }
+    return false;
   };
 
   const formatMb = (bytes?: number): string => {
@@ -285,6 +303,22 @@ export default function App() {
             const downloadUrl = filePath.startsWith('http')
               ? filePath
               : `https://cbt.filloptech.com/downloads/${filePath || ''}`;
+
+            let curVersion = '1.0.2';
+            if (window.api && window.api.getVersion) {
+              try {
+                curVersion = await window.api.getVersion();
+              } catch (e) {
+                // fallback
+              }
+            }
+            const isNewer = isVersionNewer(curVersion, version);
+
+            if (!isNewer) {
+              console.log(`[Dev Terminal] [Software Update Check] Current software version (v${curVersion}) is up to date against server (v${version}). No update card displayed.`);
+              setSoftwareUpdates([]);
+              return [];
+            }
 
             const parsedUpdates = [
               {
@@ -2940,7 +2974,14 @@ export default function App() {
 
                   <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {softwareUpdates.length === 0 ? (
-                      <p style={{ color: colors.textMuted, fontSize: '13px' }}>No software update records available.</p>
+                      <div style={{ padding: '16px 12px', textAlign: 'center', backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: colors.success }}>
+                          <Trophy size={16} /> Software is Up to Date
+                        </div>
+                        <p style={{ color: colors.textMuted, fontSize: '12px', margin: '6px 0 0', lineHeight: 1.4 }}>
+                          You are currently running the latest version of Fillop CBT Guru.
+                        </p>
+                      </div>
                     ) : (
                       softwareUpdates.map(upd => (
                         <div

@@ -909,6 +909,10 @@ ipcMain.handle("sync:set-online", async (event, isOnline) => {
 
 // ================= IPC HANDLERS: UTILITY =================
 
+ipcMain.handle("app:get-version", () => {
+  return app.getVersion();
+});
+
 ipcMain.handle("app:open-external", async (event, url) => {
   if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
     await shell.openExternal(url);
