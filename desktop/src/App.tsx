@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Subject, Topic, Question, Result, SyncStatus, SavedLogin } from './global';
-import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2 } from 'lucide-react';
+import { Sun, Moon, Lock, ShoppingCart, Newspaper, Calculator, Clock, Key, Zap, Trophy, User, Share2, RefreshCw } from 'lucide-react';
 import { MathRenderer, formatQuestionWithFormula } from './MathRenderer';
 
 import { QuestionImage } from './QuestionImage';
@@ -46,6 +46,7 @@ export default function App() {
   // Network & Updates State
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(navigator.onLine);
   const [softwareUpdates, setSoftwareUpdates] = useState<any[]>([]);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false);
 
   // News State & Read Tracking
   const [newsList, setNewsList] = useState<any[]>([]);
@@ -83,13 +84,35 @@ export default function App() {
       window.api.setOnlineStatus(navigator.onLine).then(() => loadSyncLogs());
     }
 
+    loadSoftwareUpdates();
+    const updateCardInterval = setInterval(() => {
+      if (navigator.onLine) {
+        loadSoftwareUpdates();
+      }
+    }, 30 * 60 * 1000);
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
+      clearInterval(updateCardInterval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleCheckUpdatesRealtime = async () => {
+    setIsCheckingUpdates(true);
+    try {
+      await loadSoftwareUpdates();
+      if (window.updater && window.updater.check) {
+        await window.updater.check();
+      }
+    } catch (err) {
+      console.warn("Realtime software update check failed:", err);
+    } finally {
+      setTimeout(() => setIsCheckingUpdates(false), 800);
+    }
+  };
 
   const loadSoftwareUpdates = async () => {
     if (!navigator.onLine) return;
@@ -2689,12 +2712,37 @@ export default function App() {
               <div style={{ width: '340px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={styles.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: colors.textMuted, margin: 0, letterSpacing: '0.5px' }}>UPDATES</h3>
-                    {softwareUpdates.length > 0 && (
-                      <span style={{ fontSize: '11px', fontWeight: 800, backgroundColor: colors.primary, color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
-                        {softwareUpdates.length} New
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: colors.textMuted, margin: 0, letterSpacing: '0.5px' }}>UPDATES</h3>
+                      {softwareUpdates.length > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 800, backgroundColor: colors.primary, color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
+                          {softwareUpdates.length} New
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleCheckUpdatesRealtime}
+                      disabled={isCheckingUpdates || !isNetworkOnline}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        border: `1px solid ${colors.border}`,
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                        color: colors.primary,
+                        cursor: isCheckingUpdates || !isNetworkOnline ? 'not-allowed' : 'pointer',
+                        opacity: isCheckingUpdates || !isNetworkOnline ? 0.6 : 1,
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Check for software updates in real-time"
+                    >
+                      <RefreshCw size={12} className={isCheckingUpdates ? 'spin' : ''} />
+                      {isCheckingUpdates ? 'Checking...' : 'Check Updates'}
+                    </button>
                   </div>
 
                   <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
