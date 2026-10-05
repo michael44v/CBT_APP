@@ -998,24 +998,21 @@ ipcMain.handle("update:download", async (event, params) => {
 });
 
 ipcMain.handle("update:install", async () => {
-  console.log("[AutoUpdater] Install requested. Executing installer...");
+  console.log("[AutoUpdater] Silent install requested. Executing installer silently...");
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
-    console.log(`[AutoUpdater] Launching downloaded installer at: ${downloadedInstallerPath}`);
-    shell.openPath(downloadedInstallerPath).catch((err) => {
-      console.warn("[AutoUpdater] shell.openPath failed, attempting child_process execFile:", err);
-      const { execFile } = require("child_process");
-      execFile(downloadedInstallerPath, (execErr) => {
-        if (execErr) console.error("[AutoUpdater] execFile failed:", execErr);
-      });
+    console.log(`[AutoUpdater] Executing silent background installer: ${downloadedInstallerPath} /S`);
+    const { execFile } = require("child_process");
+    execFile(downloadedInstallerPath, ["/S"], (execErr) => {
+      if (execErr) console.error("[AutoUpdater] Silent installer execFile failed:", execErr);
     });
     setTimeout(() => {
       app.quit();
-    }, 1000);
+    }, 800);
     return;
   }
 
   if (app.isPackaged) {
-    autoUpdater.quitAndInstall();
+    autoUpdater.quitAndInstall(true, true);
   }
 });
 
