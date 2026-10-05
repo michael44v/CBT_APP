@@ -154,7 +154,7 @@ function createTables() {
       );
 
       CREATE TABLE IF NOT EXISTS news (
-        id INTEGER PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         content TEXT NOT NULL,
         icon_name TEXT,
@@ -165,7 +165,7 @@ function createTables() {
 
       CREATE TABLE IF NOT EXISTS news_read (
         user_name TEXT NOT NULL,
-        news_id INTEGER NOT NULL,
+        news_id TEXT NOT NULL,
         read_at TEXT NOT NULL,
         PRIMARY KEY (user_name, news_id)
       );
@@ -268,6 +268,46 @@ function createTables() {
     try {
       exec(`ALTER TABLE topics ADD COLUMN content TEXT`);
     } catch (e) { /* Column already exists */ }
+
+    // Check if existing news table has INTEGER id column and migrate to TEXT if needed
+    try {
+      const newsInfo = all(`PRAGMA table_info(news)`);
+      const idCol = newsInfo.find(col => col.name === 'id');
+      if (idCol && idCol.type.toUpperCase() === 'INTEGER') {
+        console.log('[SQLite] Migrating news and news_read tables to support String/UUID IDs...');
+        exec(`
+          CREATE TABLE news_new (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            icon_name TEXT,
+            thumbnail_url TEXT,
+            published_at TEXT,
+            created_at TEXT NOT NULL
+          );
+          INSERT INTO news_new (id, title, content, icon_name, thumbnail_url, published_at, created_at)
+          SELECT CAST(id AS TEXT), title, content, icon_name, thumbnail_url, published_at, created_at FROM news;
+          DROP TABLE news;
+          ALTER TABLE news_new RENAME TO news;
+
+          CREATE TABLE news_read_new (
+            user_name TEXT NOT NULL,
+            news_id TEXT NOT NULL,
+            read_at TEXT NOT NULL,
+            PRIMARY KEY (user_name, news_id)
+          );
+          INSERT INTO news_read_new (user_name, news_id, read_at)
+          SELECT user_name, CAST(news_id AS TEXT), read_at FROM news_read;
+          DROP TABLE news_read;
+          ALTER TABLE news_read_new RENAME TO news_read;
+
+          CREATE INDEX IF NOT EXISTS idx_news_published_at ON news (published_at);
+        `);
+        console.log('[SQLite] News tables successfully migrated to TEXT IDs.');
+      }
+    } catch (e) {
+      console.error('[SQLite] Error checking or migrating news table schema:', e);
+    }
 
     console.log('[SQLite] Local database tables and indices verified.');
     console.log('[SQLite] Database initialization complete.');

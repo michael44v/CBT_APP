@@ -7,9 +7,52 @@ const syncService = require("./services/syncService.cjs");
 
 let mainWindow = null;
 let splashWindow = null;
+let updateCheckTimer = null;
+const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
+
+function checkForSoftwareUpdates() {
+  if (!app.isPackaged) {
+    console.log("[AutoUpdater] Software update check skipped: App not packaged.");
+    return;
+  }
+
+  // Do not run update check if exam is currently active
+  if (syncService.examActive) {
+    console.log("[AutoUpdater] Software update check skipped: Exam session active.");
+    return;
+  }
+
+  // Do not run update check if internet is offline
+  if (!syncService.checkInternet()) {
+    console.log("[AutoUpdater] Software update check skipped: Network offline.");
+    return;
+  }
+
+  console.log("[AutoUpdater] Checking for software updates...");
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.warn("[AutoUpdater] Software update check failed:", err);
+  });
+}
+
+function startPeriodicUpdateChecks() {
+  if (updateCheckTimer) {
+    clearInterval(updateCheckTimer);
+  }
+  console.log(`[AutoUpdater] Scheduling software update check every 30 minutes.`);
+  updateCheckTimer = setInterval(() => {
+    checkForSoftwareUpdates();
+  }, UPDATE_CHECK_INTERVAL_MS);
+}
+
+function stopPeriodicUpdateChecks() {
+  if (updateCheckTimer) {
+    clearInterval(updateCheckTimer);
+    updateCheckTimer = null;
+  }
+}
 
 function setupAutoUpdater() {
   autoUpdater.on("checking-for-update", () => {
@@ -224,10 +267,9 @@ async function initializeApp() {
     createMainWindow();
 
     if (app.isPackaged) {
-      autoUpdater.checkForUpdates().catch((err) => {
-        console.warn("[AutoUpdater] Initial update check failed:", err);
-      });
+      checkForSoftwareUpdates();
     }
+    startPeriodicUpdateChecks();
 
     syncService.startBackgroundSync();
 
@@ -760,20 +802,24 @@ app.whenReady().then(() => {
   initializeApp();
 
   powerMonitor.on("suspend", () => {
-    console.log("[Main] System entering suspend/sleep state. Pausing background sync.");
+    console.log("[Main] System entering suspend/sleep state. Pausing background sync and update checks.");
     syncService.stopBackgroundSync();
+    stopPeriodicUpdateChecks();
   });
 
   powerMonitor.on("resume", () => {
-    console.log("[Main] System resumed from sleep state. Resuming background sync.");
+    console.log("[Main] System resumed from sleep state. Resuming background sync and update checks.");
     syncService.startBackgroundSync();
+    startPeriodicUpdateChecks();
     if (syncService.checkInternet()) {
       syncService.triggerSync().catch(err => console.error("[Main] Post-resume sync error:", err));
+      checkForSoftwareUpdates();
     }
   });
 });
 
 app.on("window-all-closed", () => {
+  stopPeriodicUpdateChecks();
   syncService.stopBackgroundSync();
   dbService.closeDatabase();
   if (process.platform !== "darwin") {
