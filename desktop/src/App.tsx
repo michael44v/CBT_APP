@@ -48,6 +48,16 @@ export default function App() {
   const [softwareUpdates, setSoftwareUpdates] = useState<any[]>([]);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState<boolean>(false);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    status: 'idle' | 'downloading' | 'ready' | 'error';
+    percent: number;
+    bytesPerSecond: number;
+    transferred: number;
+    total: number;
+    version?: string;
+    errorMessage?: string;
+  }>({ status: 'idle', percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 });
+
   const [updateModalData, setUpdateModalData] = useState<{
     hasUpdate: boolean;
     currentVersion: string;
@@ -109,6 +119,46 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!window.updater || !window.updater.onStatus) return;
+
+    const unsubscribe = window.updater.onStatus((data: any) => {
+      console.log('[Dev Terminal] Updater Status Event in App.tsx:', data);
+      if (data.event === 'download-progress') {
+        setDownloadProgress({
+          status: 'downloading',
+          percent: data.percent ?? 0,
+          bytesPerSecond: data.bytesPerSecond ?? 0,
+          transferred: data.transferred ?? 0,
+          total: data.total ?? 0,
+          version: data.version
+        });
+      } else if (data.event === 'update-downloaded') {
+        setDownloadProgress({
+          status: 'ready',
+          percent: 100,
+          bytesPerSecond: 0,
+          transferred: data.total || 0,
+          total: data.total || 0,
+          version: data.version
+        });
+      } else if (data.event === 'error') {
+        setDownloadProgress({
+          status: 'error',
+          percent: 0,
+          bytesPerSecond: 0,
+          transferred: 0,
+          total: 0,
+          errorMessage: data.message || 'An error occurred during update download.'
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const handleCheckUpdatesRealtime = async () => {
     setIsCheckingUpdates(true);
     console.log('[Dev Terminal] [Software Update Check] Initiating realtime update check...');
@@ -141,8 +191,23 @@ export default function App() {
     }
   };
 
+  const formatSpeed = (bytesPerSec?: number): string => {
+    if (!bytesPerSec || bytesPerSec <= 0) return '0 KB/s';
+    const kbPerSec = bytesPerSec / 1024;
+    if (kbPerSec >= 1024) {
+      return (kbPerSec / 1024).toFixed(1) + ' MB/s';
+    }
+    return Math.round(kbPerSec) + ' KB/s';
+  };
+
+  const formatMb = (bytes?: number): string => {
+    if (!bytes || bytes <= 0) return '0 MB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   const handleStartUpdateDownload = async () => {
     setIsDownloadingUpdate(true);
+    setDownloadProgress({ status: 'downloading', percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 });
     console.log('[Dev Terminal] [Software Update Download] User confirmed download. Triggering update download...');
     try {
       if (window.updater && window.updater.download) {
@@ -154,11 +219,18 @@ export default function App() {
           window.open(updateModalData.downloadUrl, '_blank');
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Dev Terminal] [Software Update Download] Error initiating download:', err);
+      setDownloadProgress({
+        status: 'error',
+        percent: 0,
+        bytesPerSecond: 0,
+        transferred: 0,
+        total: 0,
+        errorMessage: err ? (err.message || String(err)) : 'Failed to start update download.'
+      });
     } finally {
       setIsDownloadingUpdate(false);
-      setUpdateModalData(null);
     }
   };
 
@@ -2870,21 +2942,13 @@ export default function App() {
                       softwareUpdates.map(upd => (
                         <div
                           key={upd.id}
-                          onClick={() => {
-                            if (upd.url) {
-                              if (window.api && window.api.openExternal) {
-                                window.api.openExternal(upd.url);
-                              } else {
-                                window.open(upd.url, '_blank');
-                              }
-                            }
-                          }}
+                          onClick={() => handleCheckUpdatesRealtime()}
                           style={{
                             padding: '12px',
                             borderRadius: '10px',
                             backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
                             border: `1px solid ${colors.border}`,
-                            cursor: upd.url ? 'pointer' : 'default',
+                            cursor: 'pointer',
                             transition: 'all 0.15s ease'
                           }}
                         >
@@ -2900,9 +2964,9 @@ export default function App() {
                             {upd.improvements}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: colors.textMuted }}>
-                            <span>Size: {upd.size}</span>
+                            <span>Size: {upd.size.includes('MB') ? upd.size : `${upd.size} MB`}</span>
                             <span style={{ color: colors.primary, fontWeight: 700 }}>
-                              {upd.url ? 'Download Update ↗' : ''}
+                              Download Update ↗
                             </span>
                           </div>
                         </div>
@@ -4361,12 +4425,13 @@ export default function App() {
         >
           <div
             style={{
-              backgroundColor: colors.card,
+              backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+              color: colors.text,
               borderRadius: '16px',
               maxWidth: '480px',
               width: '100%',
               padding: '28px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
               border: `1px solid ${colors.border}`,
               position: 'relative'
             }}
@@ -4388,7 +4453,159 @@ export default function App() {
               ✕
             </button>
 
-            {updateModalData.hasUpdate ? (
+            {downloadProgress.status === 'downloading' ? (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: colors.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary }}>
+                    <RefreshCw size={24} className="spin" />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>Downloading Software Update...</h3>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>Downloading update file directly from server</p>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.text }}>Progress: {downloadProgress.percent}%</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.primary }}>{formatSpeed(downloadProgress.bytesPerSecond)}</span>
+                  </div>
+
+                  <div style={{ height: '10px', backgroundColor: isDarkMode ? '#334155' : '#e2e8f0', borderRadius: '5px', overflow: 'hidden', marginBottom: '10px' }}>
+                    <div style={{ width: `${downloadProgress.percent}%`, height: '100%', backgroundColor: colors.primary, transition: 'width 0.2s ease', borderRadius: '5px' }} />
+                  </div>
+
+                  {downloadProgress.total > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: colors.textMuted }}>
+                      <span>Downloaded: {formatMb(downloadProgress.transferred)}</span>
+                      <span>Total: {formatMb(downloadProgress.total)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, textAlign: 'center' }}>
+                  Keep the application open. You will be prompted to restart once complete.
+                </p>
+              </div>
+            ) : downloadProgress.status === 'ready' ? (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: colors.successLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.success }}>
+                    <Trophy size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>Update Download Complete!</h3>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>Fillop CBT Guru version v{downloadProgress.version || updateModalData.latestVersion} is ready</p>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: colors.successLight, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.success}`, marginBottom: '24px', color: colors.text }}>
+                  <p style={{ fontSize: '13px', margin: 0, lineHeight: 1.5, fontWeight: 600 }}>
+                    The software update package has been downloaded successfully. Click below to restart Fillop CBT Guru and complete the update installation now.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => { setUpdateModalData(null); setDownloadProgress({ status: 'idle', percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 }); }}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      border: `1px solid ${colors.border}`,
+                      backgroundColor: 'transparent',
+                      color: colors.text,
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Restart Later
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.updater && window.updater.install) {
+                        window.updater.install();
+                      }
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: colors.success,
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Restart &amp; Install Now
+                  </button>
+                </div>
+              </div>
+            ) : downloadProgress.status === 'error' ? (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: colors.dangerLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.danger }}>
+                    <Zap size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: colors.text }}>Update Download Issue</h3>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>An error occurred during automatic download</p>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: colors.dangerLight, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.danger}`, marginBottom: '24px', color: colors.text }}>
+                  <p style={{ fontSize: '13px', margin: '0 0 8px', fontWeight: 700, color: colors.danger }}>
+                    {downloadProgress.errorMessage || 'Unable to download update package directly.'}
+                  </p>
+                  <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.4, color: colors.textSecondary }}>
+                    You can download the update installer manually directly from our server in your browser.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => { setUpdateModalData(null); setDownloadProgress({ status: 'idle', percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 }); }}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      border: `1px solid ${colors.border}`,
+                      backgroundColor: 'transparent',
+                      color: colors.text,
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      const url = updateModalData.downloadUrl || 'https://cbt.filloptech.com/downloads/';
+                      if (window.api && window.api.openExternal) {
+                        window.api.openExternal(url);
+                      } else {
+                        window.open(url, '_blank');
+                      }
+                      setUpdateModalData(null);
+                      setDownloadProgress({ status: 'idle', percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 });
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Download Installer via Browser ↗
+                  </button>
+                </div>
+              </div>
+            ) : updateModalData.hasUpdate ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                   <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: colors.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary }}>
