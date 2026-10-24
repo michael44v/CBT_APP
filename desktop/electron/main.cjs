@@ -6,6 +6,10 @@ const http = require("http");
 
 let downloadedInstallerPath = null;
 
+// True when running as a Microsoft Store (MSIX/appx) package.
+// The Store handles updates, so all self-update logic is disabled in that case.
+const isStoreBuild = Boolean(process.windowsStore);
+
 function downloadInstallerWithProgress(downloadUrl, version) {
   return new Promise((resolve, reject) => {
     try {
@@ -124,18 +128,25 @@ let updateCheckTimer = null;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoInstallOnAppQuit = !isStoreBuild;
 
-try {
-  autoUpdater.setFeedURL({
-    provider: "generic",
-    url: "https://cbt.filloptech.com/downloads/"
-  });
-} catch (e) {
-  console.warn("[AutoUpdater] setFeedURL error:", e);
+if (!isStoreBuild) {
+  try {
+    autoUpdater.setFeedURL({
+      provider: "generic",
+      url: "https://cbt.filloptech.com/downloads/"
+    });
+  } catch (e) {
+    console.warn("[AutoUpdater] setFeedURL error:", e);
+  }
 }
 
 function checkForSoftwareUpdates() {
+  if (isStoreBuild) {
+    console.log("[AutoUpdater] Software update check skipped: Microsoft Store build.");
+    return;
+  }
+
   if (!app.isPackaged) {
     console.log("[AutoUpdater] Software update check skipped: App not packaged.");
     return;
@@ -160,6 +171,8 @@ function checkForSoftwareUpdates() {
 }
 
 function startPeriodicUpdateChecks() {
+  if (isStoreBuild) return;
+
   if (updateCheckTimer) {
     clearInterval(updateCheckTimer);
   }
@@ -922,6 +935,11 @@ ipcMain.handle("app:open-external", async (event, url) => {
 // ================= IPC HANDLERS: AUTO UPDATER =================
 
 ipcMain.handle("update:check", async () => {
+  if (isStoreBuild) {
+    const v = app.getVersion();
+    return { hasUpdate: false, currentVersion: v, latestVersion: v, ymlResult: null };
+  }
+
   const currentVersion = app.getVersion();
   console.log(`[AutoUpdater] Check initiated. Current installed version: v${currentVersion}`);
 
@@ -995,6 +1013,10 @@ ipcMain.handle("update:check", async () => {
 });
 
 ipcMain.handle("update:download", async (event, params) => {
+  if (isStoreBuild) {
+    return { success: false, error: "Updates are delivered by the Microsoft Store." };
+  }
+
   console.log("[AutoUpdater] User accepted update download. Params:", params);
 
   if (app.isPackaged) {
@@ -1020,6 +1042,8 @@ ipcMain.handle("update:download", async (event, params) => {
 });
 
 ipcMain.handle("update:install", async () => {
+  if (isStoreBuild) return;
+
   console.log("[AutoUpdater] Install and relaunch requested...");
 
   if (app.isPackaged) {

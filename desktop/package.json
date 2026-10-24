@@ -75,6 +75,12 @@
           "arch": [
             "ia32"
           ]
+        },
+        {
+          "target": "appx",
+          "arch": [
+            "ia32"
+          ]
         }
       ],
       "icon": "build/icon.ico",
@@ -94,6 +100,14 @@
       "runAfterFinish": true,
       "displayLanguageSelector": false,
       "warningsAsErrors": false
+    },
+    "appx": {
+      "identityName": "FillopTech.FillopCBT",
+      "publisher": "CN=7AF52F04-5ED4-4F2F-B1F1-5E34E2D8C901",
+      "publisherDisplayName": "Fillop Tech",
+      "applicationId": "FillopCBTGuru",
+      "displayName": "Fillop CBT",
+      "languages": ["en-US"]
     }
   },
   "dependencies": {
