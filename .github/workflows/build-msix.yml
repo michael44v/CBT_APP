@@ -58,10 +58,14 @@ jobs:
         shell: pwsh
         run: |
           $env:ELECTRON_RUN_AS_NODE = "1"
-          $exe = "release/win-ia32-unpacked/Fillop CBT Guru.exe"
+          $exe = (Resolve-Path "release/win-ia32-unpacked/Fillop CBT Guru.exe").Path
           $code = "const path=require('path');const D=require(path.join(path.dirname(process.execPath),'resources','app.asar','node_modules','better-sqlite3'));const db=new D(':memory:');console.log('SQLite works, version', db.prepare('select sqlite_version() v').get().v)"
-          & $exe -e $code
-          if ($LASTEXITCODE -ne 0) { throw "SQLite failed to load from the packaged app" }
+          $p = Start-Process -FilePath $exe -ArgumentList @("-e", "`"$code`"") -Wait -PassThru -NoNewWindow -RedirectStandardOutput out.txt -RedirectStandardError err.txt
+          Get-Content out.txt
+          Get-Content err.txt
+          if ($p.ExitCode -ne 0 -or -not (Select-String -Path out.txt -Pattern "SQLite works" -Quiet)) {
+            throw "SQLite failed to load from the packaged app"
+          }
 
       - uses: actions/upload-artifact@v4
         with:

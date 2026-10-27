@@ -33,3 +33,28 @@ Stack trace:
 #0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
 #1 {main}
   thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
+[26-Oct-2026 15:43:01 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'FILLOP' for key 'code' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php:59
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php(59): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php on line 59
+[26-Oct-2026 15:44:02 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'FILLOP' for key 'code' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php:59
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php(59): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php on line 59
+[26-Oct-2026 15:44:28 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'FILLOP' for key 'code' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php:59
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php(59): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php on line 59
+[26-Oct-2026 15:48:45 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'FILLOP' for key 'code' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php:59
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php(59): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php on line 59
+[26-Oct-2026 15:50:19 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'FILLOP' for key 'code' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php:59
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php(59): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/promo_codes.php on line 59
