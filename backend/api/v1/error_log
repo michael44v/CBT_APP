@@ -1,0 +1,70 @@
+[19-Aug-2026 20:43:26 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.passcodes' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php:23
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php(23): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php on line 23
+[19-Aug-2026 20:43:53 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.passcodes' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php:23
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php(23): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php on line 23
+[19-Aug-2026 20:44:34 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.passcodes' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php:23
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php(23): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php on line 23
+[20-Aug-2026 05:44:51 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.pricing_settings' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php:17
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php(17): mysqli->query()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php on line 17
+[20-Aug-2026 05:44:51 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.pricing_settings' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php:17
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php(17): mysqli->query()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php on line 17
+[20-Aug-2026 05:45:21 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.pricing_settings' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php:17
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php(17): mysqli->query()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php on line 17
+[20-Aug-2026 05:45:21 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.pricing_settings' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php:17
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php(17): mysqli->query()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php on line 17
+[20-Aug-2026 05:45:57 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.pricing_settings' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php:17
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php(17): mysqli->query()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php on line 17
+[20-Aug-2026 05:45:57 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.pricing_settings' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php:17
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php(17): mysqli->query()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/pricing.php on line 17
+[20-Aug-2026 07:18:57 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.passcodes' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php:23
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php(23): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php on line 23
+[20-Aug-2026 07:20:03 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'fillqtym_fillop_cbt.passcodes' doesn't exist in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php:23
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php(23): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/passcode_info.php on line 23
+[05-Sep-2026 12:30:58 UTC] PHP Warning:  require_once(/home/fillqtym/cbt.filloptech.com/api/v1/db/db.php): Failed to open stream: No such file or directory in /home/fillqtym/cbt.filloptech.com/api/v1/results.php on line 2
+[05-Sep-2026 12:30:58 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/fillqtym/cbt.filloptech.com/api/v1/db/db.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/fillqtym/cbt.filloptech.com/api/v1/results.php:2
+Stack trace:
+#0 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/results.php on line 2
+[07-Sep-2026 02:04:12 UTC] PHP Warning:  require_once(/home/fillqtym/cbt.filloptech.com/api/v1/db/db.php): Failed to open stream: No such file or directory in /home/fillqtym/cbt.filloptech.com/api/v1/results.php on line 2
+[07-Sep-2026 02:04:12 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/fillqtym/cbt.filloptech.com/api/v1/db/db.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/fillqtym/cbt.filloptech.com/api/v1/results.php:2
+Stack trace:
+#0 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/results.php on line 2
+[07-Sep-2026 02:04:15 UTC] PHP Warning:  require_once(/home/fillqtym/cbt.filloptech.com/api/v1/db/db.php): Failed to open stream: No such file or directory in /home/fillqtym/cbt.filloptech.com/api/v1/results.php on line 2
+[07-Sep-2026 02:04:15 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/fillqtym/cbt.filloptech.com/api/v1/db/db.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/fillqtym/cbt.filloptech.com/api/v1/results.php:2
+Stack trace:
+#0 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/results.php on line 2

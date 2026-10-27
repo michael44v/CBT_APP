@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Papa from 'papaparse';
 import {
   BookOpen,
-  Search,
   Plus,
   Trash2,
   Edit,
   Download,
-  Filter,
-  MoveRight,
   Zap,
-  CheckCircle,
-  FileText,
-  Image as ImageIcon
+  CheckCircle
 } from 'lucide-react';
 import { Question, Subject, Topic } from './types';
 import { FormulaEditor, MathRenderer } from './FormulaEditor';
@@ -27,6 +22,10 @@ interface QuestionBankBrowserProps {
   showNotification: (msg: string, type?: 'success' | 'error') => void;
 }
 
+// ---- Helpers: API returns ids as strings, so always compare safely ----
+const norm = (v: unknown) => String(v ?? '').trim().toUpperCase();
+const sameId = (a: unknown, b: unknown) => String(a ?? '').trim() === String(b ?? '').trim();
+
 export default function QuestionBankBrowser({
   apiBase,
   dbSubjects,
@@ -35,10 +34,10 @@ export default function QuestionBankBrowser({
   onRefreshData,
   showNotification
 }: QuestionBankBrowserProps) {
-  // Filter States
+  // Filter States (ids kept as strings to match API data)
   const [filterExam, setFilterExam] = useState<string>('');
-  const [filterSubjectId, setFilterSubjectId] = useState<number | ''>('');
-  const [filterTopicId, setFilterTopicId] = useState<number | ''>('');
+  const [filterSubjectId, setFilterSubjectId] = useState<string>('');
+  const [filterTopicId, setFilterTopicId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Bulk Actions
@@ -79,7 +78,7 @@ export default function QuestionBankBrowser({
   const [showQuickAddModal, setShowQuickAddModal] = useState<boolean>(false);
   const [quickForm, setQuickForm] = useState({
     exam_type: 'JAMB',
-    subject_id: dbSubjects[0]?.id || 1,
+    subject_id: Number(dbSubjects[0]?.id) || 1,
     year: new Date().getFullYear(),
     topic_id: 1,
     difficulty: 'medium',
@@ -104,35 +103,67 @@ export default function QuestionBankBrowser({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 20;
 
-  // Filtered List
-  const filteredQuestions = questions.filter(q => {
-    if (filterExam && q.exam_type !== filterExam) return false;
-    if (filterSubjectId && q.subject_id !== Number(filterSubjectId)) return false;
-    if (filterTopicId && q.topic_id !== Number(filterTopicId)) return false;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const subjectName = q.subject_name || dbSubjects.find(s => Number(s.id) === Number(q.subject_id))?.name || '';
-      const topicName = q.topic_name || dbTopics.find(t => Number(t.id) === Number(q.topic_id))?.name || '';
-      const matchText = q.question_text || '';
-      const matchFormula = q.formula || '';
-      const matchOptA = q.option_a || '';
-      const matchOptB = q.option_b || '';
-      const matchOptC = q.option_c || '';
-      const matchOptD = q.option_d || '';
+  // ---------- Dropdown option lists ----------
+  const subjectOptions = dbSubjects.filter(
+    (s) => !filterExam || norm(s.exam_type) === norm(filterExam)
+  );
 
-      const combined = `${subjectName} ${topicName} ${matchText} ${matchFormula} ${matchOptA} ${matchOptB} ${matchOptC} ${matchOptD}`.toLowerCase();
-      if (!combined.includes(term)) return false;
+  const topicOptions = dbTopics.filter((t) => {
+    if (filterSubjectId !== '') return sameId(t.subject_id, filterSubjectId);
+    if (filterExam) {
+      // limit topics to subjects of the selected exam
+      return subjectOptions.some((s) => sameId(s.id, t.subject_id));
     }
     return true;
   });
 
+  // ---------- Filtered List ----------
+  const filteredQuestions = questions.filter((q) => {
+    if (filterExam && norm(q.exam_type) !== norm(filterExam)) return false;
+
+    if (filterSubjectId !== '' && !sameId(q.subject_id, filterSubjectId)) return false;
+
+    if (filterTopicId !== '' && !sameId(q.topic_id, filterTopicId)) return false;
+
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
+      const subjectName =
+        q.subject_name || dbSubjects.find((s) => sameId(s.id, q.subject_id))?.name || '';
+      const topicName =
+        q.topic_name || dbTopics.find((t) => sameId(t.id, q.topic_id))?.name || '';
+
+      const searchableText = [
+        subjectName,
+        topicName,
+        q.question_text,
+        q.formula,
+        q.option_a,
+        q.option_b,
+        q.option_c,
+        q.option_d
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (!searchableText.includes(term)) return false;
+    }
+
+    return true;
+  });
+
   const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage) || 1;
-  const paginatedQuestions = filteredQuestions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const safePage = Math.min(currentPage, totalPages);
+
+  const paginatedQuestions = filteredQuestions.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
 
   // Selection Checkbox Logic
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedQuestionIds(paginatedQuestions.map(q => q.id));
+      setSelectedQuestionIds(paginatedQuestions.map((q) => q.id));
     } else {
       setSelectedQuestionIds([]);
     }
@@ -140,9 +171,9 @@ export default function QuestionBankBrowser({
 
   const handleToggleSelect = (qId: number) => {
     if (selectedQuestionIds.includes(qId)) {
-      setSelectedQuestionIds(prev => prev.filter(id => id !== qId));
+      setSelectedQuestionIds((prev) => prev.filter((id) => id !== qId));
     } else {
-      setSelectedQuestionIds(prev => [...prev, qId]);
+      setSelectedQuestionIds((prev) => [...prev, qId]);
     }
   };
 
@@ -158,9 +189,9 @@ export default function QuestionBankBrowser({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
         },
-        body: JSON.stringify({ action: 'create', ...quickForm }),
+        body: JSON.stringify({ action: 'create', ...quickForm })
       });
       const data = await res.json();
       if (data.success) {
@@ -185,9 +216,9 @@ export default function QuestionBankBrowser({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
         },
-        body: JSON.stringify({ action: 'update', ...editingQuestion }),
+        body: JSON.stringify({ action: 'update', ...editingQuestion })
       });
       const data = await res.json();
       if (data.success) {
@@ -212,9 +243,9 @@ export default function QuestionBankBrowser({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
         },
-        body: JSON.stringify({ action: 'bulk_delete', ids: selectedQuestionIds }),
+        body: JSON.stringify({ action: 'bulk_delete', ids: selectedQuestionIds })
       });
       const data = await res.json();
       if (data.success) {
@@ -238,9 +269,9 @@ export default function QuestionBankBrowser({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
         },
-        body: JSON.stringify({ action: 'delete_all' }),
+        body: JSON.stringify({ action: 'delete_all' })
       });
       const data = await res.json();
       if (data.success) {
@@ -265,13 +296,13 @@ export default function QuestionBankBrowser({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
         },
         body: JSON.stringify({
           action: 'bulk_move',
           ids: selectedQuestionIds,
           target_topic_id: Number(bulkTargetTopicId)
-        }),
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -296,13 +327,13 @@ export default function QuestionBankBrowser({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
         },
         body: JSON.stringify({
           action: 'bulk_change_difficulty',
           ids: selectedQuestionIds,
           difficulty: bulkNewDifficulty
-        }),
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -321,7 +352,7 @@ export default function QuestionBankBrowser({
   const handleExportCSV = () => {
     if (filteredQuestions.length === 0) return;
 
-    const exportData = filteredQuestions.map(q => ({
+    const exportData = filteredQuestions.map((q) => ({
       id: q.id,
       exam_type: q.exam_type,
       subject_name: q.subject_name || `Subject #${q.subject_id}`,
@@ -391,7 +422,16 @@ export default function QuestionBankBrowser({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
         <div className="form-group" style={{ margin: 0 }}>
           <label className="form-label" style={{ fontSize: '11px' }}>Exam Category</label>
-          <select className="form-input" value={filterExam} onChange={(e) => setFilterExam(e.target.value)}>
+          <select
+            className="form-input"
+            value={filterExam}
+            onChange={(e) => {
+              setFilterExam(e.target.value);
+              setFilterSubjectId('');
+              setFilterTopicId('');
+              setCurrentPage(1);
+            }}
+          >
             <option value="">All Exams</option>
             <option value="JAMB">JAMB</option>
             <option value="WAEC">WAEC</option>
@@ -405,16 +445,17 @@ export default function QuestionBankBrowser({
             className="form-input"
             value={filterSubjectId}
             onChange={(e) => {
-              setFilterSubjectId(e.target.value ? Number(e.target.value) : '');
+              setFilterSubjectId(e.target.value);
               setFilterTopicId('');
+              setCurrentPage(1);
             }}
           >
             <option value="">All Subjects</option>
-            {dbSubjects
-              .filter(s => !filterExam || s.exam_type === filterExam)
-              .map(s => (
-                <option key={s.id} value={s.id}>[{s.exam_type}] {s.name}</option>
-              ))}
+            {subjectOptions.map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                [{s.exam_type}] {s.name}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -423,14 +464,15 @@ export default function QuestionBankBrowser({
           <select
             className="form-input"
             value={filterTopicId}
-            onChange={(e) => setFilterTopicId(e.target.value ? Number(e.target.value) : '')}
+            onChange={(e) => {
+              setFilterTopicId(e.target.value);
+              setCurrentPage(1);
+            }}
           >
             <option value="">All Topics</option>
-            {dbTopics
-              .filter(t => !filterSubjectId || t.subject_id === Number(filterSubjectId))
-              .map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+            {topicOptions.map((t) => (
+              <option key={t.id} value={String(t.id)}>{t.name}</option>
+            ))}
           </select>
         </div>
 
@@ -441,7 +483,10 @@ export default function QuestionBankBrowser({
             className="form-input"
             placeholder="Search subject name, topic, formula, question..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
           />
         </div>
       </div>
@@ -505,7 +550,10 @@ export default function QuestionBankBrowser({
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
-                  checked={paginatedQuestions.length > 0 && selectedQuestionIds.length === paginatedQuestions.length}
+                  checked={
+                    paginatedQuestions.length > 0 &&
+                    paginatedQuestions.every((q) => selectedQuestionIds.includes(q.id))
+                  }
                 />
               </th>
               <th>ID</th>
@@ -585,21 +633,21 @@ export default function QuestionBankBrowser({
       {/* Pagination Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Showing page {currentPage} of {totalPages}
+          Showing page {safePage} of {totalPages}
         </span>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             className="btn btn-secondary"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
             style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
           >
             Prev
           </button>
           <button
             className="btn btn-secondary"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
             style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
           >
             Next
@@ -629,7 +677,22 @@ export default function QuestionBankBrowser({
             <form onSubmit={handleSaveQuickAdd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Exam Type</label>
-                <select className="form-input" value={quickForm.exam_type} onChange={(e) => setQuickForm({ ...quickForm, exam_type: e.target.value })}>
+                <select
+                  className="form-input"
+                  value={quickForm.exam_type}
+                  onChange={(e) => {
+                    const exam = e.target.value;
+                    const firstSubject = dbSubjects.find((s) => norm(s.exam_type) === norm(exam));
+                    const subjectId = firstSubject ? Number(firstSubject.id) : quickForm.subject_id;
+                    const firstTopic = dbTopics.find((t) => sameId(t.subject_id, subjectId));
+                    setQuickForm({
+                      ...quickForm,
+                      exam_type: exam,
+                      subject_id: subjectId,
+                      topic_id: firstTopic ? Number(firstTopic.id) : quickForm.topic_id
+                    });
+                  }}
+                >
                   <option value="JAMB">JAMB</option>
                   <option value="WAEC">WAEC</option>
                   <option value="NECO">NECO</option>
@@ -638,8 +701,20 @@ export default function QuestionBankBrowser({
 
               <div className="form-group">
                 <label className="form-label">Subject</label>
-                <select className="form-input" value={quickForm.subject_id} onChange={(e) => setQuickForm({ ...quickForm, subject_id: Number(e.target.value) })}>
-                  {dbSubjects.filter(s => s.exam_type === quickForm.exam_type).map(s => (
+                <select
+                  className="form-input"
+                  value={quickForm.subject_id}
+                  onChange={(e) => {
+                    const subjectId = Number(e.target.value);
+                    const firstTopic = dbTopics.find((t) => sameId(t.subject_id, subjectId));
+                    setQuickForm({
+                      ...quickForm,
+                      subject_id: subjectId,
+                      topic_id: firstTopic ? Number(firstTopic.id) : quickForm.topic_id
+                    });
+                  }}
+                >
+                  {dbSubjects.filter((s) => norm(s.exam_type) === norm(quickForm.exam_type)).map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
@@ -648,7 +723,7 @@ export default function QuestionBankBrowser({
               <div className="form-group">
                 <label className="form-label">Topic</label>
                 <select className="form-input" value={quickForm.topic_id} onChange={(e) => setQuickForm({ ...quickForm, topic_id: Number(e.target.value) })}>
-                  {dbTopics.filter(t => t.subject_id === quickForm.subject_id).map(t => (
+                  {dbTopics.filter((t) => sameId(t.subject_id, quickForm.subject_id)).map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
@@ -792,7 +867,7 @@ export default function QuestionBankBrowser({
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Subject</label>
                       <select className="form-input" value={editingQuestion.subject_id} onChange={(e) => setEditingQuestion({ ...editingQuestion, subject_id: Number(e.target.value) })}>
-                        {dbSubjects.filter(s => s.exam_type === editingQuestion.exam_type).map(s => (
+                        {dbSubjects.filter((s) => norm(s.exam_type) === norm(editingQuestion.exam_type)).map((s) => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
                       </select>
@@ -801,7 +876,7 @@ export default function QuestionBankBrowser({
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Topic</label>
                       <select className="form-input" value={editingQuestion.topic_id} onChange={(e) => setEditingQuestion({ ...editingQuestion, topic_id: Number(e.target.value) })}>
-                        {dbTopics.filter(t => t.subject_id === editingQuestion.subject_id).map(t => (
+                        {dbTopics.filter((t) => sameId(t.subject_id, editingQuestion.subject_id)).map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                       </select>
@@ -997,7 +1072,7 @@ export default function QuestionBankBrowser({
                         { key: 'B', text: editingQuestion.option_b },
                         { key: 'C', text: editingQuestion.option_c },
                         { key: 'D', text: editingQuestion.option_d }
-                      ].map(opt => {
+                      ].map((opt) => {
                         const isCorrect = editingQuestion.correct_answer === opt.key;
                         return (
                           <div
@@ -1099,12 +1174,12 @@ export default function QuestionBankBrowser({
                 >
                   <option value="">-- Choose Target Topic --</option>
                   {dbTopics
-                    .filter(t => {
+                    .filter((t) => {
                       if (selectedQuestionIds.length === 0) return true;
-                      const firstQ = questions.find(q => q.id === selectedQuestionIds[0]);
-                      return firstQ ? t.subject_id === firstQ.subject_id : true;
+                      const firstQ = questions.find((q) => sameId(q.id, selectedQuestionIds[0]));
+                      return firstQ ? sameId(t.subject_id, firstQ.subject_id) : true;
                     })
-                    .map(t => (
+                    .map((t) => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                 </select>

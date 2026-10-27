@@ -5,9 +5,9 @@ if (!function_exists('getDbConnection')) {
         static $conn = null;
         if ($conn === null) {
             $host = getenv('DB_HOST') ?: "localhost";
-            $username = getenv('DB_USER') ?: "filop_admin";
+            $username = getenv('DB_USER') ?: "fillqtym_root";
             $password = getenv('DB_PASS') ?: "victor47009A?";
-            $dbname = getenv('DB_NAME') ?: "fillop";
+            $dbname = getenv('DB_NAME') ?: "fillqtym_fillop_cbt"; 
            // $port = getenv('DB_PORT') ?: 3306;
 
             $conn = mysqli_connect($host, $username, $password, $dbname);

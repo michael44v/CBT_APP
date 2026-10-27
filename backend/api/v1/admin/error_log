@@ -1,0 +1,35 @@
+[11-Sep-2026 17:21:29 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Cannot add or update a child row: a foreign key constraint fails (`fillqtym_fillop_cbt`.`questions`, CONSTRAINT `questions_ibfk_2` FOREIGN KEY (`topic_id`) REFERENCES `topics` (`id`) ON DELETE CASCADE) in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:531
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(531): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 531
+[17-Sep-2026 08:42:46 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'description' in 'INSERT INTO' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:218
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
+[17-Sep-2026 08:43:38 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'description' in 'INSERT INTO' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:218
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
+[17-Sep-2026 08:43:45 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'description' in 'INSERT INTO' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:218
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
+[17-Sep-2026 08:44:28 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'description' in 'INSERT INTO' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:218
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
+[17-Sep-2026 08:56:59 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'description' in 'INSERT INTO' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:218
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
+[17-Sep-2026 08:57:20 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'description' in 'INSERT INTO' in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php:218
+Stack trace:
+#0 /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php(218): mysqli->prepare()
+#1 {main}
+  thrown in /home/fillqtym/cbt.filloptech.com/api/v1/admin/questions.php on line 218
