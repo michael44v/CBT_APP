@@ -1,4 +1,4 @@
-name: Build MSIX
+name: Build Windows EXE
 
 on:
   workflow_dispatch:
@@ -25,16 +25,46 @@ jobs:
         run: npm ci
 
       - name: Rebuild better-sqlite3 for ia32
-        run: npm run rebuild:ia32
+        run: npx electron-rebuild -f -w better-sqlite3 --arch ia32
+
+      - name: Verify better-sqlite3 is 32-bit
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem -Path node_modules/better-sqlite3 -Recurse -Filter better_sqlite3.node | Select-Object -First 1
+          if (-not $file) { throw "better_sqlite3.node not found" }
+          $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          Write-Host "Machine type: 0x$($machine.ToString('X'))"
+          if ($machine -ne 0x14C) { throw "better_sqlite3.node is not ia32 (expected 0x14C)" }
 
       - name: Build React app
         run: npm run build:react
 
-      - name: Build appx
-        run: npx electron-builder --win appx --ia32 --publish never
+      - name: Build NSIS installer (exe)
+        run: npx electron-builder --win nsis --ia32 --publish never
+
+      - name: Verify SQLite file is inside the packaged app
+        shell: pwsh
+        run: |
+          $f = "release/win-ia32-unpacked/resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+          if (-not (Test-Path $f)) { throw "better_sqlite3.node missing from packaged app: $f" }
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $f))
+          $machine = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3C) + 4)
+          if ($machine -ne 0x14C) { throw "Packaged better_sqlite3.node is not ia32" }
+          Write-Host "OK: packaged SQLite module is 32-bit"
+
+      - name: Smoke test - open a database with the packaged app
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = "1"
+          $exe = "release/win-ia32-unpacked/Fillop CBT Guru.exe"
+          $code = "const path=require('path');const D=require(path.join(path.dirname(process.execPath),'resources','app.asar','node_modules','better-sqlite3'));const db=new D(':memory:');console.log('SQLite works, version', db.prepare('select sqlite_version() v').get().v)"
+          & $exe -e $code
+          if ($LASTEXITCODE -ne 0) { throw "SQLite failed to load from the packaged app" }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: fillop-cbt-guru-appx
-          path: desktop/release/*.appx
+          name: fillop-cbt-guru-exe
+          path: desktop/release/*.exe
           if-no-files-found: error

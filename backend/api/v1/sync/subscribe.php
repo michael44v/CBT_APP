@@ -1,6 +1,38 @@
 <?php
 require_once '../db.php';
 
+/* ---------- PROMO VALIDATION ENDPOINT (same file) ---------- */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['validate_promo'])) {
+    header('Content-Type: application/json');
+    $in = json_decode(file_get_contents('php://input'), true);
+    $code = strtoupper(trim($in['code'] ?? ''));
+
+    try {
+        $conn = getDbConnection();
+        $stmt = $conn->prepare("SELECT discount_type, discount_value, max_uses, uses_count, expires_at, active FROM promo_codes WHERE code = ? LIMIT 1");
+        $stmt->bind_param("s", $code);
+        $stmt->execute();
+        $p = $stmt->get_result()->fetch_assoc();
+
+        if (!$p || !$p['active']) {
+            echo json_encode(['success' => false, 'message' => 'Invalid promo code.']);
+        } elseif ($p['expires_at'] && strtotime($p['expires_at']) < time()) {
+            echo json_encode(['success' => false, 'message' => 'This promo code has expired.']);
+        } elseif ($p['max_uses'] !== null && (int)$p['uses_count'] >= (int)$p['max_uses']) {
+            echo json_encode(['success' => false, 'message' => 'This promo code has been fully used.']);
+        } else {
+            echo json_encode([
+                'success' => true,
+                'discount_type' => $p['discount_type'],
+                'discount_value' => (float)$p['discount_value']
+            ]);
+        }
+    } catch (Throwable $e) {
+        error_log("Promo validation failed: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Could not validate promo code.']);
+    }
+    exit;
+}
 
 $dbSubjectsMap = [
     'JAMB' => [],
@@ -80,15 +112,18 @@ if (empty($dbSubjectsMap['NECO'])) {
         h1 { font-size: 26px; font-weight: 800; color: var(--primary); margin-bottom: 8px; }
         p.subtitle { color: var(--text-muted); font-size: 14px; }
 
-        .btn-upgrade-top { background: #10b981; color: white; border: none; padding: 10px 18px; border-radius: 20px; font-weight: 700; font-size: 13px; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-upgrade-top:hover { background: #059669; }
-
         .section-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary); margin: 28px 0 12px; border-bottom: 2px solid var(--bg); padding-bottom: 6px; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .grid-2 > *, .grid-3 > * { min-width: 0; }
 
         .form-group { margin-bottom: 20px; }
         label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
         input[type="text"], input[type="email"], input[type="number"], input[type="tel"], select { width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); font-size: 14px; outline: none; transition: border-color 0.2s; background: #fff; }
         input:focus, select:focus { border-color: var(--primary); }
+
+        .warning-banner { background-color: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; font-weight: 600; }
 
         .category-select-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
         .category-checkbox-card { border: 2px solid var(--border); padding: 18px; border-radius: 14px; cursor: pointer; text-align: center; transition: all 0.2s; background: #f8fafc; }
@@ -99,43 +134,78 @@ if (empty($dbSubjectsMap['NECO'])) {
 
         .exam-subject-card { background: var(--bg); border: 2px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 20px; display: none; }
         .exam-subject-card.active-card { display: block; }
-        .card-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; }
         .card-title { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; color: var(--primary); }
-        .card-badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: rgba(29, 48, 144, 0.1); color: var(--primary); }
+        .card-badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: rgba(29, 48, 144, 0.1); color: var(--primary); white-space: nowrap; }
 
         .subjects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
         .subject-item { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; cursor: pointer; background: var(--surface); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); transition: border-color 0.2s; }
         .subject-item:hover { border-color: var(--primary); }
-        .subject-item input { width: 18px; height: 18px; accent-color: var(--primary); }
+        .subject-item input { width: 18px; height: 18px; accent-color: var(--primary); flex-shrink: 0; }
 
         .pricing-tier-notice { background: #e0e7ff; border-left: 4px solid var(--primary); padding: 12px 16px; border-radius: 8px; font-size: 13px; color: var(--primary-dark); margin-bottom: 20px; line-height: 1.5; }
 
         .summary-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin: 28px 0; }
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: var(--text-muted); }
+        .summary-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 14px; color: var(--text-muted); }
+        .summary-row strong { text-align: right; }
         .summary-row.total { font-size: 20px; font-weight: 800; color: var(--primary); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+
+        .promo-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .promo-row input { text-transform: uppercase; min-width: 0; }
 
         .btn { width: 100%; padding: 16px; border-radius: 12px; background: var(--primary); color: white; font-size: 16px; font-weight: 700; border: none; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         .btn:hover { background: var(--primary-dark); }
-        .btn-secondary { background: #64748b; }
-        .btn-secondary:hover { background: #475569; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-promo { width: auto; padding: 0 20px; font-size: 14px; border-radius: 10px; white-space: nowrap; background: #10b981; }
+        .btn-promo:hover { background: #059669; }
 
         .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
         .modal { background: white; padding: 36px; border-radius: 20px; max-width: 600px; width: 100%; text-align: center; max-height: 90vh; overflow-y: auto; }
         .passcode-list-box { background: #e0e7ff; border: 2px dashed var(--primary); border-radius: 12px; padding: 16px; margin: 16px 0; max-height: 200px; overflow-y: auto; text-align: left; }
-        .passcode-item { font-family: monospace; font-size: 16px; font-weight: 800; color: var(--primary); padding: 6px 0; border-bottom: 1px solid rgba(29,48,144,0.1); }
+        .passcode-item { font-family: monospace; font-size: 16px; font-weight: 800; color: var(--primary); padding: 6px 0; border-bottom: 1px solid rgba(29,48,144,0.1); word-break: break-all; }
         .export-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
         .export-btn { flex: 1; padding: 12px; font-size: 13px; font-weight: 700; border-radius: 10px; border: 1px solid var(--border); background: #f8fafc; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .export-btn:hover { background: #e2e8f0; }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 720px) {
+            .grid-3 { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 16px 12px; }
+            .container { padding: 20px 16px; border-radius: 16px; }
+            .header { margin-bottom: 24px; }
+            .logo { width: 56px; height: 56px; }
+            h1 { font-size: 20px; }
+            p.subtitle { font-size: 13px; }
+
+            .grid-2, .grid-3 { grid-template-columns: 1fr; gap: 0; }
+            .grid-2 { margin-bottom: 0; }
+            .category-select-grid { grid-template-columns: 1fr; gap: 10px; }
+            .category-checkbox-card { padding: 14px; }
+
+            .exam-subject-card { padding: 14px; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+            .card-title { font-size: 15px; }
+            .subjects-grid { grid-template-columns: 1fr; gap: 8px; }
+
+            input[type="text"], input[type="email"], input[type="number"], input[type="tel"], select { font-size: 16px; }
+
+            .summary-box { padding: 16px; }
+            .summary-row { font-size: 13px; }
+            .summary-row.total { font-size: 17px; }
+            .btn { font-size: 15px; padding: 14px; }
+            .btn-promo { padding: 0 16px; }
+
+            .modal { padding: 24px 16px; }
+            .export-actions { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-        <button type="button" class="btn-upgrade-top" onclick="openUpgradeModal()">⚡ Upgrade / Modify Existing Passcode</button>
-    </div>
-
     <div class="header">
         <img src="icon.png" class="logo" alt="Fillop CBT Logo" onerror="this.src='/fillop/icon.png'">
         <h1>Fillop CBT Guru Subscription &amp; Licensing</h1>
@@ -144,7 +214,7 @@ if (empty($dbSubjectsMap['NECO'])) {
 
     <form id="subscribeForm">
         <div class="section-title">1. Contact &amp; Organization Details</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div class="grid-2">
             <div class="form-group">
                 <label>Contact Person Name *</label>
                 <input type="text" id="candName" placeholder="Full Name" required>
@@ -154,7 +224,7 @@ if (empty($dbSubjectsMap['NECO'])) {
                 <input type="email" id="candEmail" placeholder="user@example.com" required>
             </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div class="grid-3">
             <div class="form-group">
                 <label>Phone Number *</label>
                 <input type="tel" id="candPhone" placeholder="08012345678" required>
@@ -219,8 +289,8 @@ if (empty($dbSubjectsMap['NECO'])) {
             </div>
         </div>
 
-        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; font-weight: 600;">
-            ⚠️ Please provide your organization/school name for Bulk purchase
+        <div class="warning-banner">
+            Please provide your organization/school name for Bulk purchase
         </div>
 
         <div class="form-group">
@@ -291,7 +361,7 @@ if (empty($dbSubjectsMap['NECO'])) {
             Loading current pricing tiers...
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div class="grid-3">
             <div class="form-group">
                 <label>Passcode Quantity *</label>
                 <input type="number" id="passcodeQty" min="1" max="1000" value="1" onchange="calculateTotal()" oninput="calculateTotal()" required>
@@ -316,6 +386,14 @@ if (empty($dbSubjectsMap['NECO'])) {
             <div class="summary-row"><span>Duration Multiplier:</span> <strong id="sumDurMult">1.0× (6 Months)</strong></div>
             <div class="summary-row"><span>Devices Multiplier:</span> <strong id="sumDeviceMult">1.0× (1 Device)</strong></div>
             <div class="summary-row"><span>Quantity:</span> <strong id="sumQty">1 Passcode</strong></div>
+
+            <div class="promo-row">
+                <input type="text" id="promoInput" placeholder="Promo code" oninput="onPromoInputChange()">
+                <button type="button" class="btn btn-promo" id="promoBtn" onclick="applyPromoCode()">Apply</button>
+            </div>
+            <div class="summary-row" id="promoMsg" style="display: none;"></div>
+            <div class="summary-row" id="discountRow" style="display: none;"><span>Promo Discount:</span> <strong id="sumDiscount" style="color: var(--success);"></strong></div>
+
             <div class="summary-row total"><span>Total Payable Amount:</span> <strong id="sumTotal">₦1,400</strong></div>
         </div>
 
@@ -341,87 +419,17 @@ if (empty($dbSubjectsMap['NECO'])) {
 
         <div class="export-actions">
             <button class="export-btn" onclick="exportPasscodesExcel()">
-                <span>📊 Export Excel (.csv)</span>
+                <span>Export Excel (.csv)</span>
             </button>
             <button class="export-btn" onclick="exportPasscodesPDF()">
-                <span>📄 Export PDF Report</span>
+                <span>Export PDF Report</span>
             </button>
             <button class="export-btn" onclick="printPasscodes()">
-                <span>🖨️ Print Passcodes</span>
+                <span>Print Passcodes</span>
             </button>
         </div>
 
         <button class="btn" style="margin-top: 20px;" onclick="window.location.reload()">Done / Purchase More</button>
-    </div>
-</div>
-
-<!-- Modal for Passcode Upgrade & Subject Addition -->
-<div class="modal-overlay" id="upgradeModal">
-    <div class="modal" style="max-width: 680px; text-align: left;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid var(--bg); padding-bottom: 10px;">
-            <h2 style="font-size: 20px; font-weight: 800; color: var(--primary);">Upgrade / Modify Passcode</h2>
-            <button type="button" onclick="closeUpgradeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
-        </div>
-
-        <!-- Step 1: Input Passcode -->
-        <div id="upgStep1">
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-                Enter your active passcode to load your current subjects and add new subjects or exam categories.
-            </p>
-            <div class="form-group">
-                <label>Your Passcode *</label>
-                <input type="text" id="upgPasscode" placeholder="e.g. GP-A1B2C3D4-E5F67890 or 1234" required>
-            </div>
-            <button type="button" class="btn" id="upgLoadBtn" onclick="verifyAndLoadPasscode()">Load Passcode &amp; Subjects 🔍</button>
-        </div>
-
-        <!-- Step 2: Passcode Details & Upgrade Selections -->
-        <div id="upgStep2" style="display: none;">
-            <div style="background: #e0e7ff; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; font-size: 13px; color: var(--primary-dark);">
-                <div>Passcode: <strong id="upgDispCode"></strong></div>
-                <div>Linked Email: <strong id="upgDispEmail"></strong></div>
-                <div>Current Categories: <strong id="upgDispCats"></strong></div>
-                <div>Current Subjects: <span id="upgDispSubjs" style="font-weight: 600;"></span></div>
-            </div>
-
-            <div class="section-title" style="margin-top: 16px;">Select Categories &amp; Subjects to Upgrade</div>
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-                • Adding subjects to an <strong>existing exam category</strong> is <strong>100% FREE</strong>.<br>
-                • Adding a <strong>new exam category</strong> requires a category upgrade payment.
-            </p>
-
-            <div class="category-select-grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
-                <div class="category-checkbox-card" id="upgCardJAMB" onclick="toggleUpgCat('JAMB')">
-                    <input type="checkbox" id="chkUpgJAMB">
-                    <div class="cat-name" style="font-size: 14px;">JAMB UTME</div>
-                </div>
-                <div class="category-checkbox-card" id="upgCardWAEC" onclick="toggleUpgCat('WAEC')">
-                    <input type="checkbox" id="chkUpgWAEC">
-                    <div class="cat-name" style="font-size: 14px;">WAEC SSCE</div>
-                </div>
-                <div class="category-checkbox-card" id="upgCardNECO" onclick="toggleUpgCat('NECO')">
-                    <input type="checkbox" id="chkUpgNECO">
-                    <div class="cat-name" style="font-size: 14px;">NECO SSCE</div>
-                </div>
-            </div>
-
-            <div id="upgSubjectsContainer"></div>
-
-            <div class="summary-box" style="margin: 16px 0; padding: 14px;">
-                <div class="summary-row"><span>Upgrade Type:</span> <strong id="upgTypeLabel">Free Subject Addition</strong></div>
-                <div class="summary-row total" style="font-size: 18px;"><span>Calculated Upgrade Fee:</span> <strong id="upgFeeTotal">₦0</strong></div>
-            </div>
-
-            <div class="form-group" id="upgNoteGroup">
-                <label>Optional Note for Admin Request</label>
-                <input type="text" id="upgAdminNote" placeholder="e.g. Please approve extra subjects for my JAMB/WAEC passcode">
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button type="button" class="btn" id="upgSubmitBtn" onclick="executeUpgradeAction()">Apply Upgrade ⚡</button>
-                <button type="button" class="btn btn-secondary" onclick="submitAdminRequestAction()">Request Admin Approval 📩</button>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -437,10 +445,9 @@ if (empty($dbSubjectsMap['NECO'])) {
     let paystackPublicKey = "";
     let generatedPasscodesList = [];
 
-    // Loaded Passcode State for Upgrade Modal
-    let activeUpgradePasscode = null;
-    let upgradeCalculatedFee = 0;
-    let upgradeCalculatedIsFree = true;
+    // Promo state
+    let appliedPromo = null;      // { code, type, value }
+    let currentGrandTotal = 0;
 
     async function loadPaystackConfig() {
         try {
@@ -572,6 +579,69 @@ if (empty($dbSubjectsMap['NECO'])) {
         });
     }
 
+    /* --- PROMO CODE --- */
+    function getDiscount(subtotal) {
+        if (!appliedPromo) return 0;
+        if (appliedPromo.type === "free") return subtotal;
+        if (appliedPromo.type === "percent") return subtotal * Math.min(100, appliedPromo.value) / 100;
+        if (appliedPromo.type === "fixed") return Math.min(subtotal, appliedPromo.value);
+        return 0;
+    }
+
+    function onPromoInputChange() {
+        const val = document.getElementById("promoInput").value.trim().toUpperCase();
+        if (appliedPromo && val !== appliedPromo.code) {
+            appliedPromo = null;
+            document.getElementById("promoMsg").style.display = "none";
+            calculateTotal();
+        }
+    }
+
+    async function applyPromoCode() {
+        const code = document.getElementById("promoInput").value.trim();
+        const msg = document.getElementById("promoMsg");
+        const btn = document.getElementById("promoBtn");
+
+        if (!code) {
+            appliedPromo = null;
+            msg.style.display = "none";
+            calculateTotal();
+            return;
+        }
+
+        btn.disabled = true;
+        msg.style.display = "flex";
+        try {
+            const res = await fetch(window.location.pathname + "?validate_promo=1", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code })
+            });
+            const data = await res.json();
+            if (data.success) {
+                appliedPromo = { code: code.toUpperCase(), type: data.discount_type, value: data.discount_value };
+                msg.innerHTML = `<span style="color: var(--success); font-weight: 600;">Promo code ${appliedPromo.code} applied</span>`;
+            } else {
+                appliedPromo = null;
+                msg.innerHTML = `<span style="color: #dc2626; font-weight: 600;">${data.message || "Invalid promo code."}</span>`;
+            }
+        } catch (e) {
+            appliedPromo = null;
+            msg.innerHTML = `<span style="color: #dc2626; font-weight: 600;">Could not validate promo code.</span>`;
+        } finally {
+            btn.disabled = false;
+        }
+        calculateTotal();
+    }
+
+    function resetPayBtn() {
+        const btn = document.getElementById("payBtn");
+        btn.disabled = false;
+        btn.innerHTML = currentGrandTotal === 0
+            ? '<span>Generate Passcodes (Free)</span>'
+            : '<span>Pay &amp; Generate Passcodes</span>';
+    }
+
     function calculateTotal() {
         updateSubjectLimits();
         const { selectedCategories, selections } = getSelectedCategoriesAndSubjects();
@@ -594,14 +664,23 @@ if (empty($dbSubjectsMap['NECO'])) {
         }
 
         const totalPerPasscode = unitPrice6m * catCount * durMultiplier * deviceMult;
-        const grandTotal = totalPerPasscode * qty;
+        const subtotal = totalPerPasscode * qty;
+        const discount = getDiscount(subtotal);
+        const grandTotal = Math.max(0, subtotal - discount);
+        currentGrandTotal = grandTotal;
 
         document.getElementById("sumUnitPrice").innerText = `₦${unitPrice6m.toLocaleString()}`;
         document.getElementById("sumCatCount").innerText = `${catCount} ${catCount === 1 ? 'Category' : 'Categories'}`;
         document.getElementById("sumDurMult").innerText = `${durMultiplier}× (${durationMonths} Months)`;
         document.getElementById("sumDeviceMult").innerText = `${deviceMult.toFixed(1)}× (${maxDevices} ${maxDevices === 1 ? 'Device' : 'Devices'})`;
         document.getElementById("sumQty").innerText = `${qty} ${qty === 1 ? 'Passcode' : 'Passcodes'}`;
-        document.getElementById("sumTotal").innerText = `₦${grandTotal.toLocaleString()}`;
+
+        document.getElementById("discountRow").style.display = discount > 0 ? "flex" : "none";
+        document.getElementById("sumDiscount").innerText = `-₦${discount.toLocaleString()}`;
+        document.getElementById("sumTotal").innerText = grandTotal === 0 ? "₦0 (Free)" : `₦${grandTotal.toLocaleString()}`;
+
+        const payBtn = document.getElementById("payBtn");
+        if (!payBtn.disabled) resetPayBtn();
 
         return { catCount, qty, durationMonths, maxDevices, selectedCategories, selections, grandTotal };
     }
@@ -670,13 +749,14 @@ if (empty($dbSubjectsMap['NECO'])) {
                     exam_category: selectedCategories.join(","),
                     selected_subjects: selections.allIds,
                     max_devices: parseInt(document.getElementById("maxDevices").value) || 1,
-                    duration_months: durationMonths
+                    duration_months: durationMonths,
+                    promo_code: appliedPromo ? appliedPromo.code : ""
                 })
             });
             const data = await res.json();
 
             if (data.success && data.reference) {
-                // Check if Paystack Inline should be opened
+                // Paystack opens only when the server-calculated amount is above zero
                 if (data.amount > 0 && paystackPublicKey && typeof PaystackPop !== 'undefined') {
                     btn.innerText = "Awaiting Paystack Payment...";
                     const handler = PaystackPop.setup({
@@ -686,8 +766,7 @@ if (empty($dbSubjectsMap['NECO'])) {
                         ref: data.reference,
                         onClose: function() {
                             alert("Payment popup closed.");
-                            btn.disabled = false;
-                            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
+                            resetPayBtn();
                         },
                         callback: function(response) {
                             verifyAndFinishRegistration(data.reference);
@@ -695,18 +774,16 @@ if (empty($dbSubjectsMap['NECO'])) {
                     });
                     handler.openIframe();
                 } else {
-                    // Free or direct verification
+                    // Free (100% promo) or direct verification - no Paystack
                     await verifyAndFinishRegistration(data.reference);
                 }
             } else {
                 alert(data.message || "Initialization failed.");
-                btn.disabled = false;
-                btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
+                resetPayBtn();
             }
         } catch (err) {
             alert("Connection error: " + err.message);
-            btn.disabled = false;
-            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
+            resetPayBtn();
         }
     });
 
@@ -740,335 +817,7 @@ if (empty($dbSubjectsMap['NECO'])) {
         } catch (e) {
             alert("Verification error: " + e.message);
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<span>Pay &amp; Generate Passcodes</span>';
-        }
-    }
-
-    /* --- UPGRADE MODAL & LOGIC --- */
-    function openUpgradeModal() {
-        document.getElementById("upgradeModal").style.display = "flex";
-        document.getElementById("upgStep1").style.display = "block";
-        document.getElementById("upgStep2").style.display = "none";
-        document.getElementById("upgPasscode").value = "";
-    }
-
-    function closeUpgradeModal() {
-        document.getElementById("upgradeModal").style.display = "none";
-    }
-
-    async function verifyAndLoadPasscode() {
-        const codeInput = document.getElementById("upgPasscode").value.trim();
-        if (!codeInput) {
-            alert("Please enter a valid passcode.");
-            return;
-        }
-
-        const btn = document.getElementById("upgLoadBtn");
-        btn.disabled = true;
-        btn.innerText = "Verifying Passcode...";
-
-        try {
-            const res = await fetch("/api/v1/passcode_info.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ passcode: codeInput })
-            });
-            const data = await res.json();
-
-            if (data.success && data.passcode) {
-                activeUpgradePasscode = data.passcode;
-                renderUpgradeStep2();
-            } else {
-                alert(data.message || "Invalid or suspended passcode.");
-            }
-        } catch (e) {
-            alert("Error loading passcode: " + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Load Passcode & Subjects 🔍";
-        }
-    }
-
-    function renderUpgradeStep2() {
-        document.getElementById("upgStep1").style.display = "none";
-        document.getElementById("upgStep2").style.display = "block";
-
-        document.getElementById("upgDispCode").innerText = activeUpgradePasscode.passcode;
-        document.getElementById("upgDispEmail").innerText = activeUpgradePasscode.email;
-        document.getElementById("upgDispCats").innerText = activeUpgradePasscode.exam_category;
-        document.getElementById("upgDispSubjs").innerText = activeUpgradePasscode.allowed_subjects || "All Subjects";
-
-        const existingCats = (activeUpgradePasscode.exam_category || "JAMB").split(",").map(c => c.trim().toUpperCase());
-        const existingSubjs = (activeUpgradePasscode.allowed_subjects || "").split(",").map(s => s.trim().toUpperCase());
-
-        ["JAMB", "WAEC", "NECO"].forEach(cat => {
-            const chk = document.getElementById(`chkUpg${cat}`);
-            const card = document.getElementById(`upgCard${cat}`);
-            const isSel = existingCats.includes(cat);
-            chk.checked = isSel;
-            card.classList.toggle("selected", isSel);
-        });
-
-        renderUpgradeSubjectsUI(existingSubjs);
-        recalculateUpgradeCost();
-    }
-
-    function renderUpgradeSubjectsUI(existingSubjsArr) {
-        const container = document.getElementById("upgSubjectsContainer");
-        container.innerHTML = "";
-
-        ["JAMB", "WAEC", "NECO"].forEach(cat => {
-            const chk = document.getElementById(`chkUpg${cat}`);
-            if (!chk.checked) return;
-
-            const panel = document.createElement("div");
-            panel.className = "exam-subject-card active-card";
-            panel.style.marginBottom = "14px";
-            panel.innerHTML = `
-                <div class="card-header">
-                    <div class="card-title"><span>${cat} Subjects</span></div>
-                </div>
-                <div class="subjects-grid" id="upgGrid${cat}"></div>
-            `;
-            container.appendChild(panel);
-
-            const grid = panel.querySelector(`#upgGrid${cat}`);
-            (dbSubjectsMap[cat] || []).forEach(sub => {
-                const label = document.createElement("label");
-                label.className = "subject-item";
-                const isChecked = existingSubjsArr.length === 0 || existingSubjsArr.includes(sub.name.toUpperCase()) || existingSubjsArr.includes(sub.id.toString());
-                label.innerHTML = `<input type="checkbox" name="upg_subj_${cat}" value="${sub.name}" ${isChecked ? 'checked' : ''} onchange="recalculateUpgradeCost()"> ${sub.name}`;
-                grid.appendChild(label);
-            });
-        });
-    }
-
-    function toggleUpgCat(cat) {
-        const chk = document.getElementById(`chkUpg${cat}`);
-        const card = document.getElementById(`upgCard${cat}`);
-        chk.checked = !chk.checked;
-        card.classList.toggle("selected", chk.checked);
-
-        const existingSubjs = (activeUpgradePasscode.allowed_subjects || "").split(",").map(s => s.trim().toUpperCase());
-        renderUpgradeSubjectsUI(existingSubjs);
-        recalculateUpgradeCost();
-    }
-
-    async function recalculateUpgradeCost() {
-        const selectedCats = [];
-        const selectedSubjs = [];
-
-        ["JAMB", "WAEC", "NECO"].forEach(cat => {
-            const chk = document.getElementById(`chkUpg${cat}`);
-            if (chk.checked) {
-                selectedCats.push(cat);
-                const subBoxes = Array.from(document.querySelectorAll(`input[name="upg_subj_${cat}"]:checked`));
-                subBoxes.forEach(cb => selectedSubjs.push(cb.value));
-            }
-        });
-
-        try {
-            const res = await fetch("/api/v1/passcode_upgrade.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "calculate",
-                    passcode: activeUpgradePasscode.passcode,
-                    new_categories: selectedCats,
-                    new_subjects: selectedSubjs
-                })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                upgradeCalculatedFee = data.amount;
-                upgradeCalculatedIsFree = data.is_free;
-
-                const submitBtn = document.getElementById("upgSubmitBtn");
-
-                if (data.is_free) {
-                    document.getElementById("upgTypeLabel").innerText = "Free Subject Addition";
-                    document.getElementById("upgFeeTotal").innerText = "₦0 (Free)";
-                    submitBtn.innerText = "Apply Free Upgrade ⚡";
-                    submitBtn.className = "btn";
-                } else {
-                    document.getElementById("upgTypeLabel").innerText = "Category Upgrade";
-                    document.getElementById("upgFeeTotal").innerText = `₦${data.amount.toLocaleString()}`;
-                    submitBtn.innerText = `Pay ₦${data.amount.toLocaleString()} & Upgrade via Paystack 💳`;
-                    submitBtn.className = "btn";
-                }
-            }
-        } catch (e) {
-            console.error("Calculate upgrade cost error:", e);
-        }
-    }
-
-    async function executeUpgradeAction() {
-        const selectedCats = [];
-        const selectedSubjs = [];
-
-        ["JAMB", "WAEC", "NECO"].forEach(cat => {
-            const chk = document.getElementById(`chkUpg${cat}`);
-            if (chk.checked) {
-                selectedCats.push(cat);
-                const subBoxes = Array.from(document.querySelectorAll(`input[name="upg_subj_${cat}"]:checked`));
-                subBoxes.forEach(cb => selectedSubjs.push(cb.value));
-            }
-        });
-
-        if (selectedCats.length === 0) {
-            alert("Please select at least one examination category.");
-            return;
-        }
-
-        const submitBtn = document.getElementById("upgSubmitBtn");
-        submitBtn.disabled = true;
-
-        if (upgradeCalculatedIsFree) {
-            // Apply Free Upgrade directly
-            submitBtn.innerText = "Applying Upgrade...";
-            try {
-                const res = await fetch("/api/v1/passcode_upgrade.php", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        action: "apply_free",
-                        passcode: activeUpgradePasscode.passcode,
-                        new_categories: selectedCats,
-                        new_subjects: selectedSubjs
-                    })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    closeUpgradeModal();
-                } else {
-                    alert(data.message || "Failed to apply upgrade.");
-                }
-            } catch (e) {
-                alert("Upgrade error: " + e.message);
-            } finally {
-                submitBtn.disabled = false;
-            }
-        } else {
-            // Paid Upgrade via Paystack
-            submitBtn.innerText = "Initializing Paystack Checkout...";
-            try {
-                const initRes = await fetch("/api/v1/passcode_upgrade.php", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        action: "initialize_paystack",
-                        passcode: activeUpgradePasscode.passcode,
-                        new_categories: selectedCats,
-                        new_subjects: selectedSubjs
-                    })
-                });
-                const initData = await initRes.json();
-
-                if (initData.success && initData.reference) {
-                    if (paystackPublicKey && typeof PaystackPop !== 'undefined') {
-                        const handler = PaystackPop.setup({
-                            key: paystackPublicKey,
-                            email: initData.email,
-                            amount: Math.round(initData.amount * 100),
-                            ref: initData.reference,
-                            onClose: function() {
-                                alert("Payment popup closed.");
-                                submitBtn.disabled = false;
-                                recalculateUpgradeCost();
-                            },
-                            callback: function(response) {
-                                finalizePaidUpgrade(initData.reference, selectedCats, selectedSubjs);
-                            }
-                        });
-                        handler.openIframe();
-                    } else {
-                        // Fallback verification
-                        await finalizePaidUpgrade(initData.reference, selectedCats, selectedSubjs);
-                    }
-                } else {
-                    alert(initData.message || "Failed to initialize payment.");
-                    submitBtn.disabled = false;
-                }
-            } catch (e) {
-                alert("Paystack error: " + e.message);
-                submitBtn.disabled = false;
-            }
-        }
-    }
-
-    async function finalizePaidUpgrade(ref, selectedCats, selectedSubjs) {
-        const submitBtn = document.getElementById("upgSubmitBtn");
-        submitBtn.innerText = "Verifying Payment & Updating Passcode...";
-        try {
-            const vRes = await fetch("/api/v1/passcode_upgrade.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "verify_paystack",
-                    passcode: activeUpgradePasscode.passcode,
-                    reference: ref,
-                    new_categories: selectedCats,
-                    new_subjects: selectedSubjs
-                })
-            });
-            const vData = await vRes.json();
-            if (vData.success) {
-                alert(vData.message);
-                closeUpgradeModal();
-            } else {
-                alert(vData.message || "Payment verification failed.");
-            }
-        } catch (e) {
-            alert("Verification error: " + e.message);
-        } finally {
-            submitBtn.disabled = false;
-        }
-    }
-
-    async function submitAdminRequestAction() {
-        const selectedCats = [];
-        const selectedSubjs = [];
-
-        ["JAMB", "WAEC", "NECO"].forEach(cat => {
-            const chk = document.getElementById(`chkUpg${cat}`);
-            if (chk.checked) {
-                selectedCats.push(cat);
-                const subBoxes = Array.from(document.querySelectorAll(`input[name="upg_subj_${cat}"]:checked`));
-                subBoxes.forEach(cb => selectedSubjs.push(cb.value));
-            }
-        });
-
-        if (selectedCats.length === 0) {
-            alert("Please select at least one examination category.");
-            return;
-        }
-
-        const note = document.getElementById("upgAdminNote").value.trim();
-
-        try {
-            const res = await fetch("/api/v1/passcode_upgrade.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "request_admin",
-                    passcode: activeUpgradePasscode.passcode,
-                    new_categories: selectedCats,
-                    new_subjects: selectedSubjs,
-                    admin_notes: note
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message);
-                closeUpgradeModal();
-            } else {
-                alert(data.message || "Failed to submit admin request.");
-            }
-        } catch (e) {
-            alert("Request error: " + e.message);
+            resetPayBtn();
         }
     }
 

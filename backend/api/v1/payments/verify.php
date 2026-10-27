@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../db.php';
-require_once '../mailer.php';
+require_once '../payment_mail/payment_mailer.php'; // replaces the old FillopMailer receipt
 
 $data = json_decode(file_get_contents("php://input"), true);
 $reference = trim($data['reference'] ?? '');
@@ -34,6 +34,47 @@ if (!isset($pending[$reference])) {
 }
 
 $details = $pending[$reference];
+
+/* ---------- CONFIRM PAYMENT WITH PAYSTACK (skipped only for free/100%-promo orders) ---------- */
+$expected_amount = floatval($details['final_amount'] ?? 0);
+if ($expected_amount > 0) {
+    $paystack_secret = getenv('PAYSTACK_SECRET_KEY');
+    if (empty($paystack_secret)) {
+        error_log("verify.php: PAYSTACK_SECRET_KEY is not set.");
+        echo json_encode(["success" => false, "message" => "Payment verification is not configured. Please contact support."]);
+        exit();
+    }
+
+    $ch = curl_init('https://api.paystack.co/transaction/verify/' . rawurlencode($reference));
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_HTTPHEADER     => ["Authorization: Bearer " . $paystack_secret, "Accept: application/json"],
+    ]);
+    $ps_raw = curl_exec($ch);
+    $ps_err = curl_error($ch);
+    curl_close($ch);
+
+    $ps = $ps_raw ? json_decode($ps_raw, true) : null;
+    if (!$ps || empty($ps['status'])) {
+        error_log("verify.php: Paystack lookup failed for {$reference}: " . ($ps_err ?: $ps_raw));
+        echo json_encode(["success" => false, "message" => "Could not confirm payment with Paystack. Please try again in a moment."]);
+        exit();
+    }
+
+    $ps_data         = $ps['data'] ?? [];
+    $expected_kobo   = (int) round($expected_amount * 100);
+    $paid_kobo       = (int) ($ps_data['amount'] ?? 0);
+
+    if (($ps_data['status'] ?? '') !== 'success'
+        || ($ps_data['reference'] ?? '') !== $reference
+        || $paid_kobo < $expected_kobo) {
+        error_log("verify.php: payment not valid for {$reference} (status=" . ($ps_data['status'] ?? '?') . ", paid={$paid_kobo}, expected={$expected_kobo})");
+        echo json_encode(["success" => false, "message" => "Payment was not completed or the amount does not match."]);
+        exit();
+    }
+}
+
 $db = getDbConnection();
 
 function generateUniquePasscode() {
@@ -105,18 +146,45 @@ if (!empty($details['promo_id'])) {
     $stmt->execute();
 }
 
-// Send receipt email to purchaser via FillopMailer
+// Send passcode + receipt email to the purchaser
 if (!empty($email)) {
     try {
-        FillopMailer::sendPasscodeReceipt(
-            $email,
-            !empty($name) ? $name : 'Candidate',
-            $generated_passcodes,
-            $exam_category,
-            $quantity,
-            $total_final_amount,
-            $reference
-        );
+        // Resolve subject names for the email (allowed_subjects holds subject IDs)
+        $subject_names = [];
+        if ($allowed_subjects !== '') {
+            $parts = array_values(array_filter(array_map('trim', explode(',', $allowed_subjects)), 'strlen'));
+            if ($parts && count(array_filter($parts, 'ctype_digit')) === count($parts)) {
+                $ids = array_map('intval', $parts);
+                $ph  = implode(',', array_fill(0, count($ids), '?'));
+                $sq  = $db->prepare("SELECT name, exam_type FROM subjects WHERE id IN ($ph) ORDER BY exam_type, name");
+                $sq->bind_param(str_repeat('i', count($ids)), ...$ids);
+                $sq->execute();
+                $sres  = $sq->get_result();
+                $multi = strpos($exam_category, ',') !== false;
+                while ($srow = $sres->fetch_assoc()) {
+                    $subject_names[] = $multi ? $srow['name'] . ' (' . strtoupper($srow['exam_type']) . ')' : $srow['name'];
+                }
+            } else {
+                $subject_names = $parts; // already names
+            }
+        }
+
+        $mail_result = sendPaymentSuccessEmail([
+            'email'             => $email,
+            'name'              => !empty($name) ? $name : 'Candidate',
+            'passcodes'         => $generated_passcodes,
+            'reference'         => $reference,
+            'amount'            => $total_final_amount,
+            'currency'          => 'NGN',
+            'categories'        => $exam_category,
+            'subjects'          => $subject_names,
+            'duration_months'   => (int)round($duration_days / 30),
+            'max_devices'       => $max_devices,
+            'organization_name' => $org_name,
+        ]);
+        if (!$mail_result['success']) {
+            error_log("Passcode email failed for {$reference}: " . $mail_result['message']);
+        }
     } catch (Throwable $e) {
         error_log("Failed to dispatch passcode receipt email: " . $e->getMessage());
     }
