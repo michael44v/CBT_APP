@@ -67,8 +67,53 @@ jobs:
             throw "SQLite failed to load from the packaged app"
           }
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
         with:
           name: fillop-cbt-guru-exe
           path: desktop/release/*.exe
           if-no-files-found: error
+
+      - name: Install the built exe silently
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release/*.exe | Select-Object -First 1
+          Write-Host "Installing $($installer.Name)"
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 5
+          Get-Process -Name "Fillop CBT Guru" -ErrorAction SilentlyContinue | Stop-Process -Force
+          $app = Join-Path $env:LOCALAPPDATA "Programs\Fillop CBT Guru\Fillop CBT Guru.exe"
+          if (-not (Test-Path $app)) { throw "Installed app not found at $app" }
+          Write-Host "Installed OK: $app"
+
+      - name: Launch installed app and take screenshot
+        shell: pwsh
+        run: |
+          $app = Join-Path $env:LOCALAPPDATA "Programs\Fillop CBT Guru\Fillop CBT Guru.exe"
+          $p = Start-Process -FilePath $app -PassThru -RedirectStandardOutput app-out.txt -RedirectStandardError app-err.txt
+          Start-Sleep -Seconds 25
+
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("screenshot.png")
+
+          Write-Host "--- app stdout ---"; Get-Content app-out.txt -ErrorAction SilentlyContinue
+          Write-Host "--- app stderr ---"; Get-Content app-err.txt -ErrorAction SilentlyContinue
+
+          if ($p.HasExited) { throw "App exited early with code $($p.ExitCode)" }
+          Write-Host "App still running after 25s"
+          Stop-Process -Id $p.Id -Force
+
+      - name: Upload screenshot and app logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-launch-screenshot
+          path: |
+            desktop/screenshot.png
+            desktop/app-out.txt
+            desktop/app-err.txt
+          if-no-files-found: warn
