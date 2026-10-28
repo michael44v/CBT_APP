@@ -49,6 +49,7 @@ import Login from './Login';
 import QuestionWizard from './QuestionWizard';
 import SubjectTopicManager from './SubjectTopicManager';
 import QuestionBankBrowser from './QuestionBankBrowser';
+import RichTextEditor from './RichTextEditor';
 import { Subject, Topic, Question, UploadLog, WorkerUser, WorkerPermissions } from './types';
 import {
   ResponsiveContainer,
@@ -62,7 +63,10 @@ import {
   Tooltip,
   Legend,
   LineChart,
-  Line
+  Line,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell
 } from 'recharts';
 
 const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -120,6 +124,11 @@ export default function App() {
 
   // Results & Analytics
   const [resultsList, setResultsList] = useState<any[]>([]);
+  const [resultsPage, setResultsPage] = useState(1);
+  const [resultsLimit, setResultsLimit] = useState(20);
+  const [resultsPagination, setResultsPagination] = useState({ total_results: 0, total_pages: 1 });
+  const [passFailData, setPassFailData] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [scoreProgressData, setScoreProgressData] = useState<{ label: string; score: number; exams: number }[]>([]);
   const [revenueRange, setRevenueRange] = useState<'week' | 'month' | 'year'>('month');
   const [revenueOverTime, setRevenueOverTime] = useState<{ label: string; amount: number }[]>([]);
   const [rangeTotalRevenue, setRangeTotalRevenue] = useState<number>(0);
@@ -254,6 +263,7 @@ export default function App() {
   const [selectedResultDetails, setSelectedResultDetails] = useState<any | null>(null);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [viewingUser, setViewingUser] = useState<any | null>(null);
+  const [viewingPromo, setViewingPromo] = useState<any | null>(null);
   const [editUserForm, setEditUserForm] = useState({ name: '', phone: '', school: '' });
 
   // Passcode category & subject editing modal state
@@ -443,18 +453,40 @@ export default function App() {
     }
   };
 
+  const fetchInstructions = async () => {
+    try {
+      const res = await authenticatedFetch(`${API_BASE}/admin/instructions.php`);
+      const data = await res.json();
+      if (data.success) {
+        setPricingForm(prev => ({
+          ...prev,
+          exam_instructions: data.exam_instructions || '',
+          study_instructions: data.study_instructions || ''
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to load instructions', e);
+    }
+  };
+
     const handleSaveInstructions = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/pricing.php`, {
+      const res = await fetch(`${API_BASE}/admin/instructions.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pricingForm)
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          exam_instructions: pricingForm.exam_instructions,
+          study_instructions: pricingForm.study_instructions
+        })
       });
       const data = await res.json();
       if (data.success) {
-        showNotification('Instructions saved successfully.');
-        fetchPricing();
+        showNotification('Exam & Study instructions saved successfully.');
+        fetchInstructions();
       } else {
         showNotification(data.message || 'Failed to save instructions.', 'error');
       }
@@ -727,13 +759,16 @@ export default function App() {
     }
   };
 
-  const fetchStatsAndAnalytics = async (range: 'week' | 'month' | 'year' = revenueRange) => {
+  const fetchStatsAndAnalytics = async (range: 'week' | 'month' | 'year' = revenueRange, page = resultsPage, limit = resultsLimit, search = resultSearch) => {
     try {
-      const res = await authenticatedFetch(`${API_BASE}/admin/analytics.php?range=${range}`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/analytics.php?range=${range}&page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
       const data = await res.json();
       if (data.success) {
         setStats(prev => ({ ...prev, ...data.analytics }));
         if (data.results) setResultsList(data.results);
+        if (data.pagination) setResultsPagination(data.pagination);
+        if (data.pass_fail_distribution) setPassFailData(data.pass_fail_distribution);
+        if (data.score_progress_over_time) setScoreProgressData(data.score_progress_over_time);
         if (data.revenue_over_time) setRevenueOverTime(data.revenue_over_time);
         if (data.range_total_revenue !== undefined) setRangeTotalRevenue(data.range_total_revenue);
         if (data.news_rail) setNewsRailList(data.news_rail);
@@ -975,6 +1010,7 @@ export default function App() {
         fetchStatsAndAnalytics(revenueRange),
         fetchUploadLogs(),
         !isWorker ? fetchPricing() : Promise.resolve(),
+        !isWorker ? fetchInstructions() : Promise.resolve(),
         !isWorker ? fetchUsers() : Promise.resolve(),
         !isWorker ? fetchPasscodes() : Promise.resolve(),
         !isWorker ? fetchPromos() : Promise.resolve(),
@@ -1968,136 +2004,277 @@ export default function App() {
           );
 
           return (
-            <div className="admin-card">
-              <div className="card-title">
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <BarChart3 size={20} /> Candidate Exam Results (Grouped by User Email)
-                </span>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Search candidates or emails..."
-                  value={resultSearch}
-                  onChange={(e) => setResultSearch(e.target.value)}
-                  style={{ width: '250px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
-                />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Analytics Top Row: Line Chart & Pie Chart */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                {/* Line Chart: Candidate Score Progress Over Time */}
+                <div className="admin-card" style={{ margin: 0 }}>
+                  <div className="card-title">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <TrendingUp size={18} style={{ color: 'var(--accent)' }} /> Average Score Progress Over Time
+                    </span>
+                    <span className="badge badge-info">Line Chart</span>
+                  </div>
+                  <div style={{ width: '100%', height: 210, marginTop: '0.5rem' }}>
+                    {scoreProgressData.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '3rem' }}>
+                        No historical exam submission trends recorded yet.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={scoreProgressData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                          <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={11} />
+                          <YAxis domain={[0, 100]} stroke="var(--text-muted)" fontSize={11} unit="%" />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+                            formatter={(val: any) => [`${val}%`, 'Avg Score']}
+                          />
+                          <Line type="monotone" dataKey="score" stroke="var(--accent)" strokeWidth={3} dot={{ r: 4 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pie Chart: Pass vs Fail Rate Distribution */}
+                <div className="admin-card" style={{ margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div className="card-title" style={{ width: '100%' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <PieChart size={18} style={{ color: 'var(--success)' }} /> Pass vs. Fail Rate Distribution
+                    </span>
+                    <span className="badge badge-info">Pie Chart</span>
+                  </div>
+                  <div style={{ width: '100%', height: 210, marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {passFailData.length === 0 || passFailData.every(d => d.value === 0) ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No exam results submitted yet.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={passFailData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={75}
+                            paddingAngle={4}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {passFailData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+                            formatter={(val: any) => [val, 'Candidates']}
+                          />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {groupedList.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-                  No candidate examination results match your query.
+              {/* Grouped Exam Results List Card */}
+              <div className="admin-card">
+                <div className="card-title">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <BarChart3 size={20} /> Candidate Exam Results (Grouped by User Email)
+                  </span>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search candidates or emails..."
+                    value={resultSearch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setResultSearch(val);
+                      setResultsPage(1);
+                      fetchStatsAndAnalytics(revenueRange, 1, resultsLimit, val);
+                    }}
+                    style={{ width: '250px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                  />
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-                  {groupedList.map(group => {
-                    const emailKey = group.email.toLowerCase();
-                    const isExpanded = expandedEmails[emailKey] ?? true;
 
-                    return (
-                      <div
-                        key={emailKey}
-                        style={{
-                          borderRadius: '12px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--primary-light)',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        {/* Group Header Row */}
+                {groupedList.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                    No candidate examination results match your query.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                    {groupedList.map(group => {
+                      const emailKey = group.email.toLowerCase();
+                      const isExpanded = expandedEmails[emailKey] ?? true;
+
+                      return (
                         <div
-                          onClick={() => toggleEmailExpand(emailKey)}
+                          key={emailKey}
                           style={{
-                            padding: '1rem 1.25rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justify: 'space-between',
-                            cursor: 'pointer',
-                            userSelect: 'none',
-                            backgroundColor: 'var(--bg-card)'
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--primary-light)',
+                            overflow: 'hidden'
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div className="avatar-circle">
-                              {group.candidate_name.charAt(0).toUpperCase()}
+                          {/* Group Header Row */}
+                          <div
+                            onClick={() => toggleEmailExpand(emailKey)}
+                            style={{
+                              padding: '1rem 1.25rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justify: 'space-between',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              backgroundColor: 'var(--bg-card)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div className="avatar-circle">
+                                {group.candidate_name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>
+                                  {group.candidate_name}
+                                </div>
+                                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                  {group.email}
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>
-                                {group.candidate_name}
-                              </div>
-                              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                                {group.email}
-                              </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <span className="badge badge-info" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
+                                {group.total_exams} result{group.total_exams === 1 ? '' : 's'}
+                              </span>
+
+                              <span className={`badge ${group.avg_percentage >= 70 ? 'badge-success' : group.avg_percentage >= 50 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
+                                Avg Score: {Number(group.avg_percentage).toFixed(2)}%
+                              </span>
+
+                              {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <span className="badge badge-info" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
-                              {group.total_exams} result{group.total_exams === 1 ? '' : 's'}
-                            </span>
-
-                            <span className={`badge ${group.avg_percentage >= 70 ? 'badge-success' : group.avg_percentage >= 50 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
-                              Avg Score: {Number(group.avg_percentage).toFixed(2)}%
-                            </span>
-
-                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                          </div>
-                        </div>
-
-                        {/* Group Collapsible Content Table */}
-                        {isExpanded && (
-                          <div style={{ borderTop: '1px solid var(--border-color)', padding: '0.5rem 1rem 1rem 1rem' }}>
-                            <table style={{ margin: 0 }}>
-                              <thead>
-                                <tr>
-                                  <th>Exam Type</th>
-                                  <th>Score / Total</th>
-                                  <th>Percentage</th>
-                                  <th>Submitted At</th>
-                                  <th style={{ textAlign: 'center' }}>Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {group.attempts.map(r => (
-                                  <tr key={r.id}>
-                                    <td><span className="badge badge-info">{r.exam_type}</span></td>
-                                    <td><strong>{r.score}</strong> / {r.total_questions}</td>
-                                    <td>
-                                      <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
-                                        {Number(r.percentage).toFixed(2)}%
-                                      </span>
-                                    </td>
-                                    <td>{new Date(r.submitted_at).toLocaleString()}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                                        <button
-                                          className="btn btn-secondary"
-                                          style={{ padding: '4px 8px' }}
-                                          title="View Exam Answer Details"
-                                          onClick={(e) => { e.stopPropagation(); setSelectedResultDetails(r); }}
-                                        >
-                                          <Eye size={14} />
-                                        </button>
-                                        <button
-                                          className="btn btn-danger"
-                                          style={{ padding: '4px 8px' }}
-                                          title="Delete Exam Submission"
-                                          onClick={(e) => { e.stopPropagation(); handleDeleteResult(r.id); }}
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      </div>
-                                    </td>
+                          {/* Group Collapsible Content Table */}
+                          {isExpanded && (
+                            <div style={{ borderTop: '1px solid var(--border-color)', padding: '0.5rem 1rem 1rem 1rem' }}>
+                              <table style={{ margin: 0 }}>
+                                <thead>
+                                  <tr>
+                                    <th>Exam Type</th>
+                                    <th>Score / Total</th>
+                                    <th>Percentage</th>
+                                    <th>Submitted At</th>
+                                    <th style={{ textAlign: 'center' }}>Actions</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                                </thead>
+                                <tbody>
+                                  {group.attempts.map(r => (
+                                    <tr key={r.id}>
+                                      <td><span className="badge badge-info">{r.exam_type}</span></td>
+                                      <td><strong>{r.score}</strong> / {r.total_questions}</td>
+                                      <td>
+                                        <span className={`badge ${r.percentage >= 70 ? 'badge-success' : r.percentage >= 50 ? 'badge-warning' : 'badge-danger'}`}>
+                                          {Number(r.percentage).toFixed(2)}%
+                                        </span>
+                                      </td>
+                                      <td>{new Date(r.submitted_at).toLocaleString()}</td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                          <button
+                                            className="btn btn-secondary"
+                                            style={{ padding: '4px 8px' }}
+                                            title="View Exam Answer Details"
+                                            onClick={(e) => { e.stopPropagation(); setSelectedResultDetails(r); }}
+                                          >
+                                            <Eye size={14} />
+                                          </button>
+                                          <button
+                                            className="btn btn-danger"
+                                            style={{ padding: '4px 8px' }}
+                                            title="Delete Exam Submission"
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteResult(r.id); }}
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {resultsPagination.total_pages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', flexWrap: 'wrap', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      Showing page <strong>{resultsPage}</strong> of <strong>{resultsPagination.total_pages}</strong> ({resultsPagination.total_results} total results)
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <select
+                        className="form-input"
+                        value={resultsLimit}
+                        onChange={(e) => {
+                          const newLimit = parseInt(e.target.value);
+                          setResultsLimit(newLimit);
+                          setResultsPage(1);
+                          fetchStatsAndAnalytics(revenueRange, 1, newLimit, resultSearch);
+                        }}
+                        style={{ width: '110px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+                      >
+                        <option value={10}>10 / page</option>
+                        <option value={20}>20 / page</option>
+                        <option value={50}>50 / page</option>
+                        <option value={100}>100 / page</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={resultsPage <= 1}
+                        onClick={() => {
+                          const p = resultsPage - 1;
+                          setResultsPage(p);
+                          fetchStatsAndAnalytics(revenueRange, p, resultsLimit, resultSearch);
+                        }}
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                      >
+                        Previous
+                      </button>
+
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, padding: '0 0.5rem' }}>
+                        {resultsPage} / {resultsPagination.total_pages}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={resultsPage >= resultsPagination.total_pages}
+                        onClick={() => {
+                          const p = resultsPage + 1;
+                          setResultsPage(p);
+                          fetchStatsAndAnalytics(revenueRange, p, resultsLimit, resultSearch);
+                        }}
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })()}
@@ -2305,7 +2482,20 @@ export default function App() {
 
                                   return (
                                     <tr key={p.id}>
-                                      <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.passcode}</td>
+                                      <td>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.passcode}</span>
+                                          {p.promo_label ? (
+                                            <span className="badge badge-success" style={{ fontSize: '0.72rem', marginTop: '3px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                              <Tag size={10} /> {p.promo_label}
+                                            </span>
+                                          ) : p.promo_code ? (
+                                            <span className="badge badge-success" style={{ fontSize: '0.72rem', marginTop: '3px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                              <Tag size={10} /> Promo: {p.promo_code}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </td>
                                       <td><span className="badge badge-info">{p.exam_category}</span></td>
                                       <td style={{ fontSize: '0.82rem', fontWeight: 700 }} title={subjectsTooltip}>
                                         <span className="badge badge-warning">{countDisplay}</span>
@@ -2328,13 +2518,16 @@ export default function App() {
                                               setEditingPasscode(p);
                                               setEditPasscodeCategories(cats);
 
-                                              // Pre-select subjects: tick all available subjects for enabled categories by default
-                                              const allSubNames = dbSubjects.filter(s => cats.includes(s.exam_type)).map(s => s.name);
-                                              if (rawSubList.length > 0) {
-                                                setEditPasscodeSubjects(Array.from(new Set([...allSubNames, ...rawSubList])));
-                                              } else {
-                                                setEditPasscodeSubjects(Array.from(new Set(allSubNames)));
-                                              }
+                                              // Pre-select subjects: only check courses that are available for that passcode
+                                              const rawSubs = p.allowed_subjects ? p.allowed_subjects.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+                                              const matchedCheckedNames = rawSubs.map((item: string) => {
+                                                if (!isNaN(Number(item))) {
+                                                  const foundSub = dbSubjects.find(s => Number(s.id) === Number(item));
+                                                  return foundSub ? foundSub.name : item;
+                                                }
+                                                return item;
+                                              });
+                                              setEditPasscodeSubjects(Array.from(new Set(matchedCheckedNames)));
                                             }}
                                           >
                                             <Edit size={14} /> Manage Access
@@ -2420,39 +2613,41 @@ export default function App() {
 
                 {/* EXAM INSTRUCTIONS TAB */}
         {activeTab === 'INSTRUCTIONS' && (
-          <div className="admin-card" style={{ maxWidth: '700px', margin: '0 auto' }}>
+          <div className="admin-card" style={{ maxWidth: '820px', margin: '0 auto' }}>
             <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileCheck size={20} /> Pre-Exam Instructions
+              <FileCheck size={20} /> Pre-Exam &amp; Study Instructions
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-              These instructions are shown to candidates before they start an exam or study session. The desktop app picks up changes on its next sync.
+              These instructions are shown to candidates before they start an exam or study session. Formatted rich text is saved and synced to the desktop application SQLite database.
             </p>
 
-            <form onSubmit={handleSaveInstructions}>
-              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label className="form-label">Exam Mode Instructions</label>
-                <textarea
-                  className="form-input"
-                  rows={8}
+            <form onSubmit={handleSaveInstructions} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>
+                  Exam Mode Pre-Exam Instructions
+                </label>
+                <RichTextEditor
                   value={pricingForm.exam_instructions}
-                  onChange={(e) => setPricingForm({ ...pricingForm, exam_instructions: e.target.value })}
-                  placeholder="Enter instructions to display before launching Exam Mode..."
+                  onChange={(val) => setPricingForm({ ...pricingForm, exam_instructions: val })}
+                  placeholder="Type or format instructions displayed before starting Exam Mode..."
+                  rows={7}
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <label className="form-label">Study Mode Instructions</label>
-                <textarea
-                  className="form-input"
-                  rows={8}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>
+                  Study Mode Pre-Exam Instructions
+                </label>
+                <RichTextEditor
                   value={pricingForm.study_instructions}
-                  onChange={(e) => setPricingForm({ ...pricingForm, study_instructions: e.target.value })}
-                  placeholder="Enter instructions to display before launching Study Mode..."
+                  onChange={(val) => setPricingForm({ ...pricingForm, study_instructions: val })}
+                  placeholder="Type or format instructions displayed before starting Study Mode..."
+                  rows={7}
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Save Instructions
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', fontWeight: 800 }}>
+                Save Exam &amp; Study Instructions
               </button>
             </form>
           </div>
@@ -2588,8 +2783,8 @@ export default function App() {
                     promos
                       .filter(p => !promoSearch || p.code.toLowerCase().includes(promoSearch.toLowerCase()))
                       .map(p => (
-                        <tr key={p.id}>
-                          <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.code}</td>
+                        <tr key={p.id} onClick={() => setViewingPromo(p)} style={{ cursor: 'pointer' }}>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem', color: 'var(--accent)' }}>{p.code}</td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span className="badge badge-info">{p.discount_type}</span>
@@ -2608,8 +2803,16 @@ export default function App() {
                               {p.active ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'center' }}>
+                          <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                                onClick={() => setViewingPromo(p)}
+                                title="View User Redemptions"
+                              >
+                                <Eye size={14} /> Details
+                              </button>
                               <button
                                 className="btn btn-secondary"
                                 style={{ padding: '4px 8px', fontSize: '0.78rem' }}
@@ -3622,10 +3825,15 @@ export default function App() {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                    onClick={() => setEditPasscodeSubjects([])}
+                    style={{ padding: '4px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    onClick={() => {
+                      const allCatSubjectNames = dbSubjects
+                        .filter(s => editPasscodeCategories.includes(s.exam_type))
+                        .map(s => s.name);
+                      setEditPasscodeSubjects(Array.from(new Set(allCatSubjectNames)));
+                    }}
                   >
-                    Clear Restrictions (Unlock All Subjects)
+                    <Unlock size={14} /> Unlock All Courses / Clear Restriction
                   </button>
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
@@ -3678,6 +3886,80 @@ export default function App() {
                 <button type="submit" className="btn btn-primary">Save Access Settings</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROMO CODE USAGE DETAILS MODAL */}
+      {viewingPromo && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setViewingPromo(null); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div className="admin-card" style={{ maxWidth: '750px', width: '92%', maxHeight: '85vh', overflowY: 'auto', padding: '1.8rem', position: 'relative' }}>
+            <button
+              onClick={() => setViewingPromo(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Tag size={20} style={{ color: 'var(--accent)' }} /> Promo Code Details — <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>{viewingPromo.code}</span>
+            </h3>
+
+            {/* Metric Summary Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', fontSize: '0.85rem', marginBottom: '1.5rem', background: 'var(--primary-light)', padding: '1rem', borderRadius: '12px' }}>
+              <div><strong>Discount:</strong> {viewingPromo.discount_type === 'percentage' ? `${viewingPromo.discount_value}% OFF` : viewingPromo.discount_type === 'fixed' ? `₦${viewingPromo.discount_value} OFF` : '100% FREE'}</div>
+              <div><strong>Redemptions:</strong> {viewingPromo.uses_count || 0} / {viewingPromo.max_uses || '∞'}</div>
+              <div><strong>Total Discounted:</strong> ₦{Number(viewingPromo.total_discount_deducted || 0).toLocaleString()}</div>
+              <div><strong>Status:</strong> <span className={`badge ${viewingPromo.active ? 'badge-success' : 'badge-danger'}`}>{viewingPromo.active ? 'Active' : 'Inactive'}</span></div>
+            </div>
+
+            <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={18} style={{ color: 'var(--primary)' }} /> Candidates Who Redeemed Code ({viewingPromo.redemptions ? viewingPromo.redemptions.length : 0})
+            </h4>
+
+            {!viewingPromo.redemptions || viewingPromo.redemptions.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem', background: 'var(--bg-main)', borderRadius: '10px' }}>
+                No candidate redemptions logged for this promo code yet.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Candidate</th>
+                      <th>Email</th>
+                      <th>Passcode</th>
+                      <th>Savings (₦)</th>
+                      <th>Date &amp; Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewingPromo.redemptions.map((red: any, idx: number) => (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 700 }}>{red.user_name || 'Candidate'}</td>
+                        <td>{red.user_email}</td>
+                        <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>{red.passcode || 'N/A'}</td>
+                        <td style={{ fontWeight: 800, color: 'var(--success)' }}>
+                          ₦{Number(red.discount_amount || 0).toLocaleString()}
+                        </td>
+                        <td>{new Date(red.used_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="btn btn-secondary" onClick={() => setViewingPromo(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}
