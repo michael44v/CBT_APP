@@ -3526,12 +3526,12 @@ export default function App() {
                     cursor: answers[curQ?.id] ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  {revealExplanation ? 'Hide Answer & Explanation' : 'View Correct Answer & Explanation'}
+                  {revealExplanation ? 'Hide Study Notes' : 'STUDY THIS QUESTION'}
                 </button>
 
                 {!answers[curQ?.id] && (
                   <span style={{ fontSize: '12px', color: '#6b7280', fontFamily: 'Arial, sans-serif' }}>
-                    (Select an option first to view explanation)
+                    (Select an option first to study this question)
                   </span>
                 )}
               </div>
@@ -3549,13 +3549,13 @@ export default function App() {
 
                   {curQ.correct_explanation && (
                     <div style={{ marginBottom: '8px' }}>
-                      <strong>Correct Answer Explanation:</strong> <MathRenderer text={curQ.correct_explanation} />
+                      <strong>EXPLANATION:</strong> <MathRenderer text={curQ.correct_explanation} />
                     </div>
                   )}
 
                   {curQ.wrong_explanations && (
                     <div style={{ marginBottom: '8px', color: '#991b1b' }}>
-                      <strong>Wrong Answer Explanation:</strong> <MathRenderer text={curQ.wrong_explanations} />
+                      <strong>WHY THESE OPTIONS ARE WRONG:</strong> <MathRenderer text={curQ.wrong_explanations} />
                     </div>
                   )}
 
