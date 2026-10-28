@@ -44,6 +44,10 @@ jobs:
       - name: Build NSIS installer (exe)
         run: npx electron-builder --win nsis --ia32 --publish never
 
+      - name: Show build output
+        shell: pwsh
+        run: Get-ChildItem release
+
       - name: Verify SQLite file is inside the packaged app
         shell: pwsh
         run: |
@@ -66,13 +70,6 @@ jobs:
           if ($p.ExitCode -ne 0 -or -not (Select-String -Path out.txt -Pattern "SQLite works" -Quiet)) {
             throw "SQLite failed to load from the packaged app"
           }
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: fillop-cbt-guru-exe
-          path: desktop/release/*.exe
-          if-no-files-found: error
 
       - name: Install the built exe silently
         shell: pwsh
@@ -106,6 +103,42 @@ jobs:
           if ($p.HasExited) { throw "App exited early with code $($p.ExitCode)" }
           Write-Host "App still running after 25s"
           Stop-Process -Id $p.Id -Force
+
+      - name: Upload installer + update metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: fillop-cbt-guru-exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.exe.blockmap
+            desktop/release/latest.yml
+          if-no-files-found: error
+
+      - name: Deploy to server via FTPS
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: |
+          $cred = "$($env:FTP_USER):$($env:FTP_PASS)"
+          $files = @()
+          $files += Get-ChildItem release/*.exe
+          $files += Get-ChildItem release/*.exe.blockmap
+          $files += Get-Item release/latest.yml   # last on purpose
+
+          foreach ($f in $files) {
+            Write-Host "Uploading $($f.Name)..."
+            curl.exe --ssl-reqd --insecure --fail --retry 3 `
+              -T $f.FullName --user $cred "ftp://$($env:FTP_HOST)/"
+            if ($LASTEXITCODE -ne 0) { throw "Upload failed for $($f.Name)" }
+          }
+
+      - name: Verify latest.yml on server
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: curl.exe -s https://cbt.filloptech.com/downloads/latest.yml
 
       - name: Upload screenshot and app logs
         if: always()
