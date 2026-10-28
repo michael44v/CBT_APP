@@ -16,6 +16,25 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     $res = $db->query("SELECT * FROM promo_codes ORDER BY created_at DESC");
     $promos = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Calculate total discount savings / deductions tracked across transactions
+    $resDeductions = $db->query("SELECT admin_notes FROM passcode_upgrades WHERE admin_notes LIKE '%Promo%'");
+    $totalDeductionsMap = [];
+    if ($resDeductions) {
+        while ($row = $resDeductions->fetch_assoc()) {
+            if (preg_match('/Promo:\s*([A-Z0-9_\-]+).*?Savings:\s*([0-9\.]+)/i', $row['admin_notes'], $matches)) {
+                $pCode = strtoupper($matches[1]);
+                $sav = floatval($matches[2]);
+                $totalDeductionsMap[$pCode] = ($totalDeductionsMap[$pCode] ?? 0) + $sav;
+            }
+        }
+    }
+
+    foreach ($promos as &$p) {
+        $c = strtoupper($p['code']);
+        $p['total_discount_deducted'] = $totalDeductionsMap[$c] ?? 0;
+    }
+
     echo json_encode(["success" => true, "promo_codes" => $promos]);
     exit();
 }

@@ -1270,30 +1270,36 @@ export default function App() {
       const targetCategory = examType; // Use the currently selected exam category
 
       const subs = await window.api.getSubjects(targetCategory);
-      const unlockedSubs = Array.isArray(subs) ? subs.filter((s: any) => !s.is_locked) : [];
+      const candidateSubs = (Array.isArray(subs) && subs.length > 0)
+        ? (subs.filter((s: any) => !s.is_locked).length > 0 ? subs.filter((s: any) => !s.is_locked) : subs)
+        : [];
 
-      let randomSub = null;
-      if (unlockedSubs.length > 0) {
-        randomSub = unlockedSubs[Math.floor(Math.random() * unlockedSubs.length)];
-      } else if (subs && subs.length > 0) {
-        randomSub = subs[Math.floor(Math.random() * subs.length)];
-      }
-
-      if (!randomSub) {
+      if (candidateSubs.length === 0) {
         alert('No available subjects found for Daily Quiz.');
         return;
       }
 
-      const count = Math.floor(Math.random() * 6) + 10; // 10 to 15 questions
+      const shuffledSubs = [...candidateSubs].sort(() => 0.5 - Math.random());
+      let randomSub = null;
+      let qList: any[] = [];
+      const count = Math.floor(Math.random() * 6) + 10;
 
-      const qList = await window.api.generatePracticeQuestions({
-        examType: targetCategory,
-        subjectId: randomSub.id,
-        limit: count,
-      });
+      for (const sub of shuffledSubs) {
+        const questions = await window.api.generatePracticeQuestions({
+          examType: targetCategory,
+          subjectId: sub.id,
+          limit: count,
+        });
 
-      if (!qList || qList.length === 0) {
-        alert('No questions found for the Daily Quiz subject.');
+        if (questions && questions.length > 0) {
+          randomSub = sub;
+          qList = questions;
+          break;
+        }
+      }
+
+      if (!randomSub || qList.length === 0) {
+        alert('No questions found for the Daily Quiz subjects in this category.');
         return;
       }
 

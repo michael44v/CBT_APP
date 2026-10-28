@@ -61,7 +61,9 @@ contextBridge.exposeInMainWorld("api", {
   },
   setExamActive: (isActive) => ipcRenderer.invoke("exam:set-active", isActive),
   getVersion: () => ipcRenderer.invoke("app:get-version"),
-  openExternal: (url) => ipcRenderer.invoke("app:open-external", url)
+  openExternal: (url) => ipcRenderer.invoke("app:open-external", url),
+  openBuyPasscodeWindow: (url) => ipcRenderer.invoke("app:open-buy-passcode-window", url),
+  getInstructions: () => ipcRenderer.invoke("db:get-instructions")
 });
 
 contextBridge.exposeInMainWorld("updater", {

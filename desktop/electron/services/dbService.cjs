@@ -82,6 +82,11 @@ function createTables() {
       INSERT OR IGNORE INTO sync_state (id, last_version, updated_at)
       VALUES (1, 0, CURRENT_TIMESTAMP);
 
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT
+      );
+
       CREATE TABLE IF NOT EXISTS subjects (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,

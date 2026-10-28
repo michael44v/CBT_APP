@@ -932,6 +932,35 @@ ipcMain.handle("app:open-external", async (event, url) => {
   }
 });
 
+ipcMain.handle("app:open-buy-passcode-window", async (event, url) => {
+  const targetUrl = url || "https://cbt.filloptech.com/api/v1/sync/subscribe.php";
+  const buyWin = new BrowserWindow({
+    width: 1024,
+    height: 768,
+    title: "Buy Passcode Online - Fillop CBT Guru",
+    autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  buyWin.loadURL(targetUrl);
+});
+
+ipcMain.handle("db:get-instructions", async () => {
+  try {
+    const examInstRow = dbService.get("SELECT setting_value FROM app_settings WHERE setting_key = 'exam_instructions'");
+    const studyInstRow = dbService.get("SELECT setting_value FROM app_settings WHERE setting_key = 'study_instructions'");
+    return {
+      exam_instructions: examInstRow ? examInstRow.setting_value : null,
+      study_instructions: studyInstRow ? studyInstRow.setting_value : null
+    };
+  } catch (e) {
+    console.error("Failed to fetch instructions from local db:", e);
+    return { exam_instructions: null, study_instructions: null };
+  }
+});
+
 // ================= IPC HANDLERS: AUTO UPDATER =================
 
 ipcMain.handle("update:check", async () => {

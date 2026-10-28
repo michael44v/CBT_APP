@@ -395,11 +395,13 @@ export default function App() {
     }
   };
 
-  // Pricing settings state
+  // Pricing & Instructions settings state
   const [pricingForm, setPricingForm] = useState({
     single_passcode_price_6m: 1400,
     small_bulk_price_6m: 1100,
-    large_bulk_price_6m: 1000
+    large_bulk_price_6m: 1000,
+    exam_instructions: '',
+    study_instructions: ''
   });
 
   // Promo Code Form State
@@ -730,7 +732,9 @@ export default function App() {
         setPricingForm({
           single_passcode_price_6m: data.pricing.single_passcode_price_6m || 1400,
           small_bulk_price_6m: data.pricing.small_bulk_price_6m || 1100,
-          large_bulk_price_6m: data.pricing.large_bulk_price_6m || 1000
+          large_bulk_price_6m: data.pricing.large_bulk_price_6m || 1000,
+          exam_instructions: data.exam_instructions || '',
+          study_instructions: data.study_instructions || ''
         });
       }
     } catch (e) {
@@ -2381,8 +2385,35 @@ export default function App() {
                 />
               </div>
 
+              <hr style={{ margin: '1.5rem 0', borderColor: 'var(--border-color)' }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>
+                Pre-Exam Instructions Configuration
+              </h3>
+
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">Exam Mode Instructions</label>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  value={pricingForm.exam_instructions}
+                  onChange={(e) => setPricingForm({ ...pricingForm, exam_instructions: e.target.value })}
+                  placeholder="Enter instructions to display before launching Exam Mode..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label className="form-label">Study Mode Instructions</label>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  value={pricingForm.study_instructions}
+                  onChange={(e) => setPricingForm({ ...pricingForm, study_instructions: e.target.value })}
+                  placeholder="Enter instructions to display before launching Study Mode..."
+                />
+              </div>
+
               <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Save Pricing Changes
+                Save Pricing & Instructions Changes
               </button>
             </form>
           </div>
@@ -2476,9 +2507,9 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Code</th>
-                    <th>Type</th>
-                    <th>Value</th>
+                    <th>Discount Type &amp; Rate</th>
                     <th>Uses / Max</th>
+                    <th>Total Amount Deducted</th>
                     <th>Expires At</th>
                     <th>Status</th>
                     <th style={{ textAlign: 'center' }}>Actions</th>
@@ -2493,9 +2524,18 @@ export default function App() {
                       .map(p => (
                         <tr key={p.id}>
                           <td style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }}>{p.code}</td>
-                          <td><span className="badge badge-info">{p.discount_type}</span></td>
-                          <td>{p.discount_type === 'percentage' ? `${p.discount_value}%` : p.discount_type === 'fixed' ? `₦${p.discount_value}` : 'Free'}</td>
-                          <td>{p.uses_count || 0} / {p.max_uses || '∞'}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="badge badge-info">{p.discount_type}</span>
+                              <span style={{ fontWeight: 700 }}>
+                                {p.discount_type === 'percentage' ? `${p.discount_value}% OFF` : p.discount_type === 'fixed' ? `₦${p.discount_value} OFF` : '100% FREE'}
+                              </span>
+                            </div>
+                          </td>
+                          <td><strong>{p.uses_count || 0}</strong> / {p.max_uses || '∞'} redemptions</td>
+                          <td style={{ fontWeight: 800, color: 'var(--success)' }}>
+                            ₦{Number(p.total_discount_deducted || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
                           <td>{p.expires_at ? new Date(p.expires_at).toLocaleDateString() : 'Never'}</td>
                           <td>
                             <span className={`badge ${p.active ? 'badge-success' : 'badge-danger'}`}>
