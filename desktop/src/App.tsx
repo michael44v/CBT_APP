@@ -1290,7 +1290,7 @@ export default function App() {
       setFlagged({});
 
       const categoriesToTry: ('JAMB' | 'WAEC' | 'NECO')[] = Array.from(new Set([examType, 'JAMB', 'WAEC', 'NECO']));
-
+      
       let randomSub: any = null;
       let qList: any[] = [];
       let foundCategory: 'JAMB' | 'WAEC' | 'NECO' = examType;
