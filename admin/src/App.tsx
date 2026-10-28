@@ -83,8 +83,8 @@ export default function App() {
     return (localStorage.getItem('admin_theme') as 'light' | 'dark') || 'light';
   });
 
-  const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES' | 'WORKERS'
+    const [activeTab, setActiveTab] = useState<
+    'DASHBOARD' | 'UPLOAD_WIZARD' | 'RESULTS' | 'USERS' | 'PASSCODES' | 'UPGRADES' | 'INSTITUTIONS' | 'PRICING' | 'PROMOS' | 'QUESTIONS' | 'TOPICS' | 'UPLOAD_LOGS' | 'NEWS' | 'UPDATES' | 'WORKERS' | 'INSTRUCTIONS'
   >('DASHBOARD');
 
   const [openAddTopicDirectly, setOpenAddTopicDirectly] = useState<boolean>(false);
@@ -440,6 +440,26 @@ export default function App() {
       }
     } catch (err) {
       showNotification('Error saving pricing settings.', 'error');
+    }
+  };
+
+    const handleSaveInstructions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/pricing.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pricingForm)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('Instructions saved successfully.');
+        fetchPricing();
+      } else {
+        showNotification(data.message || 'Failed to save instructions.', 'error');
+      }
+    } catch (err) {
+      showNotification('Error saving instructions.', 'error');
     }
   };
 
@@ -1136,10 +1156,13 @@ export default function App() {
                   <span>REPORTS</span>
                   {openGroups.reports ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </div>
-                {openGroups.reports && (
+                 {openGroups.reports && (
                   <div className="sidebar-group-items">
                     <button className={`menu-btn ${activeTab === 'RESULTS' ? 'active' : ''}`} onClick={() => setActiveTab('RESULTS')}>
                       <div className="nav-icon-box"><BarChart3 size={16} /></div> <span>Exam Analytics</span>
+                    </button>
+                    <button className={`menu-btn ${activeTab === 'INSTRUCTIONS' ? 'active' : ''}`} onClick={() => setActiveTab('INSTRUCTIONS')}>
+                      <div className="nav-icon-box"><FileCheck size={16} /></div> <span>Exam Instructions</span>
                     </button>
                   </div>
                 )}
@@ -1219,6 +1242,7 @@ export default function App() {
       {activeTab === 'NEWS' && 'Admin News'}
       {activeTab === 'UPDATES' && 'Software Release'}
       {activeTab === 'WORKERS' && 'Worker Management & Privileges'}
+      {activeTab === 'INSTRUCTIONS' && 'Exam & Study Instructions'}
     </h1>
     <div className="admin-header-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
       <span className="meta-dot" />
@@ -2385,16 +2409,31 @@ export default function App() {
                 />
               </div>
 
-              <hr style={{ margin: '1.5rem 0', borderColor: 'var(--border-color)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>
-                Pre-Exam Instructions Configuration
-              </h3>
+           
 
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                Save Pricing Changes
+              </button>
+            </form>
+          </div>
+        )}
+
+                {/* EXAM INSTRUCTIONS TAB */}
+        {activeTab === 'INSTRUCTIONS' && (
+          <div className="admin-card" style={{ maxWidth: '700px', margin: '0 auto' }}>
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileCheck size={20} /> Pre-Exam Instructions
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              These instructions are shown to candidates before they start an exam or study session. The desktop app picks up changes on its next sync.
+            </p>
+
+            <form onSubmit={handleSaveInstructions}>
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                 <label className="form-label">Exam Mode Instructions</label>
                 <textarea
                   className="form-input"
-                  rows={4}
+                  rows={8}
                   value={pricingForm.exam_instructions}
                   onChange={(e) => setPricingForm({ ...pricingForm, exam_instructions: e.target.value })}
                   placeholder="Enter instructions to display before launching Exam Mode..."
@@ -2405,7 +2444,7 @@ export default function App() {
                 <label className="form-label">Study Mode Instructions</label>
                 <textarea
                   className="form-input"
-                  rows={4}
+                  rows={8}
                   value={pricingForm.study_instructions}
                   onChange={(e) => setPricingForm({ ...pricingForm, study_instructions: e.target.value })}
                   placeholder="Enter instructions to display before launching Study Mode..."
@@ -2413,12 +2452,11 @@ export default function App() {
               </div>
 
               <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Save Pricing & Instructions Changes
+                Save Instructions
               </button>
             </form>
           </div>
         )}
-
         {/* PROMO CODES TAB */}
         {activeTab === 'PROMOS' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
