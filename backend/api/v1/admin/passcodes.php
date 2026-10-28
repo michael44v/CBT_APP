@@ -30,6 +30,86 @@ if ($method === 'GET') {
     $res = $db->query("SELECT p.*, o.name as organization_name, o.type as organization_type, o.contact_person, o.contact_email, o.contact_phone FROM passcodes p LEFT JOIN organizations o ON p.organization_id = o.id ORDER BY p.created_at DESC");
     $passcodes = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
+    // Map promo code definitions
+    $promos_res = $db->query("SELECT code, discount_type, discount_value FROM promo_codes");
+    $promos_map = [];
+    if ($promos_res) {
+        while ($pr = $promos_res->fetch_assoc()) {
+            $promos_map[strtoupper($pr['code'])] = $pr;
+        }
+    }
+
+    // Map promo usage records by passcode or email
+    $usage_res = $db->query("SELECT * FROM promo_code_usages ORDER BY used_at DESC");
+    $usage_by_passcode = [];
+    $usage_by_email = [];
+    if ($usage_res) {
+        while ($u = $usage_res->fetch_assoc()) {
+            if (!empty($u['passcode'])) {
+                $usage_by_passcode[$u['passcode']] = $u;
+            }
+            if (!empty($u['user_email'])) {
+                $usage_by_email[strtolower($u['user_email'])] = $u;
+            }
+        }
+    }
+
+    // Also check passcode_upgrades for admin_notes with Promo
+    $upg_promo_res = $db->query("SELECT passcode, email, admin_notes FROM passcode_upgrades WHERE admin_notes LIKE '%Promo:%'");
+    $upg_promos = [];
+    if ($upg_promo_res) {
+        while ($ur = $upg_promo_res->fetch_assoc()) {
+            if (preg_match('/Promo:\s*([A-Z0-9_\-]+)/i', $ur['admin_notes'], $m)) {
+                $codeStr = strtoupper($m[1]);
+                if (!empty($ur['passcode'])) {
+                    $upg_promos[$ur['passcode']] = $codeStr;
+                }
+                if (!empty($ur['email'])) {
+                    $upg_promos['email_' . strtolower($ur['email'])] = $codeStr;
+                }
+            }
+        }
+    }
+
+    foreach ($passcodes as &$p) {
+        $p_code = $p['passcode'];
+        $p_email = strtolower($p['email']);
+        $matched_promo_code = !empty($p['promo_code']) ? strtoupper($p['promo_code']) : null;
+
+        if (!$matched_promo_code && isset($usage_by_passcode[$p_code])) {
+            $matched_promo_code = strtoupper($usage_by_passcode[$p_code]['promo_code']);
+        }
+        if (!$matched_promo_code && isset($upg_promos[$p_code])) {
+            $matched_promo_code = $upg_promos[$p_code];
+        }
+        if (!$matched_promo_code && isset($usage_by_email[$p_email])) {
+            $matched_promo_code = strtoupper($usage_by_email[$p_email]['promo_code']);
+        }
+        if (!$matched_promo_code && isset($upg_promos['email_' . $p_email])) {
+            $matched_promo_code = $upg_promos['email_' . $p_email];
+        }
+
+        if ($matched_promo_code) {
+            $p['promo_code'] = $matched_promo_code;
+            if (isset($promos_map[$matched_promo_code])) {
+                $pm = $promos_map[$matched_promo_code];
+                $p['promo_discount_type'] = $pm['discount_type'];
+                $p['promo_discount_value'] = $pm['discount_value'];
+                if ($pm['discount_type'] === 'percentage') {
+                    $p['promo_label'] = "Promo: {$matched_promo_code} ({$pm['discount_value']}% OFF)";
+                } else if ($pm['discount_type'] === 'fixed') {
+                    $p['promo_label'] = "Promo: {$matched_promo_code} (₦{$pm['discount_value']} OFF)";
+                } else {
+                    $p['promo_label'] = "Promo: {$matched_promo_code} (100% FREE)";
+                }
+            } else {
+                $p['promo_label'] = "Promo: {$matched_promo_code}";
+            }
+        } else {
+            $p['promo_label'] = null;
+        }
+    }
+
     $org_res = $db->query("SELECT o.*, COUNT(p.id) as passcode_count FROM organizations o LEFT JOIN passcodes p ON o.id = p.organization_id GROUP BY o.id ORDER BY o.created_at DESC");
     $organizations = $org_res ? $org_res->fetch_all(MYSQLI_ASSOC) : [];
 

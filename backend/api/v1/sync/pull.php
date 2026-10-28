@@ -143,11 +143,12 @@ if (empty($news)) {
     $news = $news_res ? $news_res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
-$resInst = $db->query("SELECT setting_key, setting_value FROM pricing_settings WHERE setting_key IN ('exam_instructions', 'study_instructions')");
+$resInst = $db->query("SELECT setting_key, description, setting_value FROM pricing_settings WHERE setting_key IN ('exam_instructions', 'study_instructions')");
 $instMap = [];
 if ($resInst) {
     while ($r = $resInst->fetch_assoc()) {
-        $instMap[$r['setting_key']] = $r['setting_value'];
+        $val = !empty($r['description']) ? $r['description'] : (is_numeric($r['setting_value']) ? '' : $r['setting_value']);
+        $instMap[$r['setting_key']] = $val;
     }
 }
 

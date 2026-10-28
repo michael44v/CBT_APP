@@ -134,9 +134,49 @@ $updates_count = $res ? $res->fetch_assoc()['count'] : 0;
 $res = $db->query("SELECT version FROM software_updates ORDER BY created_at DESC, id DESC LIMIT 1");
 $latest_update_version = ($res && $row = $res->fetch_assoc()) ? $row['version'] : 'N/A';
 
-// Uploaded Exam Results
+// Pagination & Search for Exam Results
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = isset($_GET['limit']) ? max(1, min(500, intval($_GET['limit']))) : 20;
+$search = trim($_GET['search'] ?? '');
+
+$where = "WHERE 1=1";
+$params = [];
+$types = "";
+
+if (!empty($search)) {
+    $where .= " AND (r.email LIKE ? OR u.name LIKE ? OR r.exam_type LIKE ?)";
+    $search_param = '%' . $search . '%';
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $types .= "sss";
+}
+
+if (!empty($search)) {
+    $countStmt = $db->prepare("SELECT COUNT(*) as count FROM results r LEFT JOIN users u ON r.email = u.email $where");
+    $countStmt->bind_param($types, ...$params);
+    $countStmt->execute();
+    $total_results_count = $countStmt->get_result()->fetch_assoc()['count'];
+} else {
+    $resCount = $db->query("SELECT COUNT(*) as count FROM results");
+    $total_results_count = $resCount ? $resCount->fetch_assoc()['count'] : 0;
+}
+
+$total_pages = max(1, ceil($total_results_count / $limit));
+$offset = ($page - 1) * $limit;
+
 $results = [];
-$res = $db->query("SELECT r.*, u.name as candidate_name FROM results r LEFT JOIN users u ON r.email = u.email ORDER BY r.submitted_at DESC LIMIT 100");
+if (!empty($search)) {
+    $stmtRes = $db->prepare("SELECT r.*, u.name as candidate_name FROM results r LEFT JOIN users u ON r.email = u.email $where ORDER BY r.submitted_at DESC LIMIT ? OFFSET ?");
+    $typesWithOffset = $types . "ii";
+    $paramsWithOffset = array_merge($params, [$limit, $offset]);
+    $stmtRes->bind_param($typesWithOffset, ...$paramsWithOffset);
+    $stmtRes->execute();
+    $res = $stmtRes->get_result();
+} else {
+    $res = $db->query("SELECT r.*, u.name as candidate_name FROM results r LEFT JOIN users u ON r.email = u.email ORDER BY r.submitted_at DESC LIMIT $limit OFFSET $offset");
+}
+
 if ($res) {
     while ($row = $res->fetch_assoc()) {
         $results[] = [
@@ -149,6 +189,41 @@ if ($res) {
             "percentage" => floatval($row['percentage']),
             "details" => $row['details'],
             "submitted_at" => $row['submitted_at']
+        ];
+    }
+}
+
+// Overall Pass vs Fail Breakdown
+$excellent_count = 0;
+$pass_count = 0;
+$fail_count = 0;
+$resPF = $db->query("SELECT
+    SUM(CASE WHEN percentage >= 70 THEN 1 ELSE 0 END) as excellent,
+    SUM(CASE WHEN percentage >= 50 AND percentage < 70 THEN 1 ELSE 0 END) as pass,
+    SUM(CASE WHEN percentage < 50 THEN 1 ELSE 0 END) as fail
+FROM results");
+
+if ($resPF && $rowPF = $resPF->fetch_assoc()) {
+    $excellent_count = intval($rowPF['excellent'] ?? 0);
+    $pass_count = intval($rowPF['pass'] ?? 0);
+    $fail_count = intval($rowPF['fail'] ?? 0);
+}
+
+$pass_fail_distribution = [
+    ["name" => "Excellent (≥70%)", "value" => $excellent_count, "color" => "#10b981"],
+    ["name" => "Pass (50-69%)", "value" => $pass_count, "color" => "#f59e0b"],
+    ["name" => "Fail (<50%)", "value" => $fail_count, "color" => "#ef4444"]
+];
+
+// Line Chart: Score progress over time
+$score_progress_over_time = [];
+$resProgress = $db->query("SELECT DATE_FORMAT(submitted_at, '%b %d') as date_label, DATE(submitted_at) as dt, AVG(percentage) as avg_score, COUNT(*) as total_exams FROM results GROUP BY dt ORDER BY dt ASC LIMIT 30");
+if ($resProgress) {
+    while ($r = $resProgress->fetch_assoc()) {
+        $score_progress_over_time[] = [
+            "label" => $r['date_label'],
+            "score" => round(floatval($r['avg_score']), 1),
+            "exams" => intval($r['total_exams'])
         ];
     }
 }
@@ -292,7 +367,15 @@ echo json_encode([
         "updates_count" => intval($updates_count),
         "latest_update_version" => $latest_update_version
     ],
+    "pagination" => [
+        "total_results" => intval($total_results_count),
+        "page" => intval($page),
+        "limit" => intval($limit),
+        "total_pages" => intval($total_pages)
+    ],
     "results" => $results,
+    "pass_fail_distribution" => $pass_fail_distribution,
+    "score_progress_over_time" => $score_progress_over_time,
     "revenue_over_time" => $revenue_over_time,
     "revenue_range" => $range,
     "range_total_revenue" => $range_total_revenue,
