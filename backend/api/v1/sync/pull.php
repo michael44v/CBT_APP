@@ -143,10 +143,20 @@ if (empty($news)) {
     $news = $news_res ? $news_res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+$resInst = $db->query("SELECT setting_key, setting_value FROM pricing_settings WHERE setting_key IN ('exam_instructions', 'study_instructions')");
+$instMap = [];
+if ($resInst) {
+    while ($r = $resInst->fetch_assoc()) {
+        $instMap[$r['setting_key']] = $r['setting_value'];
+    }
+}
+
 $settings = [
     "latest_version" => "1.0.0",
     "download_url" => "https://filloptech.com/downloads/cbt-guru-installer.exe",
     "question_bank_version" => $current_server_version,
+    "exam_instructions" => $instMap['exam_instructions'] ?? "Read all questions carefully before choosing your answer.\nEnsure you manage your time effectively.\nClick Submit when you are finished.",
+    "study_instructions" => $instMap['study_instructions'] ?? "Study mode allows you to practice at your own pace.\nDetailed explanations are available for every question.\nClick STUDY THIS QUESTION to reveal answers.",
     "notifications" => [
         [
             "id" => 1,

@@ -162,6 +162,7 @@ export interface DesktopAPI {
   getExams?: () => Promise<any[]>;
   getQuestions?: (examId: number) => Promise<any[]>;
   submitExam?: (examId: number, userName: string) => Promise<any>;
+  getInstructions?: () => Promise<{ exam_instructions?: string | null; study_instructions?: string | null }>;
 }
 
 declare global {

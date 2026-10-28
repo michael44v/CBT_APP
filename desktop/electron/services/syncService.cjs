@@ -139,6 +139,7 @@ async function downloadQuestions() {
     const deletedQuestionIds = Array.isArray(data.deleted_question_ids) ? data.deleted_question_ids : [];
     const news = Array.isArray(data.news) ? data.news : [];
     const passcodeInfo = data.passcode_info || null;
+      const settings = data.settings || {};
 
     // Handle Passcode Revocation detection
     if (passcodeInfo && passcodeInfo.status && passcodeInfo.status !== 'active') {
@@ -239,7 +240,15 @@ async function downloadQuestions() {
         );
       }
 
-      // 5. Process News
+      // 5. Process App Settings (Instructions)
+      if (settings.exam_instructions) {
+        run(`INSERT OR REPLACE INTO app_settings (setting_key, setting_value) VALUES ('exam_instructions', ?)`, [settings.exam_instructions]);
+      }
+      if (settings.study_instructions) {
+        run(`INSERT OR REPLACE INTO app_settings (setting_key, setting_value) VALUES ('study_instructions', ?)`, [settings.study_instructions]);
+      }
+
+      // 6. Process News
       for (const item of news) {
         run(
           `INSERT OR REPLACE INTO news (id, title, content, icon_name, thumbnail_url, published_at, created_at)

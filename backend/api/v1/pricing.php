@@ -22,6 +22,15 @@ if ($method === 'GET') {
         }
     }
 
+    // Raw string settings (e.g., instructions)
+    $resRaw = $db->query("SELECT setting_key, setting_value FROM pricing_settings");
+    $rawSettings = [];
+    if ($resRaw) {
+        while ($row = $resRaw->fetch_assoc()) {
+            $rawSettings[$row['setting_key']] = $row['setting_value'];
+        }
+    }
+
     // Default fallbacks if table not populated
     $defaults = [
         'single_passcode_price_6m' => 1400.00,
@@ -33,7 +42,9 @@ if ($method === 'GET') {
 
     echo json_encode([
         "success" => true,
-        "pricing" => $final_settings
+        "pricing" => $final_settings,
+        "exam_instructions" => $rawSettings['exam_instructions'] ?? "Read all questions carefully before choosing your answer.\nEnsure you manage your time effectively.\nClick Submit when you are finished.",
+        "study_instructions" => $rawSettings['study_instructions'] ?? "Study mode allows you to practice at your own pace.\nDetailed explanations are available for every question.\nClick STUDY THIS QUESTION to reveal answers."
     ]);
     exit();
 }
@@ -62,9 +73,23 @@ if ($method === 'POST') {
         $stmt->execute();
     }
 
+    if (isset($data['exam_instructions'])) {
+        $val = trim($data['exam_instructions']);
+        $stmt = $db->prepare("INSERT INTO pricing_settings (setting_key, setting_value, description) VALUES ('exam_instructions', ?, 'Pre-exam instructions for exam mode') ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt->bind_param("ss", $val, $val);
+        $stmt->execute();
+    }
+
+    if (isset($data['study_instructions'])) {
+        $val = trim($data['study_instructions']);
+        $stmt = $db->prepare("INSERT INTO pricing_settings (setting_key, setting_value, description) VALUES ('study_instructions', ?, 'Pre-exam instructions for study mode') ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt->bind_param("ss", $val, $val);
+        $stmt->execute();
+    }
+
     echo json_encode([
         "success" => true,
-        "message" => "Pricing settings updated successfully."
+        "message" => "Settings updated successfully."
     ]);
     exit();
 }
