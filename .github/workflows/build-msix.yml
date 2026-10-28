@@ -77,16 +77,33 @@ jobs:
           $installer = Get-ChildItem release/*.exe | Select-Object -First 1
           Write-Host "Installing $($installer.Name)"
           Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait
-          Start-Sleep -Seconds 5
+
+          $roots = @("$env:LOCALAPPDATA\Programs", $env:ProgramFiles, ${env:ProgramFiles(x86)})
+          $app = $null
+          for ($i = 0; $i -lt 30 -and -not $app; $i++) {
+            Start-Sleep -Seconds 2
+            foreach ($r in $roots) {
+              $hit = Get-ChildItem -Path $r -Filter "Fillop CBT Guru.exe" -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($hit) { $app = $hit.FullName; break }
+            }
+          }
+
+          if (-not $app) {
+            Write-Host "--- LOCALAPPDATA\Programs ---"
+            Get-ChildItem "$env:LOCALAPPDATA\Programs" -ErrorAction SilentlyContinue | Format-Table Name
+            Write-Host "--- Program Files ---"
+            Get-ChildItem $env:ProgramFiles -ErrorAction SilentlyContinue | Format-Table Name
+            throw "Installed app not found"
+          }
+
           Get-Process -Name "Fillop CBT Guru" -ErrorAction SilentlyContinue | Stop-Process -Force
-          $app = Join-Path $env:LOCALAPPDATA "Programs\Fillop CBT Guru\Fillop CBT Guru.exe"
-          if (-not (Test-Path $app)) { throw "Installed app not found at $app" }
           Write-Host "Installed OK: $app"
+          "APP_PATH=$app" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Launch installed app and take screenshot
         shell: pwsh
         run: |
-          $app = Join-Path $env:LOCALAPPDATA "Programs\Fillop CBT Guru\Fillop CBT Guru.exe"
+          $app = $env:APP_PATH
           $p = Start-Process -FilePath $app -PassThru -RedirectStandardOutput app-out.txt -RedirectStandardError app-err.txt
           Start-Sleep -Seconds 25
 
