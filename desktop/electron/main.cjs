@@ -650,12 +650,9 @@ ipcMain.handle("db:get-subjects", async (event, examType) => {
           const allowedStr = actRow.allowed_subjects || '';
           const allowedList = allowedStr.split(',').map(item => item.trim().toLowerCase()).filter(Boolean);
 
-          if (allowedList.length === 0) {
-            // Default: Lock all subjects except Mathematics and English Language
-            const sNameLower = s.name.toLowerCase();
-            if (sNameLower !== 'mathematics' && sNameLower !== 'english language' && sNameLower !== 'english') {
-              is_locked = true;
-            }
+          if (allowedList.length === 0 || allowedList.includes('all')) {
+            // Unrestricted mode (Unlock All Subjects under enabled categories)
+            is_locked = false;
           } else {
             const sNameLower = s.name.toLowerCase();
             const nameMatch = allowedList.includes(sNameLower) ||

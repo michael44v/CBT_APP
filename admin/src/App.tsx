@@ -2422,6 +2422,34 @@ export default function App() {
         {/* PROMO CODES TAB */}
         {activeTab === 'PROMOS' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Promo Accounting Summary Metrics */}
+            {(() => {
+              const totalPromoUses = promos.reduce((acc, p) => acc + (Number(p.uses_count) || 0), 0);
+              const totalPromoDiscountDeducted = promos.reduce((acc, p) => acc + (Number(p.total_discount_deducted) || 0), 0);
+              const activePromosCount = promos.filter(p => p.active).length;
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div className="stat-card">
+                    <div className="stat-label">Total Promo Users / Redemptions</div>
+                    <div className="stat-value" style={{ color: 'var(--primary)' }}>{totalPromoUses}</div>
+                    <div className="stat-desc">Candidates who activated using promo codes</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">Total Promo Discount Deducted</div>
+                    <div className="stat-value" style={{ color: 'var(--success)' }}>
+                      ₦{totalPromoDiscountDeducted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="stat-desc">Total value discounted for candidates</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">Active Promo Codes</div>
+                    <div className="stat-value" style={{ color: 'var(--info)' }}>{activePromosCount}</div>
+                    <div className="stat-desc">Currently valid promo codes</div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="admin-card">
               <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag size={20} /> Create New Promo Code
