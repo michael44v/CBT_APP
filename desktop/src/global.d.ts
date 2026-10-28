@@ -157,6 +157,7 @@ export interface DesktopAPI {
   setExamActive?: (isActive: boolean) => Promise<{ success: boolean; examActive: boolean }>;
   getVersion?: () => Promise<string>;
   openExternal?: (url: string) => Promise<void>;
+  openBuyPasscodeWindow?: (url?: string) => Promise<void>;
 
   // Temporary/Backwards compatibility support
   getExams?: () => Promise<any[]>;

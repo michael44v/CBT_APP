@@ -584,6 +584,10 @@ export default function App() {
   const [examType, setExamType] = useState<'JAMB' | 'WAEC' | 'NECO'>('JAMB');
   const [dashboardMode, setDashboardMode] = useState<'PRACTICE' | 'MOCK' | 'DAILY_QUIZ' | 'ANALYTICS'>('PRACTICE');
 
+  // Instructions & Topic Modal State
+  const [appInstructions, setAppInstructions] = useState<{ exam_instructions?: string | null; study_instructions?: string | null }>({});
+  const [viewTopicModalData, setViewTopicModalData] = useState<{ name: string; description?: string; content?: string } | null>(null);
+
   // Metadata Lists
   const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
   const [allCategoriesSubjectsMap, setAllCategoriesSubjectsMap] = useState<Record<string, Subject[]>>({});
@@ -697,6 +701,17 @@ export default function App() {
     }
   };
 
+  const loadAppInstructions = async () => {
+    if (window.api && window.api.getInstructions) {
+      try {
+        const inst = await window.api.getInstructions();
+        if (inst) setAppInstructions(inst);
+      } catch (e) {
+        console.error('Failed to load instructions:', e);
+      }
+    }
+  };
+
   // Automatically notify main process of active exam screen state to pause background syncing
   useEffect(() => {
     const isExamActiveScreen = screen === 'EXAM' || screen === 'INSTRUCTIONS';
@@ -711,6 +726,7 @@ export default function App() {
     loadNewsList();
     loadReadNewsIds();
     loadSavedLogins();
+    loadAppInstructions();
 
     if (window.api && window.api.onSyncStatusChanged) {
       window.api.onSyncStatusChanged(async () => {
@@ -1010,7 +1026,8 @@ export default function App() {
     if (window.api && window.api.getTopics && window.api.getYearsForSubject) {
       const tops = await window.api.getTopics(subjectId);
       const yrs = await window.api.getYearsForSubject(examType, subjectId);
-      setTopicsList(tops || []);
+      const sortedTops = Array.isArray(tops) ? [...tops].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })) : [];
+      setTopicsList(sortedTops);
       setYearsList(yrs || []);
       setPracticeTopic('');
       setPracticeTopics([]);
@@ -1019,7 +1036,12 @@ export default function App() {
   };
 
   const triggerBuyPasscodeOnline = () => {
-    window.open("https://cbt.filloptech.com/api/v1/sync/subscribe.php", "_blank");
+    const buyUrl = "https://cbt.filloptech.com/api/v1/sync/subscribe.php";
+    if (window.api && window.api.openBuyPasscodeWindow) {
+      window.api.openBuyPasscodeWindow(buyUrl);
+    } else {
+      window.open(buyUrl, "_blank");
+    }
   };
 
   const handleActivateSubmit = async (e: React.FormEvent) => {
@@ -1267,41 +1289,45 @@ export default function App() {
       setAnswers({});
       setFlagged({});
 
-      const targetCategory = examType; // Use the currently selected exam category
+      const categoriesToTry: ('JAMB' | 'WAEC' | 'NECO')[] = Array.from(new Set([examType, 'JAMB', 'WAEC', 'NECO']));
 
-      const subs = await window.api.getSubjects(targetCategory);
-      const candidateSubs = (Array.isArray(subs) && subs.length > 0)
-        ? (subs.filter((s: any) => !s.is_locked).length > 0 ? subs.filter((s: any) => !s.is_locked) : subs)
-        : [];
-
-      if (candidateSubs.length === 0) {
-        alert('No available subjects found for Daily Quiz.');
-        return;
-      }
-
-      const shuffledSubs = [...candidateSubs].sort(() => 0.5 - Math.random());
-      let randomSub = null;
+      let randomSub: any = null;
       let qList: any[] = [];
+      let foundCategory: 'JAMB' | 'WAEC' | 'NECO' = examType;
       const count = Math.floor(Math.random() * 6) + 10;
 
-      for (const sub of shuffledSubs) {
-        const questions = await window.api.generatePracticeQuestions({
-          examType: targetCategory,
-          subjectId: sub.id,
-          limit: count,
-        });
+      for (const cat of categoriesToTry) {
+        const subs = await window.api.getSubjects(cat);
+        const candidateSubs = (Array.isArray(subs) && subs.length > 0)
+          ? (subs.filter((s: any) => !s.is_locked).length > 0 ? subs.filter((s: any) => !s.is_locked) : subs)
+          : [];
 
-        if (questions && questions.length > 0) {
-          randomSub = sub;
-          qList = questions;
-          break;
+        if (candidateSubs.length === 0) continue;
+
+        const shuffledSubs = [...candidateSubs].sort(() => 0.5 - Math.random());
+        for (const sub of shuffledSubs) {
+          const questions = await window.api.generatePracticeQuestions({
+            examType: cat,
+            subjectId: sub.id,
+            limit: count,
+          });
+
+          if (questions && questions.length > 0) {
+            randomSub = sub;
+            qList = questions;
+            foundCategory = cat;
+            break;
+          }
         }
+        if (randomSub && qList.length > 0) break;
       }
 
       if (!randomSub || qList.length === 0) {
-        alert('No questions found for the Daily Quiz subjects in this category.');
+        alert('No questions found for Daily Quiz in any available subject.');
         return;
       }
+
+      setExamType(foundCategory);
 
       const questionsWithSubjectName = qList.map(q => ({
         ...q,
@@ -1626,7 +1652,7 @@ export default function App() {
     timerPanel: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', backgroundColor: colors.primaryDark, color: '#fff', borderRadius: '12px', fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' },
     questionCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '32px', flex: 1, border: `1px solid ${colors.border}` },
     paletteCard: { backgroundColor: colors.surface, borderRadius: '16px', padding: '24px', width: '280px', flexShrink: 0, border: `1px solid ${colors.border}` },
-    optionItem: { display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '12px', cursor: 'pointer', transition: 'all 0.15s', fontSize: '15px' },
+    optionItem: { display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '6px', cursor: 'pointer', transition: 'all 0.15s', fontSize: '15px', lineHeight: '1.3' },
     optionItemSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
     optionMarker: { width: '36px', height: '36px', borderRadius: '50%', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', color: colors.primary, flexShrink: 0 },
     paletteGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' },
@@ -1666,6 +1692,10 @@ export default function App() {
   };
 
   const handleSidebarClick = (id: string) => {
+    if (screen === 'EXAM') {
+      setShowSubmitConfirm(true);
+      return;
+    }
     if (id === 'DASHBOARD') {
       setDashboardMode('DAILY_QUIZ');
       setScreen('DASHBOARD');
@@ -2507,7 +2537,7 @@ export default function App() {
                             </div>
                           ) : (
                             <div style={{ ...styles.checkboxGrid, maxHeight: '200px' }}>
-                              {topicsList.map(t => {
+                              {[...topicsList].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })).map(t => {
                                 const isChecked = practiceTopics.includes(t.id);
                                 return (
                                   <label
@@ -2637,6 +2667,7 @@ export default function App() {
                               return visibleSubjects.map(s => {
                                 const isChecked = mockSelectedSubjects.includes(s.id);
                                 const isLocked = (s as any).is_locked;
+                                const isLimitReached = examType === 'JAMB' && mockSelectedSubjects.length >= 4 && !isChecked;
                                 return (
                                   <label
                                     key={s.id}
@@ -2648,7 +2679,8 @@ export default function App() {
                                       fontWeight: isLocked ? 500 : 700,
                                       padding: '10px 14px',
                                       borderRadius: '8px',
-                                      cursor: 'pointer',
+                                      cursor: isLimitReached ? 'not-allowed' : 'pointer',
+                                      opacity: isLimitReached ? 0.5 : 1,
                                       display: 'flex',
                                       alignItems: 'center',
                                       gap: '10px',
@@ -2659,10 +2691,15 @@ export default function App() {
                                     <input
                                       type="checkbox"
                                       checked={isChecked}
+                                      disabled={isLimitReached}
                                       onChange={() => {
                                         if (isLocked) {
                                           setUpgradeModalMessage(`Access to ${s.name} is restricted. Click Buy Now to select and pay for this subject.`);
                                           setShowUpgradeModal(true);
+                                          return;
+                                        }
+                                        if (isLimitReached) {
+                                          alert("JAMB Mock exams require exactly 4 subjects. Uncheck a subject first to select a different one.");
                                           return;
                                         }
                                         if (isChecked) {
@@ -2671,7 +2708,7 @@ export default function App() {
                                           setMockSelectedSubjects(prev => [...prev, s.id]);
                                         }
                                       }}
-                                      style={{ width: '16px', height: '16px', accentColor: '#ffffff', cursor: 'pointer' }}
+                                      style={{ width: '16px', height: '16px', accentColor: '#ffffff', cursor: isLimitReached ? 'not-allowed' : 'pointer' }}
                                     />
                                     {isLocked ? (
                                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -3270,14 +3307,35 @@ export default function App() {
           Instructions
         </h1>
        <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.85', fontFamily: 'Georgia, serif' }}>
-  <p style={{ margin: '0 0 14px' }}>Read the instructions below carefully before you begin.</p>
-  <p style={{ margin: '0 0 14px' }}>1. The time limit is shown at the top right of your screen. The timer starts when you click Start Quiz and cannot be paused.</p>
-  <p style={{ margin: '0 0 14px' }}>2. Each question has four options (A, B, C, D). Click an option or press A, B, C, or D to select it. You can change your answer before you submit.</p>
-  <p style={{ margin: '0 0 14px' }}>3. Use N to move to the next question and P to go back. Use the ↑ and ↓ keys to scroll.</p>
-  <p style={{ margin: '0 0 14px' }}>4. Answer every question. Unanswered questions score zero.</p>
-  <p style={{ margin: '0 0 14px' }}>5. When you finish, press S to submit, then Y to confirm. The quiz also submits automatically when time runs out.</p>
-  <p style={{ margin: 0 }}>Click Start Quiz when you are ready. Good luck!</p>
-</div>
+          {isPracticeMode ? (
+            appInstructions.study_instructions ? (
+              <div style={{ whiteSpace: 'pre-line' }}>{appInstructions.study_instructions}</div>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 14px' }}>Read the instructions below carefully before you begin study mode.</p>
+                <p style={{ margin: '0 0 14px' }}>1. Study mode allows you to practice questions at your own pace without pressure.</p>
+                <p style={{ margin: '0 0 14px' }}>2. Each question has four options (A, B, C, D). Click an option or press A, B, C, or D to select your choice.</p>
+                <p style={{ margin: '0 0 14px' }}>3. Click 'STUDY THIS QUESTION' to reveal the correct answer, detailed solution, and topic insights.</p>
+                <p style={{ margin: '0 0 14px' }}>4. Use N to navigate to the next question and P to go back.</p>
+                <p style={{ margin: 0 }}>Click Start Study when you are ready. Good luck!</p>
+              </>
+            )
+          ) : (
+            appInstructions.exam_instructions ? (
+              <div style={{ whiteSpace: 'pre-line' }}>{appInstructions.exam_instructions}</div>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 14px' }}>Read the instructions below carefully before you begin.</p>
+                <p style={{ margin: '0 0 14px' }}>1. The time limit is shown at the top right of your screen. The timer starts when you click Start Quiz and cannot be paused.</p>
+                <p style={{ margin: '0 0 14px' }}>2. Each question has four options (A, B, C, D). Click an option or press A, B, C, or D to select it. You can change your answer before you submit.</p>
+                <p style={{ margin: '0 0 14px' }}>3. Use N to move to the next question and P to go back. Use the ↑ and ↓ keys to scroll.</p>
+                <p style={{ margin: '0 0 14px' }}>4. Answer every question. Unanswered questions score zero.</p>
+                <p style={{ margin: '0 0 14px' }}>5. When you finish, press S to submit, then Y to confirm. The quiz also submits automatically when time runs out.</p>
+                <p style={{ margin: 0 }}>Click Start Quiz when you are ready. Good luck!</p>
+              </>
+            )
+          )}
+        </div>
       </div>
 
       <div style={{ width: '280px', flexShrink: 0 }}>
@@ -3470,7 +3528,7 @@ export default function App() {
             <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             {[
               { key: 'A', text: curQ.option_a },
               { key: 'B', text: curQ.option_b },
@@ -3487,8 +3545,8 @@ export default function App() {
                     selectAnswer(opt.key as any);
                   }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0',
-                    cursor: isLockedInStudy ? 'not-allowed' : 'pointer', fontSize: '16px', color: '#1a1a1a',
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0',
+                    cursor: isLockedInStudy ? 'not-allowed' : 'pointer', fontSize: '15px', lineHeight: 1.35, color: '#1a1a1a',
                     opacity: isLockedInStudy && !isSelected ? 0.6 : 1
                   }}
                 >
@@ -3584,6 +3642,32 @@ export default function App() {
                       </a>
                     </div>
                   )}
+
+                  <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => setViewTopicModalData({
+                        name: (curQ as any).topic_name || 'Topic Details',
+                        description: (curQ as any).topic_description,
+                        content: (curQ as any).topic_content
+                      })}
+                      style={{
+                        padding: '6px 14px',
+                        backgroundColor: '#1d3090',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      View Topic
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -4022,12 +4106,12 @@ export default function App() {
                               <div style={{ ...styles.explanationBox, marginTop: '12px' }}>
                                 {q.correct_explanation && (
                                   <div style={{ marginBottom: '6px' }}>
-                                    <strong>Correct Answer Explanation:</strong> <MathRenderer text={q.correct_explanation} />
+                                    <strong>EXPLANATION:</strong> <MathRenderer text={q.correct_explanation} />
                                   </div>
                                 )}
                                 {q.wrong_explanations && (
                                   <div style={{ marginBottom: '6px', color: colors.danger }}>
-                                    <strong>Wrong Answer Explanation:</strong> <MathRenderer text={q.wrong_explanations} />
+                                    <strong>WHY THESE OPTIONS ARE WRONG:</strong> <MathRenderer text={q.wrong_explanations} />
                                   </div>
                                 )}
                                 {q.topic_explanation && (
@@ -4898,12 +4982,12 @@ export default function App() {
             >
               ✕
             </button>
-            <h2>{isPracticeMode ? 'Complete Study?' : isQuizMode ? 'Submit Quiz?' : 'Submit Exam?'}</h2>
+            <h2>{isPracticeMode ? 'Complete Study Session?' : isQuizMode ? 'Submit Daily Quiz?' : 'Submit Exam?'}</h2>
             <p style={{ margin: '16px 0', fontSize: '14px', color: colors.textSecondary }}>
-              Press 'Y' or click Confirm to {isPracticeMode ? 'complete your study session' : isQuizMode ? 'submit your quiz' : 'submit your exam'}. Press 'ESC' key or click Cancel to close this box.
+              You are currently taking a {isPracticeMode ? 'study session' : isQuizMode ? 'daily quiz' : 'mock exam'}. You must submit before leaving this page.
             </p>
             <button onClick={() => { setShowSubmitConfirm(false); processSubmission(); }} style={{ ...styles.btn, ...styles.btnSuccess, marginRight: '10px' }}>
-              Confirm (Y)
+              Submit Now (Y)
             </button>
             <button onClick={() => setShowSubmitConfirm(false)} style={{ ...styles.btn, ...styles.btnSecondary }}>
               Cancel (ESC)
@@ -5143,6 +5227,81 @@ export default function App() {
                 onClick={() => setInfoModalData(null)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= VIEW TOPIC MODAL ================= */}
+      {viewTopicModalData && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setViewTopicModalData(null); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            padding: '20px'
+          }}
+        >
+          <div style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            maxWidth: '640px',
+            width: '100%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            padding: '28px',
+            position: 'relative',
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+          }}>
+            <button
+              onClick={() => setViewTopicModalData(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: colors.textMuted }}
+            >
+              ✕
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: 800, color: colors.primary, margin: 0 }}>
+                {viewTopicModalData.name}
+              </h3>
+            </div>
+
+            {viewTopicModalData.description && (
+              <div style={{ marginBottom: '16px', fontSize: '14px', color: colors.textSecondary, lineHeight: '1.6', backgroundColor: colors.bg, padding: '14px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                <strong>Description:</strong>
+                <div style={{ marginTop: '4px' }}>
+                  <MathRenderer text={viewTopicModalData.description} />
+                </div>
+              </div>
+            )}
+
+            {viewTopicModalData.content ? (
+              <div style={{ fontSize: '14px', color: colors.text, lineHeight: '1.7', backgroundColor: colors.surface, padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                <strong>Study Notes &amp; Content:</strong>
+                <div style={{ marginTop: '8px' }}>
+                  <MathRenderer text={viewTopicModalData.content} />
+                </div>
+              </div>
+            ) : !viewTopicModalData.description ? (
+              <p style={{ fontSize: '13px', color: colors.textMuted, fontStyle: 'italic' }}>
+                No additional study material recorded for this topic.
+              </p>
+            ) : null}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button
+                style={{ ...styles.btn, ...styles.btnPrimary }}
+                onClick={() => setViewTopicModalData(null)}
+              >
+                Close Topic
               </button>
             </div>
           </div>
