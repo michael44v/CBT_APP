@@ -996,7 +996,10 @@ export default function App() {
         setActiveTab('DASHBOARD');
       }
     }
-  }, [isWorker, activeTab]);
+    if ((activeTab === 'INSTRUCTIONS' || activeTab === 'PRICING') && authToken && !isWorker) {
+      fetchInstructions();
+    }
+  }, [isWorker, activeTab, authToken]);
 
   const handleRefreshAll = async () => {
     if (!authToken) return;

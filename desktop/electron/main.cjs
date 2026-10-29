@@ -273,11 +273,13 @@ function updateSplashStatus(text) {
 }
 
 function createMainWindow() {
+  const iconPath = path.join(__dirname, "../public/icon.png");
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     show: false,
     title: "Fillop CBT Guru",
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -325,6 +327,7 @@ function createMainWindow() {
     if (splashWindow) {
       splashWindow.close();
     }
+    mainWindow.maximize();
     mainWindow.show();
   });
 
