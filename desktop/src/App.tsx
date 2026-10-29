@@ -3820,11 +3820,9 @@ export default function App() {
         </div>
 
         {/* Question + options */}
-        <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
-          <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
+       <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '4px 28px 20px' }}>   <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
 
-          <div style={{ fontSize: '17px', lineHeight: 1.35, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '14px', marginBottom: '24px' }}>
-            <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
+         <div style={{ fontSize: '17px', lineHeight: 1.35, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '4px', marginBottom: '24px' }}>    <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
