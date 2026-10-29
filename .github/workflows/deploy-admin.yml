@@ -47,4 +47,4 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: admin/dist/
-          server-dir: /public_html/cbtadmin/
+          server-dir: ./
