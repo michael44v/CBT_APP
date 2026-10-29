@@ -515,6 +515,7 @@ export default function App() {
 
   // Sync / Online state & Top-Right Notifications
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ isOnline: true, logs: [] });
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   interface SyncToast {
     id: number;
@@ -1131,10 +1132,17 @@ export default function App() {
 
   const triggerManualSync = async () => {
     if (window.api && window.api.startSync) {
-      await window.api.startSync();
-      loadSyncLogs();
-      loadResultsHistory();
-      loadSoftwareUpdates();
+      setIsSyncing(true);
+      try {
+        await window.api.startSync();
+        loadSyncLogs();
+        loadResultsHistory();
+        loadSoftwareUpdates();
+      } catch (err) {
+        console.error('Manual sync failed:', err);
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
 
@@ -1907,11 +1915,13 @@ export default function App() {
                   </div>
 
                   <button
-                    style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm }}
+                    style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSm, display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSyncing ? 0.7 : 1 }}
                     onClick={triggerManualSync}
-                    disabled={!isEffectiveOnline}
+                    disabled={!isEffectiveOnline || isSyncing}
+                    title="Synchronize local offline questions, topics, news, and results with Fillop cloud database"
                   >
-                    Sync
+                    <RefreshCw size={12} className={isSyncing ? 'spin' : ''} />
+                    {isSyncing ? 'Syncing...' : 'Sync'}
                   </button>
                 </>
               );
@@ -2398,6 +2408,7 @@ export default function App() {
                     <button
                       onClick={handleOpenLeaderboard}
                       style={{ ...styles.btn, ...styles.btnSecondary, fontWeight: 700, fontSize: '12px' }}
+                      title="View weekly candidate performance rankings across all test candidates"
                     >
                       <Trophy size={14} color={colors.warning} /> Weekly Leaderboard
                     </button>
@@ -2879,8 +2890,12 @@ export default function App() {
                               <div style={{ backgroundColor: colors.bg, padding: '20px', borderRadius: '16px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <h4 style={{ fontSize: '14px', fontWeight: 800, color: colors.text, marginBottom: '12px' }}>Pass/Fail &amp; Accuracy Split</h4>
                                 <svg width="200" height="200" viewBox="0 0 200 200">
-                                  <circle cx={cx} cy={cy} r={rad} fill={colors.danger} />
-                                  <path d={pathData} fill={colors.success} />
+                                  <circle cx={cx} cy={cy} r={rad} fill={colors.danger}>
+                                    <title>{`Incorrect / Unanswered: ${totalIncorrect} (${(100 - correctPct).toFixed(1)}%)`}</title>
+                                  </circle>
+                                  <path d={pathData} fill={colors.success}>
+                                    <title>{`Correct Answers: ${totalCorrect} (${correctPct.toFixed(1)}%)`}</title>
+                                  </path>
                                   <circle cx={cx} cy={cy} r="45" fill={colors.surface} />
                                   <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle" fill={colors.text} fontSize="18" fontWeight="800">
                                     {totalQuestions > 0 ? `${correctPct.toFixed(0)}%` : '75%'}
@@ -2917,9 +2932,12 @@ export default function App() {
                                     {recentHistory.map((h, idx) => {
                                       const px = 20 + (idx / Math.max(1, recentHistory.length - 1)) * 260;
                                       const py = 120 - (h.percentage / 100) * 100;
+                                      const dateStr = h.submitted_at ? new Date(h.submitted_at).toLocaleDateString() : 'Recent';
                                       return (
                                         <g key={idx}>
-                                          <circle cx={px} cy={py} r="5" fill={h.percentage >= 50 ? colors.success : colors.danger} />
+                                          <circle cx={px} cy={py} r="5" fill={h.percentage >= 50 ? colors.success : colors.danger}>
+                                            <title>{`Attempt ${idx + 1}: ${h.percentage.toFixed(1)}% (${h.score}/${h.total_questions}) on ${dateStr}`}</title>
+                                          </circle>
                                           <text x={px} y={py - 10} fontSize="10" fontWeight="700" fill={colors.text} textAnchor="middle">{h.percentage.toFixed(1)}%</text>
                                         </g>
                                       );
@@ -3309,7 +3327,7 @@ export default function App() {
        <div style={{ fontSize: '14.5px', color: '#1f2937', lineHeight: '1.85', fontFamily: 'Georgia, serif' }}>
           {isPracticeMode ? (
             appInstructions.study_instructions ? (
-              <div style={{ whiteSpace: 'pre-line' }}>{appInstructions.study_instructions}</div>
+              <div><MathRenderer text={appInstructions.study_instructions} /></div>
             ) : (
               <>
                 <p style={{ margin: '0 0 14px' }}>Read the instructions below carefully before you begin study mode.</p>
@@ -3322,7 +3340,7 @@ export default function App() {
             )
           ) : (
             appInstructions.exam_instructions ? (
-              <div style={{ whiteSpace: 'pre-line' }}>{appInstructions.exam_instructions}</div>
+              <div><MathRenderer text={appInstructions.exam_instructions} /></div>
             ) : (
               <>
                 <p style={{ margin: '0 0 14px' }}>Read the instructions below carefully before you begin.</p>
@@ -3447,6 +3465,287 @@ export default function App() {
   const activeSubIndex = activeSubjectQuestions.findIndex(q => q.id === curQ?.id);
   const activeSubAttemptedCount = activeSubjectQuestions.filter(q => !!answers[q.id]).length;
 
+  if (isQuizMode) {
+    const answeredCount = Object.keys(answers).length;
+    const remainingCount = examQuestions.length - answeredCount;
+    const topicName = (curQ as any)?.topic_name || (curQ as any)?.topic_description || 'General Subject Topic';
+    const totalMins = (examQuestions.length * 0.5).toFixed(1);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f3f4f6', overflowY: 'auto', padding: '20px 32px', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+        {/* 1. Top Notice Banner */}
+        <div style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bae6fd',
+          borderRadius: '8px',
+          padding: '12px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          marginBottom: '16px',
+          fontSize: '13px',
+          fontWeight: 600,
+          color: '#1e40af'
+        }}>
+          <Clock size={16} color="#2563eb" />
+          <span>This quiz will last for {totalMins} minutes. The timer counts down and the quiz will end automatically when it reaches 00:00.</span>
+        </div>
+
+        {/* 2. Main Header Bar Card */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          padding: '20px 24px',
+          marginBottom: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>Daily Quiz</h1>
+              <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>
+                Question {currentIdx + 1} of {examQuestions.length}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button
+                onClick={() => {
+                  const todayKey = getTodayDateKey();
+                  const activeUser = activation?.email || 'Candidate (Free)';
+                  const storageKey = `daily_quiz_${activeUser}_${todayKey}`;
+                  const saved = localStorage.getItem(storageKey);
+                  if (saved) {
+                    try {
+                      setDailyQuizResultToday(JSON.parse(saved));
+                      setShowDailyQuizSummaryModal(true);
+                    } catch (e) {
+                      alert("No previous daily quiz result found for today.");
+                    }
+                  } else {
+                    alert("No previous daily quiz result recorded for today.");
+                  }
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e7eb',
+                  backgroundColor: '#f9fafb',
+                  color: '#374151',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+                title="View daily quiz history and recent results"
+              >
+                📚 History
+              </button>
+
+              {/* Time Remaining Badge Box */}
+              <div style={{
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '10px',
+                padding: '8px 18px',
+                textAlign: 'center',
+                minWidth: '130px'
+              }}>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  TIME REMAINING
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 900, color: '#1d4ed8', fontFamily: 'monospace', lineHeight: 1.2 }}>
+                  {formatTimer(timeLeft)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div>
+            <div style={{ height: '8px', width: '100%', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+              <div style={{
+                width: `${((currentIdx + 1) / examQuestions.length) * 100}%`,
+                height: '100%',
+                backgroundColor: '#2563eb',
+                borderRadius: '4px',
+                transition: 'width 0.2s ease'
+              }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>
+              <span>{answeredCount} answered</span>
+              <span>{remainingCount} remaining</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Horizontal Question Number Navigation Pills */}
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '20px' }}>
+          {examQuestions.map((q, idx) => {
+            const isCurrent = idx === currentIdx;
+            const isAnswered = !!answers[q.id];
+            return (
+              <button
+                key={q.id}
+                onClick={() => setCurrentIdx(idx)}
+                style={{
+                  minWidth: '38px',
+                  height: '38px',
+                  borderRadius: '8px',
+                  border: isCurrent ? '2px solid #2563eb' : '1px solid #d1d5db',
+                  backgroundColor: isCurrent ? '#dbeafe' : isAnswered ? '#f0fdf4' : '#ffffff',
+                  color: isCurrent ? '#1d4ed8' : isAnswered ? '#15803d' : '#374151',
+                  fontSize: '14px',
+                  fontWeight: isCurrent ? 800 : 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease'
+                }}
+                title={`Jump to Question ${idx + 1}`}
+              >
+                {idx + 1}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 4. Main Question Card */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          padding: '28px 32px',
+          marginBottom: '28px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          maxWidth: '820px'
+        }}>
+          {/* Subject and Topic Badge Header */}
+          <div style={{ fontSize: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ color: '#2563eb', fontWeight: 800, fontSize: '16px' }}>Subject:</span>
+            <span style={{ color: '#1f2937', fontWeight: 600 }}>{curSubName || 'Subject'}</span>
+            <span style={{ color: '#7c3aed', fontWeight: 800, fontSize: '16px', marginLeft: '16px' }}>Topic:</span>
+            <span style={{ color: '#1f2937', fontWeight: 600 }}>{topicName}</span>
+          </div>
+
+          {/* Question Image if any */}
+          <QuestionImage key={`quiz-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
+
+          {/* Question Text */}
+          <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827', lineHeight: 1.4, marginBottom: '24px' }}>
+            <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
+          </div>
+
+          {/* Options List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[
+              { key: 'A', text: curQ.option_a },
+              { key: 'B', text: curQ.option_b },
+              { key: 'C', text: curQ.option_c },
+              { key: 'D', text: curQ.option_d },
+            ].map((opt) => {
+              const isSelected = answers[curQ.id] === opt.key;
+              const handleOptionClick = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                selectAnswer(opt.key as any);
+              };
+              return (
+                <div
+                  key={opt.key}
+                  style={{
+                    border: isSelected ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                    backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                    borderRadius: '10px',
+                    padding: '14px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span
+                    onClick={handleOptionClick}
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: isSelected ? '#1d4ed8' : '#374151',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <MathRenderer text={opt.text} inline={true} />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 5. Bottom Navigation Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '820px' }}>
+          <button
+            disabled={currentIdx === 0}
+            onClick={() => setCurrentIdx(prev => prev - 1)}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb',
+              backgroundColor: '#ffffff',
+              color: currentIdx === 0 ? '#9ca3af' : '#374151',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: currentIdx === 0 ? 'not-allowed' : 'pointer',
+              opacity: currentIdx === 0 ? 0.6 : 1
+            }}
+          >
+            ← Previous
+          </button>
+
+          {currentIdx < examQuestions.length - 1 ? (
+            <button
+              onClick={() => setCurrentIdx(prev => prev + 1)}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Next →
+            </button>
+          ) : (
+            <button
+              onClick={manualSubmitExam}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Complete Quiz →
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', height: '100%', backgroundColor: '#d7ecf7',  overflow: 'hidden', fontFamily: 'Georgia, "Times New Roman", serif' }}>
 
@@ -3485,7 +3784,7 @@ export default function App() {
             })}
           </div>
 
-          <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', textAlign: 'center' }}>
+          <div onClick={() => setIsCalcOpen(!isCalcOpen)} style={{ cursor: 'pointer', textAlign: 'center' }} title="Open interactive scientific calculator">
             <div style={{ backgroundColor: '#2f6fb0', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
               <Calculator size={18} color="white" />
             </div>
@@ -3511,7 +3810,7 @@ export default function App() {
             <div style={{ fontSize: '20px', fontWeight: 700, color: '#1e6b3c', fontFamily: 'Arial, sans-serif' }}>
               {curSubName ? curSubName.toUpperCase() : ''}
             </div>
-            <div style={{ fontSize: '14px', color: '#374151', marginTop: '10px' }}>
+            <div style={{ fontSize: '14px', color: '#374151', marginTop: '6px', lineHeight: 1.2 }}>
               Question {activeSubIndex !== -1 ? activeSubIndex + 1 : currentIdx + 1}
             </div>
           </div>
@@ -3521,11 +3820,9 @@ export default function App() {
         </div>
 
         {/* Question + options */}
-        <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 28px 20px' }}>
-          <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
+       <div id="examQuestionContentPanel" style={{ flex: 1, overflowY: 'auto', padding: '4px 28px 20px' }}>   <QuestionImage key={`curq-img-${curQ.id}`} imageUrl={curQ.image_url} isDarkMode={isDarkMode} />
 
-          <div style={{ fontSize: '17px', lineHeight: 1.7, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '18px', marginBottom: '32px' }}>
-            <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
+         <div style={{ fontSize: '17px', lineHeight: 1.35, color: isDarkMode ? colors.text : '#1a1a1a', marginTop: '4px', marginBottom: '24px' }}>    <MathRenderer text={formatQuestionWithFormula(curQ.question_text, curQ.formula)} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -3537,27 +3834,42 @@ export default function App() {
             ].map((opt) => {
               const isSelected = answers[curQ.id] === opt.key;
               const isLockedInStudy = isPracticeMode && (revealExplanation || !!revealedQuestions[curQ.id]);
+              const handleOptionClick = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (isLockedInStudy) return;
+                selectAnswer(opt.key as any);
+              };
               return (
                 <div
                   key={opt.key}
-                  onClick={() => {
-                    if (isLockedInStudy) return;
-                    selectAnswer(opt.key as any);
-                  }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0',
-                    cursor: isLockedInStudy ? 'not-allowed' : 'pointer', fontSize: '15px', lineHeight: 1.35, color: '#1a1a1a',
+                    fontSize: '15px', lineHeight: 1.35, color: '#1a1a1a',
                     opacity: isLockedInStudy && !isSelected ? 0.6 : 1
                   }}
                 >
-                  <span style={{ fontWeight: 700 }}>({opt.key})</span>
-                  <span style={{
-                    width: '16px', height: '16px', borderRadius: '50%',
-                    border: `2px solid ${isSelected ? '#1e4620' : '#4b5563'}`,
-                    backgroundColor: isSelected ? '#1e4620' : 'transparent',
-                    display: 'inline-block', flexShrink: 0,
-                  }} />
-                  <span><MathRenderer text={opt.text} inline={true} /></span>
+                  <span
+                    onClick={handleOptionClick}
+                    style={{ fontWeight: 700, cursor: isLockedInStudy ? 'not-allowed' : 'pointer', userSelect: 'none' }}
+                  >
+                    ({opt.key})
+                  </span>
+                  <span
+                    onClick={handleOptionClick}
+                    style={{
+                      width: '16px', height: '16px', borderRadius: '50%',
+                      border: `2px solid ${isSelected ? '#1e4620' : '#4b5563'}`,
+                      backgroundColor: isSelected ? '#1e4620' : 'transparent',
+                      display: 'inline-block', flexShrink: 0,
+                      cursor: isLockedInStudy ? 'not-allowed' : 'pointer'
+                    }}
+                  />
+                  <span
+                    onClick={handleOptionClick}
+                    style={{ cursor: isLockedInStudy ? 'not-allowed' : 'pointer' }}
+                  >
+                    <MathRenderer text={opt.text} inline={true} />
+                  </span>
                 </div>
               );
             })}
@@ -3733,6 +4045,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 28px', flexShrink: 0, marginTop: 'auto' }}>
           <button
             type="button"
+            title="View detailed question syllabus metadata, subject attempt stats, and topic info"
             onClick={() => {
               const topicDesc = (curQ as any)?.topic_description ? `\n\nTopic Description:\n${(curQ as any).topic_description}` : '';
               const infoText = `Active Question Information:\n\n` +
