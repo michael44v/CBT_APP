@@ -64,7 +64,7 @@ jobs:
           echo "Found: $f"
           file "$f"
           if [ "${{ matrix.arch }}" = "ia32" ]; then
-            file "$f" | grep -q "80386"
+            file "$f" | grep -qE "i386|80386"
           else
             file "$f" | grep -q "x86-64"
           fi
