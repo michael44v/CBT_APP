@@ -103,6 +103,8 @@ jobs:
           # Flatten to one line: the Identity tag can span several lines
           flat=$(tr -d '\r\n' < manifest.xml | tr -s ' ')
           identity=$(echo "$flat" | grep -o '<Identity[^>]*>' | head -n1)
+          # electron-builder writes Publisher='...' with single quotes; normalise to double quotes
+          identity=$(echo "$identity" | tr "'" '"')
           echo "Identity in package: $identity"
           echo "Expected name:       $EXPECTED_IDENTITY_NAME"
           echo "Expected publisher:  $EXPECTED_PUBLISHER"
