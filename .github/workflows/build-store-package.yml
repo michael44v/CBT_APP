@@ -95,11 +95,17 @@ jobs:
         run: |
           appx=$(ls release/*.appx | head -n1)
           echo "Package: $appx"
-          7z e -so "$appx" AppxManifest.xml > manifest.xml
-          grep -o '<Identity[^>]*>' manifest.xml
-          grep -q "Name=\"$EXPECTED_IDENTITY_NAME\"" manifest.xml
-          grep -q "Publisher=\"$EXPECTED_PUBLISHER\"" manifest.xml
-          grep -o 'runFullTrust' manifest.xml | head -n1
+          7z e -so "$appx" AppxManifest.xml > manifest.xml || { echo "::error::Could not read AppxManifest.xml from the package"; exit 1; }
+          echo "--- AppxManifest.xml (start) ---"
+          head -c 2000 manifest.xml
+          echo
+          echo "--- end ---"
+          # Flatten to one line: the Identity tag can span several lines
+          flat=$(tr -d '\r\n' < manifest.xml | tr -s ' ')
+          echo "$flat" | grep -q "Name=\"$EXPECTED_IDENTITY_NAME\"" || { echo "::error::Identity Name does not match $EXPECTED_IDENTITY_NAME"; exit 1; }
+          echo "$flat" | grep -q "Publisher=\"$EXPECTED_PUBLISHER\"" || { echo "::error::Publisher does not match $EXPECTED_PUBLISHER"; exit 1; }
+          echo "Identity matches Partner Center."
+          if echo "$flat" | grep -q "runFullTrust"; then echo "runFullTrust capability present (needs Store approval)"; fi
 
       - name: Upload appx artifact
         uses: actions/upload-artifact@v4
