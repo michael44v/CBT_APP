@@ -1,14 +1,20 @@
 name: Build Microsoft Store package (appx)
 
 # Put this file at: .github/workflows/build-store-package.yml
+# Release: git tag v1.0.11 && git push --tags
 on:
   push:
     tags:
-      - "v*"          # e.g. git tag v1.0.6 && git push --tags
-  workflow_dispatch:   # lets you run it manually from the Actions tab
+      - "v*"
+  workflow_dispatch:
 
 permissions:
-  contents: write      # needed to attach files to a GitHub Release
+  contents: write   # attach appx files to a GitHub Release
+
+env:
+  # Must match Partner Center > Product identity exactly
+  EXPECTED_IDENTITY_NAME: FillopTech.FillopCBT
+  EXPECTED_PUBLISHER: CN=7AF52F04-5ED4-4F2F-B1F1-5E34E2D8C901
 
 jobs:
   build-appx:
@@ -20,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [ia32]   # your config only targets ia32; add x64 later (and change the "80386" check)
+        arch: [ia32, x64]
 
     steps:
       - name: Checkout
@@ -29,35 +35,71 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22          # Electron 43 + @electron/rebuild need >= 22.12
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      # npmRebuild is false in your config, so rebuild better-sqlite3 for the
-      # target arch explicitly (the runner is x64, the app is ia32)
-      - name: Rebuild native modules
+      # npmRebuild is false in package.json, so rebuild better-sqlite3 for the
+      # target arch explicitly (the runner is x64; the ia32 app needs a 32-bit module)
+      - name: Rebuild native modules for ${{ matrix.arch }}
         run: npx electron-builder install-app-deps --arch=${{ matrix.arch }}
 
       - name: Build React app
         run: npm run build:react
 
-      - name: Package appx
+      - name: Package appx (${{ matrix.arch }})
         run: npx electron-builder --win appx --${{ matrix.arch }} --publish never
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"   # no signing cert; the Store signs the package
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"   # no certificate; the Store signs the package
 
-      # Fails the build if better_sqlite3.node is not 32-bit (would crash on launch)
       - name: Verify native module architecture
         shell: bash
         run: |
-          ls -lh release/*.appx
-          f=$(find release/win-${{ matrix.arch }}-unpacked -name better_sqlite3.node | head -n1)
+          dir=$(find release -maxdepth 1 -type d -name "win*unpacked" | head -n1)
+          echo "Unpacked dir: $dir"
+          f=$(find "$dir" -name better_sqlite3.node | head -n1)
           echo "Found: $f"
           file "$f"
-          file "$f" | grep -q "80386"
+          if [ "${{ matrix.arch }}" = "ia32" ]; then
+            file "$f" | grep -q "80386"
+          else
+            file "$f" | grep -q "x86-64"
+          fi
+
+      # Opens a real SQLite database using the packaged Electron runtime.
+      # Catches the ABI-mismatch crash before it reaches users.
+      - name: Smoke test SQLite in packaged Electron
+        shell: bash
+        run: |
+          dir=$(find release -maxdepth 1 -type d -name "win*unpacked" | head -n1)
+          export UNPACKED="$(cd "$dir" && pwd -W)"
+          cat > smoke-sqlite.cjs <<'EOF'
+          const path = require("path");
+          const root = process.env.UNPACKED;
+          const Database = require(path.join(root, "resources", "app.asar", "node_modules", "better-sqlite3"));
+          const db = new Database(":memory:");
+          db.exec("CREATE TABLE t (x INTEGER)");
+          db.prepare("INSERT INTO t VALUES (?)").run(42);
+          const row = db.prepare("SELECT x FROM t").get();
+          if (!row || row.x !== 42) { console.error("SQLite query failed"); process.exit(1); }
+          console.log("SQLite OK on Electron", process.versions.electron, process.arch);
+          EOF
+          ELECTRON_RUN_AS_NODE=1 "$dir/Fillop CBT Guru.exe" smoke-sqlite.cjs
+
+      # Store rejects packages whose identity does not match Partner Center
+      - name: Verify appx identity matches Partner Center
+        shell: bash
+        run: |
+          appx=$(ls release/*.appx | head -n1)
+          echo "Package: $appx"
+          7z e -so "$appx" AppxManifest.xml > manifest.xml
+          grep -o '<Identity[^>]*>' manifest.xml
+          grep -q "Name=\"$EXPECTED_IDENTITY_NAME\"" manifest.xml
+          grep -q "Publisher=\"$EXPECTED_PUBLISHER\"" manifest.xml
+          grep -o 'runFullTrust' manifest.xml | head -n1
 
       - name: Upload appx artifact
         uses: actions/upload-artifact@v4
