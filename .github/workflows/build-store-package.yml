@@ -102,8 +102,12 @@ jobs:
           echo "--- end ---"
           # Flatten to one line: the Identity tag can span several lines
           flat=$(tr -d '\r\n' < manifest.xml | tr -s ' ')
-          echo "$flat" | grep -q "Name=\"$EXPECTED_IDENTITY_NAME\"" || { echo "::error::Identity Name does not match $EXPECTED_IDENTITY_NAME"; exit 1; }
-          echo "$flat" | grep -q "Publisher=\"$EXPECTED_PUBLISHER\"" || { echo "::error::Publisher does not match $EXPECTED_PUBLISHER"; exit 1; }
+          identity=$(echo "$flat" | grep -o '<Identity[^>]*>' | head -n1)
+          echo "Identity in package: $identity"
+          echo "Expected name:       $EXPECTED_IDENTITY_NAME"
+          echo "Expected publisher:  $EXPECTED_PUBLISHER"
+          case "$identity" in *"Name=\"$EXPECTED_IDENTITY_NAME\""*) ;; *) echo "::error::Identity Name does not match"; exit 1;; esac
+          case "$identity" in *"Publisher=\"$EXPECTED_PUBLISHER\""*) ;; *) echo "::error::Publisher does not match"; exit 1;; esac
           echo "Identity matches Partner Center."
           if echo "$flat" | grep -q "runFullTrust"; then echo "runFullTrust capability present (needs Store approval)"; fi
 
