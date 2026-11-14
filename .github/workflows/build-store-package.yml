@@ -113,12 +113,15 @@ jobs:
           echo "Identity matches Partner Center."
           if echo "$flat" | grep -q "runFullTrust"; then echo "runFullTrust capability present (needs Store approval)"; fi
 
+      # Runs even if a check above failed, so you can always download and inspect the appx.
+      # (The GitHub Release job still only runs when every step passes.)
       - name: Upload appx artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cbt-appx-${{ matrix.arch }}
           path: desktop/release/*.appx
-          if-no-files-found: error
+          if-no-files-found: warn
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
