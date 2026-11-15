@@ -95,18 +95,33 @@ jobs:
         run: |
           appx=$(ls release/*.appx | head -n1)
           echo "Package: $appx"
-          7z e -so "$appx" AppxManifest.xml > manifest.xml
-          grep -o '<Identity[^>]*>' manifest.xml
-          grep -q "Name=\"$EXPECTED_IDENTITY_NAME\"" manifest.xml
-          grep -q "Publisher=\"$EXPECTED_PUBLISHER\"" manifest.xml
-          grep -o 'runFullTrust' manifest.xml | head -n1
+          7z e -so "$appx" AppxManifest.xml > manifest.xml || { echo "::error::Could not read AppxManifest.xml from the package"; exit 1; }
+          echo "--- AppxManifest.xml (start) ---"
+          head -c 2000 manifest.xml
+          echo
+          echo "--- end ---"
+          # Flatten to one line: the Identity tag can span several lines
+          flat=$(tr -d '\r\n' < manifest.xml | tr -s ' ')
+          identity=$(echo "$flat" | grep -o '<Identity[^>]*>' | head -n1)
+          # electron-builder writes Publisher='...' with single quotes; normalise to double quotes
+          identity=$(echo "$identity" | tr "'" '"')
+          echo "Identity in package: $identity"
+          echo "Expected name:       $EXPECTED_IDENTITY_NAME"
+          echo "Expected publisher:  $EXPECTED_PUBLISHER"
+          case "$identity" in *"Name=\"$EXPECTED_IDENTITY_NAME\""*) ;; *) echo "::error::Identity Name does not match"; exit 1;; esac
+          case "$identity" in *"Publisher=\"$EXPECTED_PUBLISHER\""*) ;; *) echo "::error::Publisher does not match"; exit 1;; esac
+          echo "Identity matches Partner Center."
+          if echo "$flat" | grep -q "runFullTrust"; then echo "runFullTrust capability present (needs Store approval)"; fi
 
+      # Runs even if a check above failed, so you can always download and inspect the appx.
+      # (The GitHub Release job still only runs when every step passes.)
       - name: Upload appx artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cbt-appx-${{ matrix.arch }}
           path: desktop/release/*.appx
-          if-no-files-found: error
+          if-no-files-found: warn
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
