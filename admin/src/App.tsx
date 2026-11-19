@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
   LayoutDashboard,
@@ -144,11 +144,17 @@ export default function App() {
   const [passcodes, setPasscodes] = useState<any[]>([]);
   const [promos, setPromos] = useState<any[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
+  const questionTotal = Object.values(questionCounts).reduce((a, b) => a + b, 0);
   const [dbSubjects, setDbSubjects] = useState<Subject[]>([]);
   const [dbTopics, setDbTopics] = useState<Topic[]>([]);
   const [uploadLogs, setUploadLogs] = useState<UploadLog[]>([]);
   const [news, setNews] = useState<any[]>([]);
   const [updatesList, setUpdatesList] = useState<any[]>([]);
+
+  // Tracks which tabs have already loaded their data (lazy per-tab loading)
+  const loadedTabs = useRef<Set<string>>(new Set());
+  const resultSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Workers State
   const [workers, setWorkers] = useState<WorkerUser[]>([]);
@@ -436,7 +442,7 @@ export default function App() {
   const handleSavePricing = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/pricing.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/pricing.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pricingForm)
@@ -498,7 +504,7 @@ export default function App() {
   const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/admin/promo_codes.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/promo_codes.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPromoForm)
@@ -518,7 +524,7 @@ export default function App() {
 
   const handleTogglePromo = async (id: number, active: number) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/promo_codes.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/promo_codes.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'toggle', id, active: active ? 0 : 1 })
@@ -536,7 +542,7 @@ export default function App() {
   const handleDeletePromo = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this promo code?')) return;
     try {
-      const res = await fetch(`${API_BASE}/admin/promo_codes.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/promo_codes.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', id })
@@ -554,7 +560,7 @@ export default function App() {
   const handleCreateNews = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/admin/news.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/news.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', ...newNewsForm })
@@ -576,7 +582,7 @@ export default function App() {
   const handleDeleteNews = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this news article?')) return;
     try {
-      const res = await fetch(`${API_BASE}/admin/news.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/news.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', id })
@@ -595,7 +601,7 @@ export default function App() {
   const handleCreateUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/admin/updates.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/updates.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', ...newUpdateForm })
@@ -617,7 +623,7 @@ export default function App() {
   const handleDeleteUpdate = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this release update?')) return;
     try {
-      const res = await fetch(`${API_BASE}/admin/updates.php`, {
+      const res = await authenticatedFetch(`${API_BASE}/admin/updates.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', id })
@@ -696,6 +702,7 @@ export default function App() {
     setAdminUser(null);
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
+    loadedTabs.current = new Set();
   };
 
   const handleUnauthorized = () => {
@@ -735,9 +742,23 @@ export default function App() {
     }
   };
 
+  // Lightweight per-exam-type counts for dashboard cards/charts
+  const fetchQuestionCounts = async () => {
+    try {
+      const res = await authenticatedFetch(`${API_BASE}/admin/questions.php?action=counts`);
+      const data = await res.json();
+      if (data.success) {
+        setQuestionCounts(data.counts || {});
+      }
+    } catch (e) {
+      console.error('Failed to load question counts', e);
+    }
+  };
+
+  // Loads one slim page of questions (only used by the Question Bank tab)
   const fetchQuestions = async () => {
     try {
-      const res = await authenticatedFetch(`${API_BASE}/admin/questions.php`);
+      const res = await authenticatedFetch(`${API_BASE}/admin/questions.php?page=1&limit=200`);
       const data = await res.json();
       if (data.success) {
         setQuestions(data.questions || []);
@@ -779,18 +800,42 @@ export default function App() {
     }
   };
 
+  const fetchResultsOnly = async (
+  page = resultsPage,
+  limit = resultsLimit,
+  search = resultSearch
+) => {
+  try {
+    const res = await authenticatedFetch(
+      `${API_BASE}/admin/analytics.php?action=results&page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`
+    );
+
+    const data = await res.json();
+
+    if (data.success) {
+      setResultsList(data.results || []);
+      setResultsPagination(data.pagination || {
+        total_results: 0,
+        total_pages: 1
+      });
+    }
+  } catch (error) {
+    console.error('Failed to fetch exam results:', error);
+  }
+};
+
   const fetchPricing = async () => {
     try {
       const res = await authenticatedFetch(`${API_BASE}/pricing.php`);
       const data = await res.json();
       if (data.success && data.pricing) {
-        setPricingForm({
+        // Merge into previous state so we don't wipe the instructions text
+        setPricingForm(prev => ({
+          ...prev,
           single_passcode_price_6m: data.pricing.single_passcode_price_6m || 1400,
           small_bulk_price_6m: data.pricing.small_bulk_price_6m || 1100,
           large_bulk_price_6m: data.pricing.large_bulk_price_6m || 1000,
-          exam_instructions: data.exam_instructions || '',
-          study_instructions: data.study_instructions || ''
-        });
+        }));
       }
     } catch (e) {
       console.error('Failed to load pricing', e);
@@ -1001,25 +1046,38 @@ export default function App() {
     }
   }, [isWorker, activeTab, authToken]);
 
+  // Lazy per-tab data loaders: each tab only fetches what it actually displays
+  const loadTab = (tab: string) => {
+    const loaders: Record<string, Array<() => Promise<any>>> = {
+      QUESTIONS: [fetchQuestions],
+      USERS: [fetchUsers, fetchPasscodes], // candidate detail modal shows passcodes
+      PASSCODES: [fetchPasscodes],
+      PROMOS: [fetchPromos],
+      NEWS: [fetchNews],
+      UPDATES: [fetchUpdates],
+      WORKERS: [fetchWorkers],
+      PRICING: [fetchPricing],
+      // INSTRUCTIONS is handled by the activeTab effect above
+    };
+    if (isWorker && ['USERS', 'PASSCODES', 'PROMOS', 'NEWS', 'UPDATES', 'WORKERS', 'PRICING'].includes(tab)) {
+      return Promise.resolve([]);
+    }
+    return Promise.all((loaders[tab] || []).map(fn => fn()));
+  };
+
   const handleRefreshAll = async () => {
     if (!authToken) return;
     setIsRefreshing(true);
     setLoadingStats(true);
     setLoadingTabData(true);
+    loadedTabs.current = new Set([activeTab]);
     try {
       await Promise.all([
         fetchSubjectsAndTopics(),
-        fetchQuestions(),
+        fetchQuestionCounts(),
         fetchStatsAndAnalytics(revenueRange),
         fetchUploadLogs(),
-        !isWorker ? fetchPricing() : Promise.resolve(),
-        !isWorker ? fetchInstructions() : Promise.resolve(),
-        !isWorker ? fetchUsers() : Promise.resolve(),
-        !isWorker ? fetchPasscodes() : Promise.resolve(),
-        !isWorker ? fetchPromos() : Promise.resolve(),
-        !isWorker ? fetchNews() : Promise.resolve(),
-        !isWorker ? fetchUpdates() : Promise.resolve(),
-        !isWorker ? fetchWorkers() : Promise.resolve()
+        loadTab(activeTab)
       ]);
     } catch (e) {
       console.error(e);
@@ -1030,10 +1088,18 @@ export default function App() {
     }
   };
 
+  // Initial load (revenueRange toggle already refetches analytics itself)
   useEffect(() => {
     if (!authToken) return;
     handleRefreshAll();
-  }, [authToken, revenueRange, isWorker]);
+  }, [authToken, isWorker]);
+
+  // Load a tab's data the first time it is opened
+  useEffect(() => {
+    if (!authToken || loadedTabs.current.has(activeTab)) return;
+    loadedTabs.current.add(activeTab);
+    loadTab(activeTab);
+  }, [activeTab, authToken]);
 
   if (!authToken) {
     return <Login onLoginSuccess={handleLoginSuccess} apiBase={API_BASE} />;
@@ -1081,21 +1147,11 @@ export default function App() {
     );
   };
 
-  // Recharts Helper for Questions Distribution Bar Chart
-  const renderQuestionDistributionChart = (questionsList: Question[], color: string) => {
-    const counts: Record<string, number> = {};
-    questionsList.forEach(q => {
-      const type = (q.exam_type || 'JAMB').toUpperCase();
-      counts[type] = (counts[type] || 0) + 1;
-    });
-
+  // Recharts Helper for Questions Distribution Bar Chart (uses server-side counts)
+  const renderQuestionDistributionChart = (counts: Record<string, number>, color: string) => {
     const chartData = Object.keys(counts).length > 0
-      ? Object.keys(counts).map(k => ({ label: k, count: counts[k] }))
-      : [
-          { label: 'JAMB', count: questionsList.filter(q => q.subject_id <= 35).length || 0 },
-          { label: 'WAEC', count: questionsList.filter(q => q.subject_id >= 36 && q.subject_id <= 70).length || 0 },
-          { label: 'NECO', count: questionsList.filter(q => q.subject_id >= 71).length || 0 }
-        ];
+      ? Object.keys(counts).map(k => ({ label: k.toUpperCase(), count: counts[k] }))
+      : ['JAMB', 'WAEC', 'NECO'].map(label => ({ label, count: 0 }));
 
     return (
       <div style={{ width: '100%', height: 180, marginTop: '0.5rem' }}>
@@ -1351,8 +1407,10 @@ export default function App() {
               dbTopics={dbTopics}
               onRefreshData={() => {
                 fetchSubjectsAndTopics();
-                fetchQuestions();
+                fetchQuestionCounts();
                 fetchStatsAndAnalytics();
+                // question list is stale now; reload next time the Question Bank opens
+                loadedTabs.current.delete('QUESTIONS');
               }}
               showNotification={showNotification}
             />
@@ -1381,7 +1439,7 @@ export default function App() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <div className="stat-label">Total Questions</div>
-                        <div className="stat-val">{questions.length || stats.total_questions}</div>
+                        <div className="stat-val">{questionTotal || stats.total_questions}</div>
                       </div>
                       <div className="stat-badge"><BookOpen size={20} /></div>
                     </div>
@@ -1424,7 +1482,7 @@ export default function App() {
                     <span>Questions per Exam Category</span>
                     <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
                   </div>
-                  {renderQuestionDistributionChart(questions, 'var(--primary)')}
+                  {renderQuestionDistributionChart(questionCounts, 'var(--primary)')}
                 </div>
 
                 {/* Recent Upload Activity */}
@@ -1504,7 +1562,7 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div className="stat-label">Total Questions</div>
-                    <div className="stat-val">{questions.length || stats.total_questions}</div>
+                    <div className="stat-val">{questionTotal || stats.total_questions}</div>
                   </div>
                   <div className="stat-badge"><BookOpen size={20} /></div>
                 </div>
@@ -1588,7 +1646,7 @@ export default function App() {
                   <div style={{
                     display: 'flex',
                     width: '100%',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: '1rem',
                     marginTop: '0.85rem',
@@ -1614,7 +1672,7 @@ export default function App() {
                       <span>Questions per Category</span>
                       <BarChart2 size={18} style={{ color: 'var(--primary)' }} />
                     </div>
-                    {renderQuestionDistributionChart(questions, 'var(--primary)')}
+                    {renderQuestionDistributionChart(questionCounts, 'var(--primary)')}
                   </div>
 
                   {/* Passcodes Activation Donut Ring Chart */}
@@ -1803,6 +1861,7 @@ export default function App() {
             questions={questions}
             onRefreshData={() => {
               fetchQuestions();
+              fetchQuestionCounts();
               fetchStatsAndAnalytics();
             }}
             showNotification={showNotification}
@@ -1817,7 +1876,9 @@ export default function App() {
             dbTopics={dbTopics}
             onRefreshData={() => {
               fetchSubjectsAndTopics();
-              fetchQuestions();
+              fetchQuestionCounts();
+              // topic deletes/moves change the question list; reload on next Question Bank open
+              loadedTabs.current.delete('QUESTIONS');
             }}
             showNotification={showNotification}
             initialAddModalOpen={openAddTopicDirectly}
@@ -1935,7 +1996,7 @@ export default function App() {
                             setViewingLogQuestions(log);
                             setLoadingLogQuestions(true);
                             try {
-                              const res = await fetch(`${API_BASE}/admin/questions.php?subject_id=${log.subject_id}&topic_id=${log.topic_id}`);
+                              const res = await authenticatedFetch(`${API_BASE}/admin/questions.php?subject_id=${log.subject_id}&topic_id=${log.topic_id}&full=1&limit=200`);
                               const data = await res.json();
                               if (data.success) {
                                 setLogQuestionsList(data.questions || []);
@@ -2093,11 +2154,19 @@ export default function App() {
                     placeholder="Search candidates or emails..."
                     value={resultSearch}
                     onChange={(e) => {
-                      const val = e.target.value;
-                      setResultSearch(val);
-                      setResultsPage(1);
-                      fetchStatsAndAnalytics(revenueRange, 1, resultsLimit, val);
-                    }}
+                        const val = e.target.value;
+
+                        setResultSearch(val);
+                        setResultsPage(1);
+
+                        if (resultSearchTimer.current) {
+                          clearTimeout(resultSearchTimer.current);
+                        }
+
+                        resultSearchTimer.current = setTimeout(() => {
+                          fetchResultsOnly(1, resultsLimit, val);
+                        }, 350);
+                      }}
                     style={{ width: '250px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
                   />
                 </div>
@@ -2129,7 +2198,7 @@ export default function App() {
                               padding: '1rem 1.25rem',
                               display: 'flex',
                               alignItems: 'center',
-                              justify: 'space-between',
+                              justifyContent: 'space-between',
                               cursor: 'pointer',
                               userSelect: 'none',
                               backgroundColor: 'var(--bg-card)'
@@ -2233,7 +2302,7 @@ export default function App() {
                           const newLimit = parseInt(e.target.value);
                           setResultsLimit(newLimit);
                           setResultsPage(1);
-                          fetchStatsAndAnalytics(revenueRange, 1, newLimit, resultSearch);
+                          fetchResultsOnly(1, newLimit, resultSearch);
                         }}
                         style={{ width: '110px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
                       >
@@ -2250,7 +2319,7 @@ export default function App() {
                         onClick={() => {
                           const p = resultsPage - 1;
                           setResultsPage(p);
-                          fetchStatsAndAnalytics(revenueRange, p, resultsLimit, resultSearch);
+                          fetchResultsOnly(p, resultsLimit, resultSearch);
                         }}
                         style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
                       >
@@ -2268,7 +2337,7 @@ export default function App() {
                         onClick={() => {
                           const p = resultsPage + 1;
                           setResultsPage(p);
-                          fetchStatsAndAnalytics(revenueRange, p, resultsLimit, resultSearch);
+                          fetchResultsOnly(p, resultsLimit, resultSearch);
                         }}
                         style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
                       >
@@ -2425,7 +2494,7 @@ export default function App() {
                             padding: '1rem 1.25rem',
                             display: 'flex',
                             alignItems: 'center',
-                            justify: 'space-between',
+                            justifyContent: 'space-between',
                             cursor: 'pointer',
                             userSelect: 'none',
                             backgroundColor: 'var(--bg-card)'

@@ -13,24 +13,99 @@ require_once '../db.php';
 $db = getDbConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 
-if ($method === 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $action = trim($data['action'] ?? '');
+// FAST MODE: Results search and pagination only
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'results') {
+    $page = max(1, intval($_GET['page'] ?? 1));
+    $limit = max(1, min(100, intval($_GET['limit'] ?? 20)));
+    $search = trim($_GET['search'] ?? '');
+    $offset = ($page - 1) * $limit;
 
-    if ($action === 'delete_result') {
-        $result_id = intval($data['id'] ?? 0);
-        if ($result_id > 0) {
-            $stmt = $db->prepare("DELETE FROM results WHERE id = ?");
-            $stmt->bind_param("i", $result_id);
-            $stmt->execute();
-            echo json_encode(["success" => true, "message" => "Result deleted successfully."]);
-            exit();
-        }
-        echo json_encode(["success" => false, "message" => "Invalid result ID."]);
-        exit();
+    $where = "";
+    $params = [];
+    $types = "";
+
+    if ($search !== '') {
+        $where = "WHERE r.email LIKE ? OR u.name LIKE ? OR r.exam_type LIKE ?";
+        $searchParam = "%{$search}%";
+
+        $params = [$searchParam, $searchParam, $searchParam];
+        $types = "sss";
     }
-}
 
+    // Total results count
+    if ($search !== '') {
+        $countStmt = $db->prepare("
+            SELECT COUNT(*) AS count
+            FROM results r
+            LEFT JOIN users u ON r.email = u.email
+            $where
+        ");
+
+        $countStmt->bind_param($types, ...$params);
+        $countStmt->execute();
+        $total = (int)$countStmt->get_result()->fetch_assoc()['count'];
+    } else {
+        $countRes = $db->query("SELECT COUNT(*) AS count FROM results");
+        $total = (int)$countRes->fetch_assoc()['count'];
+    }
+
+    // Fetch only the requested page
+    $sql = "
+        SELECT
+            r.id,
+            r.email,
+            u.name AS candidate_name,
+            r.exam_type,
+            r.score,
+            r.total_questions,
+            r.percentage,
+            r.details,
+            r.submitted_at
+        FROM results r
+        LEFT JOIN users u ON r.email = u.email
+        $where
+        ORDER BY r.submitted_at DESC
+        LIMIT ? OFFSET ?
+    ";
+
+    $stmt = $db->prepare($sql);
+
+    $paramsWithPagination = array_merge($params, [$limit, $offset]);
+    $typesWithPagination = $types . "ii";
+
+    $stmt->bind_param($typesWithPagination, ...$paramsWithPagination);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+    $results = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $results[] = [
+            "id" => (int)$row['id'],
+            "email" => $row['email'],
+            "candidate_name" => $row['candidate_name'] ?? 'Candidate',
+            "exam_type" => $row['exam_type'],
+            "score" => (int)$row['score'],
+            "total_questions" => (int)$row['total_questions'],
+            "percentage" => (float)$row['percentage'],
+            "details" => $row['details'],
+            "submitted_at" => $row['submitted_at']
+        ];
+    }
+
+    echo json_encode([
+        "success" => true,
+        "results" => $results,
+        "pagination" => [
+            "total_results" => $total,
+            "page" => $page,
+            "limit" => $limit,
+            "total_pages" => max(1, (int)ceil($total / $limit))
+        ]
+    ]);
+
+    exit;
+}
 // Users Count
 $res = $db->query("SELECT COUNT(*) as count FROM users");
 $total_users = $res ? $res->fetch_assoc()['count'] : 0;
@@ -197,7 +272,7 @@ if ($res) {
 $excellent_count = 0;
 $pass_count = 0;
 $fail_count = 0;
-$resPF = $db->query("SELECT
+$resPF = $db->query("SELECT 
     SUM(CASE WHEN percentage >= 70 THEN 1 ELSE 0 END) as excellent,
     SUM(CASE WHEN percentage >= 50 AND percentage < 70 THEN 1 ELSE 0 END) as pass,
     SUM(CASE WHEN percentage < 50 THEN 1 ELSE 0 END) as fail

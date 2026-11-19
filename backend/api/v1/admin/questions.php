@@ -1,4 +1,9 @@
 <?php
+// Compress responses (JSON shrinks ~80-90%)
+if (!ini_get('zlib.output_compression')) {
+    ob_start('ob_gzhandler');
+}
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
@@ -69,9 +74,11 @@ if ($method === 'GET') {
 
     if ($action === 'list_subjects') {
         $sql = "SELECT s.*,
-                    (SELECT COUNT(*) FROM topics t WHERE t.subject_id = s.id) as topic_count,
-                    (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id) as question_count
-                FROM subjects s";
+                    COALESCE(tc.c, 0) AS topic_count,
+                    COALESCE(qc.c, 0) AS question_count
+                FROM subjects s
+                LEFT JOIN (SELECT subject_id, COUNT(*) c FROM topics GROUP BY subject_id) tc ON tc.subject_id = s.id
+                LEFT JOIN (SELECT subject_id, COUNT(*) c FROM questions GROUP BY subject_id) qc ON qc.subject_id = s.id";
         if (!empty($exam_type)) {
             $stmt = $db->prepare($sql . " WHERE s.exam_type = ? ORDER BY s.name");
             $stmt->bind_param("s", $exam_type);
@@ -90,7 +97,10 @@ if ($method === 'GET') {
             echo json_encode(["success" => false, "message" => "subject_id is required for listing topics."]);
             exit();
         }
-        $stmt = $db->prepare("SELECT t.*, (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id) as question_count FROM topics t WHERE t.subject_id = ? ORDER BY t.name");
+        $stmt = $db->prepare("SELECT t.id, t.subject_id, t.name, t.description, t.sync_version,
+                                    (t.content IS NOT NULL AND t.content <> '') AS has_content,
+                                    (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id) AS question_count
+                              FROM topics t WHERE t.subject_id = ? ORDER BY t.name");
         $subId = intval($subject_id);
         $stmt->bind_param("i", $subId);
         $stmt->execute();
@@ -111,11 +121,34 @@ if ($method === 'GET') {
         exit();
     }
 
-    // Default: GET questions listing
-    $sql = "SELECT q.*, s.name as subject_name, t.name as topic_name
-            FROM questions q
-            LEFT JOIN subjects s ON q.subject_id = s.id
-            LEFT JOIN topics t ON q.topic_id = t.id";
+    // Lightweight per-exam-type counts (for dashboard stats/charts)
+    if ($action === 'counts') {
+        $res = $db->query("SELECT exam_type, COUNT(*) AS c FROM questions GROUP BY exam_type");
+        $counts = [];
+        while ($res && $r = $res->fetch_assoc()) {
+            $counts[$r['exam_type']] = intval($r['c']);
+        }
+        echo json_encode(["success" => true, "counts" => $counts]);
+        exit();
+    }
+
+    // Default: paginated questions listing
+    // ?page=1&limit=50  (limit capped at 200)
+    // &full=1 includes explanations / external_link (heavy columns); default is slim
+    $page   = max(1, intval($_GET['page'] ?? 1));
+    $limit  = min(200, max(1, intval($_GET['limit'] ?? 50)));
+    $offset = ($page - 1) * $limit;
+    $full   = ($_GET['full'] ?? '') === '1';
+
+    $cols = $full
+        ? "q.*, s.name AS subject_name, t.name AS topic_name"
+        : "q.id, q.exam_type, q.subject_id, q.topic_id, q.year, q.difficulty, q.question_text, q.formula, q.image_url,
+           q.option_a, q.option_b, q.option_c, q.option_d, q.correct_answer,
+           s.name AS subject_name, t.name AS topic_name";
+
+    $from = " FROM questions q
+              LEFT JOIN subjects s ON q.subject_id = s.id
+              LEFT JOIN topics t ON q.topic_id = t.id";
 
     $conditions = [];
     $params = [];
@@ -148,22 +181,39 @@ if ($method === 'GET') {
         }
     }
 
-    if (count($conditions) > 0) {
-        $sql .= " WHERE " . implode(" AND ", $conditions) . " ORDER BY q.id DESC LIMIT 500";
-        $stmt = $db->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param($types, ...$params);
-            $stmt->execute();
-            $res = $stmt->get_result();
-        } else {
-            $res = false;
+    $where = count($conditions) > 0 ? " WHERE " . implode(" AND ", $conditions) : "";
+
+    // Total for pagination UI
+    $total = 0;
+    $stmtCount = $db->prepare("SELECT COUNT(*) AS c" . $from . $where);
+    if ($stmtCount) {
+        if ($types !== "") {
+            $stmtCount->bind_param($types, ...$params);
         }
-    } else {
-        $res = $db->query($sql . " ORDER BY q.id DESC LIMIT 500");
+        $stmtCount->execute();
+        $total = intval($stmtCount->get_result()->fetch_assoc()['c'] ?? 0);
     }
 
-    $questions = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    echo json_encode(["success" => true, "questions" => $questions]);
+    // One page of rows
+    $questions = [];
+    $stmt = $db->prepare("SELECT $cols" . $from . $where . " ORDER BY q.id DESC LIMIT ? OFFSET ?");
+    if ($stmt) {
+        $pageParams = array_merge($params, [$limit, $offset]);
+        $stmt->bind_param($types . "ii", ...$pageParams);
+        $stmt->execute();
+        $questions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+
+    echo json_encode([
+        "success" => true,
+        "questions" => $questions,
+        "pagination" => [
+            "page" => $page,
+            "limit" => $limit,
+            "total" => $total,
+            "total_pages" => (int) ceil($total / $limit)
+        ]
+    ]);
     exit();
 }
 
@@ -173,15 +223,67 @@ if ($method === 'POST') {
 
     if ($action === 'get_subjects_and_topics') {
         $subs_res = $db->query("SELECT s.*,
-                                    (SELECT COUNT(*) FROM topics t WHERE t.subject_id = s.id) as topic_count,
-                                    (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id) as question_count
-                                FROM subjects s ORDER BY s.exam_type, s.name");
+                                    COALESCE(tc.c, 0) AS topic_count,
+                                    COALESCE(qc.c, 0) AS question_count
+                                FROM subjects s
+                                LEFT JOIN (SELECT subject_id, COUNT(*) c FROM topics GROUP BY subject_id) tc ON tc.subject_id = s.id
+                                LEFT JOIN (SELECT subject_id, COUNT(*) c FROM questions GROUP BY subject_id) qc ON qc.subject_id = s.id
+                                ORDER BY s.exam_type, s.name");
         $subjects = $subs_res ? $subs_res->fetch_all(MYSQLI_ASSOC) : [];
 
-        $tops_res = $db->query("SELECT t.*, (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id) as question_count FROM topics t ORDER BY t.name");
+        // NOTE: topic `content` (study material) is intentionally excluded here - it is the
+        // biggest part of the payload. Use the `get_topic` action to load it on demand.
+        $tops_res = $db->query("SELECT t.id, t.subject_id, t.name, t.description, t.sync_version,
+                                    (t.content IS NOT NULL AND t.content <> '') AS has_content,
+                                    COALESCE(qc.c, 0) AS question_count
+                                FROM topics t
+                                LEFT JOIN (SELECT topic_id, COUNT(*) c FROM questions GROUP BY topic_id) qc ON qc.topic_id = t.id
+                                ORDER BY t.name");
         $topics = $tops_res ? $tops_res->fetch_all(MYSQLI_ASSOC) : [];
 
         echo json_encode(["success" => true, "subjects" => $subjects, "topics" => $topics]);
+        exit();
+    }
+
+    // Load a single topic including its full content (used when editing a topic)
+    if ($action === 'get_topic') {
+        $tid = intval($data['topic_id'] ?? 0);
+        if ($tid <= 0) {
+            echo json_encode(["success" => false, "message" => "Valid topic_id is required."]);
+            exit();
+        }
+        $stmt = $db->prepare("SELECT * FROM topics WHERE id = ? LIMIT 1");
+        $stmt->bind_param("i", $tid);
+        $stmt->execute();
+        $topicRow = $stmt->get_result()->fetch_assoc();
+        if (!$topicRow) {
+            echo json_encode(["success" => false, "message" => "Topic not found."]);
+            exit();
+        }
+        echo json_encode(["success" => true, "topic" => $topicRow]);
+        exit();
+    }
+
+    // Load a single question including all explanation fields (used when editing a question)
+    if ($action === 'get_question') {
+        $qid = intval($data['id'] ?? 0);
+        if ($qid <= 0) {
+            echo json_encode(["success" => false, "message" => "Valid question id is required."]);
+            exit();
+        }
+        $stmt = $db->prepare("SELECT q.*, s.name AS subject_name, t.name AS topic_name
+                              FROM questions q
+                              LEFT JOIN subjects s ON q.subject_id = s.id
+                              LEFT JOIN topics t ON q.topic_id = t.id
+                              WHERE q.id = ? LIMIT 1");
+        $stmt->bind_param("i", $qid);
+        $stmt->execute();
+        $qRow = $stmt->get_result()->fetch_assoc();
+        if (!$qRow) {
+            echo json_encode(["success" => false, "message" => "Question not found."]);
+            exit();
+        }
+        echo json_encode(["success" => true, "question" => $qRow]);
         exit();
     }
 
@@ -581,7 +683,7 @@ if ($method === 'POST') {
         $stmtCheckTop = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
         $stmtCheckTop->bind_param("i", $topic_id);
         $stmtCheckTop->execute();
-        $topSub = $stmtCheckTop->get_result()->fetch_assoc()['subject_id'] ?? 0;
+        $topSub = intval($stmtCheckTop->get_result()->fetch_assoc()['subject_id'] ?? 0);
         if ($topSub !== $subject_id) {
             echo json_encode(["success" => false, "message" => "Topic must belong to the selected subject."]);
             exit();
@@ -686,7 +788,7 @@ if ($method === 'POST') {
         $stmtTop = $db->prepare("SELECT subject_id FROM topics WHERE id = ?");
         $stmtTop->bind_param("i", $target_topic_id);
         $stmtTop->execute();
-        $targetSubId = $stmtTop->get_result()->fetch_assoc()['subject_id'] ?? 0;
+        $targetSubId = intval($stmtTop->get_result()->fetch_assoc()['subject_id'] ?? 0);
 
         if ($targetSubId <= 0) {
             echo json_encode(["success" => false, "message" => "Target topic does not exist."]);
