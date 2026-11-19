@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Plus, Edit, Trash2, BookOpen, AlertTriangle, Layers, Lock, Search, Eye, ArrowLeft } from 'lucide-react';
 import { Subject, Topic } from './types';
 import RichTextEditor from './RichTextEditor';
+
 
 interface SubjectTopicManagerProps {
   apiBase: string;
@@ -22,6 +23,13 @@ export default function SubjectTopicManager({
   initialAddModalOpen = false,
   onModalClosed
 }: SubjectTopicManagerProps) {
+  // Topic content (loaded on demand)
+const [viewingTopic, setViewingTopic] = useState<Topic | null>(null);
+const [viewContent, setViewContent] = useState('');
+const [loadingContent, setLoadingContent] = useState(false);
+const [loadingEditContent, setLoadingEditContent] = useState(false);
+const contentCache = useRef<Record<number, string>>({});
+
   // Add Subject State & Modal
   const [showCreateSubjectModal, setShowCreateSubjectModal] = useState(false);
   const [newSubName, setNewSubName] = useState('');
@@ -238,6 +246,52 @@ export default function SubjectTopicManager({
     }
   };
 
+  const fetchTopicContent = async (topicId: number): Promise<string> => {
+  if (contentCache.current[topicId] !== undefined) return contentCache.current[topicId];
+  const res = await fetch(`${apiBase}/admin/questions.php`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('admin_token') || ''}`
+    },
+    body: JSON.stringify({ action: 'get_topic', topic_id: topicId })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message || 'Failed to load topic content');
+  const html = data.topic?.content || '';
+  contentCache.current[topicId] = html;
+  return html;
+};
+
+const handleViewContent = async (topic: Topic) => {
+  setViewingTopic(topic);
+  setViewContent('');
+  setLoadingContent(true);
+  try {
+    setViewContent(await fetchTopicContent(topic.id));
+  } catch (err) {
+    showNotification('Failed to load topic content.', 'error');
+    setViewingTopic(null);
+  } finally {
+    setLoadingContent(false);
+  }
+};
+
+const handleOpenEditTopic = async (top: Topic) => {
+  setEditingTopic(top);
+  setEditTopicName(top.name);
+  setEditTopicDesc(top.description || '');
+  setEditTopicContent('');
+  setLoadingEditContent(true);
+  try {
+    setEditTopicContent(await fetchTopicContent(top.id));
+  } catch (err) {
+    showNotification('Failed to load topic content.', 'error');
+    setEditingTopic(null);
+  } finally {
+    setLoadingEditContent(false);
+  }
+};
   // Save Topic Edit
   const handleSaveTopicEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,6 +315,7 @@ export default function SubjectTopicManager({
       });
       const data = await res.json();
       if (data.success) {
+        delete contentCache.current[editingTopic.id];
         showNotification('Topic updated successfully (sync_version bumped)!');
         setEditingTopic(null);
         onRefreshData();
@@ -646,36 +701,42 @@ export default function SubjectTopicManager({
                     <tr key={top.id}>
                       <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>{top.name}</td>
                       <td>{top.question_count ?? 0}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px' }}>
-                          <button
-                            className="btn btn-secondary"
-                            onClick={() => {
-                              setEditingTopic(top);
-                              setEditTopicName(top.name);
-                              setEditTopicDesc(top.description || '');
-                              setEditTopicContent(top.content || '');
-                            }}
-                            style={{ padding: '4px 8px' }}
-                            title="Edit Topic"
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            className="btn btn-danger"
-                            onClick={() => {
-                              setDeletingTopic(top);
-                              setReassignTopicId('');
-                              setDeleteErrorMsg(null);
-                            }}
-                            style={{ padding: '4px 8px' }}
-                            title="Delete Topic"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                            <td style={{ textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', gap: '6px' }}>
+          {Number(top.has_content) === 1 ? (
+            <button
+              className="btn btn-secondary"
+              onClick={() => handleViewContent(top)}
+              style={{ padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem' }}
+              title="View Topic Content"
+            >
+              <Eye size={14} /> View Content
+            </button>
+          ) : (
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>No content</span>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => handleOpenEditTopic(top)}
+            style={{ padding: '4px 8px' }}
+            title="Edit Topic"
+          >
+            <Edit size={14} />
+          </button>
+          <button
+            className="btn btn-danger"
+            onClick={() => {
+              setDeletingTopic(top);
+              setDeleteErrorMsg(null);
+            }}
+            style={{ padding: '4px 8px' }}
+            title="Delete Topic"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </td>
+                          </tr>
                   ))
                 )}
               </tbody>
@@ -834,22 +895,28 @@ export default function SubjectTopicManager({
                 />
               </div>
 
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>Topic Content / Study Notes</label>
-                <RichTextEditor
-                  value={editTopicContent}
-                  onChange={setEditTopicContent}
-                  placeholder="Detailed study content, formulas, or lesson material..."
-                  rows={6}
-                  showMathToolbar={true}
-                  showPreview={true}
-                  previewTitle="Content Preview"
-                />
-              </div>
+             <div className="form-group" style={{ margin: 0 }}>
+  <label className="form-label" style={{ fontWeight: 700 }}>Topic Content / Study Notes</label>
+  {loadingEditContent ? (
+    <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--primary-light)', borderRadius: '10px' }}>
+      Loading content...
+    </div>
+  ) : (
+    <RichTextEditor
+      value={editTopicContent}
+      onChange={setEditTopicContent}
+      placeholder="Detailed study content, formulas, or lesson material..."
+      rows={6}
+      showMathToolbar={true}
+      showPreview={true}
+      previewTitle="Content Preview"
+    />
+  )}
+</div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '0.8rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingTopic(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={savingTopic}>
+               <button type="submit" className="btn btn-primary" disabled={savingTopic || loadingEditContent}>
                   {savingTopic ? 'Saving...' : 'Update Topic'}
                 </button>
               </div>
@@ -915,6 +982,40 @@ export default function SubjectTopicManager({
           </div>
         </div>
       )}
+
+      {viewingTopic && (
+  <div
+    className="modal-overlay"
+    onClick={(e) => { if (e.target === e.currentTarget) setViewingTopic(null); }}
+    style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}
+  >
+    <div className="admin-card" style={{ maxWidth: '850px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
+      <button
+        onClick={() => setViewingTopic(null)}
+        style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
+      >
+        ✕
+      </button>
+      <h3 style={{ marginTop: 0, fontSize: '1.25rem', fontWeight: 800 }}>{viewingTopic.name}</h3>
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+        {loadingContent ? (
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading content...</div>
+        ) : viewContent ? (
+          <div style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: viewContent }} />
+        ) : (
+          <div style={{ color: 'var(--text-muted)' }}>This topic has no content.</div>
+        )}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.2rem' }}>
+        <button className="btn btn-secondary" onClick={() => setViewingTopic(null)}>Close</button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* CREATE SUBJECT MODAL */}
       {showCreateSubjectModal && (

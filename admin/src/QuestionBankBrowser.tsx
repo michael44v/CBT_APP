@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import {
   BookOpen,
@@ -17,7 +17,7 @@ interface QuestionBankBrowserProps {
   apiBase: string;
   dbSubjects: Subject[];
   dbTopics: Topic[];
-  questions: Question[];
+  questions?: Question[]; // no longer used; kept so the parent doesn't break
   onRefreshData: () => void;
   showNotification: (msg: string, type?: 'success' | 'error') => void;
 }
@@ -30,7 +30,6 @@ export default function QuestionBankBrowser({
   apiBase,
   dbSubjects,
   dbTopics,
-  questions,
   onRefreshData,
   showNotification
 }: QuestionBankBrowserProps) {
@@ -98,10 +97,57 @@ export default function QuestionBankBrowser({
 
   // Single Question Inline Edit Modal
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [loadingFullQuestion, setLoadingFullQuestion] = useState<boolean>(false);
 
-  // Pagination
+  // Server-side pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 20;
+
+  const [rows, setRows] = useState<Question[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loadingRows, setLoadingRows] = useState<boolean>(false);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+
+  // Fetch one page of questions from the server whenever filters / page change
+  useEffect(() => {
+    const params = new URLSearchParams({ page: String(currentPage), limit: String(itemsPerPage) });
+    if (filterExam) params.set('exam_type', filterExam);
+    if (filterSubjectId) params.set('subject_id', filterSubjectId);
+    if (filterTopicId) params.set('topic_id', filterTopicId);
+    if (searchTerm.trim()) params.set('search', searchTerm.trim());
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setLoadingRows(true);
+      fetch(`${apiBase}/admin/questions.php?${params.toString()}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled || !d.success) return;
+          setRows(d.questions || []);
+          setTotal(d.pagination?.total ?? 0);
+          setTotalPages(d.pagination?.total_pages || 1);
+        })
+        .catch(() => {
+          if (!cancelled) showNotification('Failed to load questions.', 'error');
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingRows(false);
+        });
+    }, 300); // debounce typing in the search box
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [apiBase, filterExam, filterSubjectId, filterTopicId, searchTerm, currentPage, refreshKey]);
+
+  // If rows were deleted and the current page no longer exists, step back
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
+  const safePage = currentPage;
 
   // ---------- Dropdown option lists ----------
   const subjectOptions = dbSubjects.filter(
@@ -117,53 +163,10 @@ export default function QuestionBankBrowser({
     return true;
   });
 
-  // ---------- Filtered List ----------
-  const filteredQuestions = questions.filter((q) => {
-    if (filterExam && norm(q.exam_type) !== norm(filterExam)) return false;
-
-    if (filterSubjectId !== '' && !sameId(q.subject_id, filterSubjectId)) return false;
-
-    if (filterTopicId !== '' && !sameId(q.topic_id, filterTopicId)) return false;
-
-    const term = searchTerm.trim().toLowerCase();
-    if (term) {
-      const subjectName =
-        q.subject_name || dbSubjects.find((s) => sameId(s.id, q.subject_id))?.name || '';
-      const topicName =
-        q.topic_name || dbTopics.find((t) => sameId(t.id, q.topic_id))?.name || '';
-
-      const searchableText = [
-        subjectName,
-        topicName,
-        q.question_text,
-        q.formula,
-        q.option_a,
-        q.option_b,
-        q.option_c,
-        q.option_d
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      if (!searchableText.includes(term)) return false;
-    }
-
-    return true;
-  });
-
-  const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage) || 1;
-  const safePage = Math.min(currentPage, totalPages);
-
-  const paginatedQuestions = filteredQuestions.slice(
-    (safePage - 1) * itemsPerPage,
-    safePage * itemsPerPage
-  );
-
   // Selection Checkbox Logic
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedQuestionIds(paginatedQuestions.map((q) => q.id));
+      setSelectedQuestionIds(rows.map((q) => q.id));
     } else {
       setSelectedQuestionIds([]);
     }
@@ -174,6 +177,39 @@ export default function QuestionBankBrowser({
       setSelectedQuestionIds((prev) => prev.filter((id) => id !== qId));
     } else {
       setSelectedQuestionIds((prev) => [...prev, qId]);
+    }
+  };
+
+  const refreshAll = () => {
+    onRefreshData();
+    setRefreshKey((k) => k + 1);
+  };
+
+  // Open the editor with the full row (list rows are slim: no explanations / external_link)
+  const openEdit = async (q: Question) => {
+    setEditingQuestion(q);
+    setLoadingFullQuestion(true);
+    try {
+      const res = await fetch(`${apiBase}/admin/questions.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
+        body: JSON.stringify({ action: 'get_question', id: q.id })
+      });
+      const d = await res.json();
+      if (d.success) {
+        setEditingQuestion(d.question);
+      } else {
+        showNotification(d.message || 'Failed to load full question.', 'error');
+        setEditingQuestion(null);
+      }
+    } catch {
+      showNotification('Failed to load full question.', 'error');
+      setEditingQuestion(null);
+    } finally {
+      setLoadingFullQuestion(false);
     }
   };
 
@@ -197,7 +233,7 @@ export default function QuestionBankBrowser({
       if (data.success) {
         showNotification('Question added successfully!');
         setShowQuickAddModal(false);
-        onRefreshData();
+        refreshAll();
       } else {
         showNotification(data.message || 'Failed to add question.', 'error');
       }
@@ -209,7 +245,7 @@ export default function QuestionBankBrowser({
   // Inline Edit Save
   const handleSaveInlineEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingQuestion) return;
+    if (!editingQuestion || loadingFullQuestion) return;
 
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
@@ -224,7 +260,7 @@ export default function QuestionBankBrowser({
       if (data.success) {
         showNotification('Question updated successfully!');
         setEditingQuestion(null);
-        onRefreshData();
+        refreshAll();
       } else {
         showNotification(data.message || 'Failed to update question.', 'error');
       }
@@ -251,7 +287,7 @@ export default function QuestionBankBrowser({
       if (data.success) {
         showNotification(data.message || 'Bulk delete successful!');
         setSelectedQuestionIds([]);
-        onRefreshData();
+        refreshAll();
       } else {
         showNotification(data.message || 'Bulk delete failed.', 'error');
       }
@@ -277,7 +313,7 @@ export default function QuestionBankBrowser({
       if (data.success) {
         showNotification(data.message || 'All questions deleted successfully!');
         setSelectedQuestionIds([]);
-        onRefreshData();
+        refreshAll();
       } else {
         showNotification(data.message || 'Failed to delete all questions.', 'error');
       }
@@ -309,7 +345,7 @@ export default function QuestionBankBrowser({
         showNotification(data.message || 'Bulk move successful!');
         setShowBulkMoveModal(false);
         setSelectedQuestionIds([]);
-        onRefreshData();
+        refreshAll();
       } else {
         showNotification(data.message || 'Bulk move failed.', 'error');
       }
@@ -339,7 +375,7 @@ export default function QuestionBankBrowser({
       if (data.success) {
         showNotification(data.message || 'Bulk difficulty updated!');
         setSelectedQuestionIds([]);
-        onRefreshData();
+        refreshAll();
       } else {
         showNotification(data.message || 'Failed updating difficulty.', 'error');
       }
@@ -348,11 +384,11 @@ export default function QuestionBankBrowser({
     }
   };
 
-  // Export Filtered Questions to CSV
+  // Export the current page of results to CSV
   const handleExportCSV = () => {
-    if (filteredQuestions.length === 0) return;
+    if (rows.length === 0) return;
 
-    const exportData = filteredQuestions.map((q) => ({
+    const exportData = rows.map((q) => ({
       id: q.id,
       exam_type: q.exam_type,
       subject_name: q.subject_name || `Subject #${q.subject_id}`,
@@ -388,7 +424,7 @@ export default function QuestionBankBrowser({
       {/* Header & Controls Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BookOpen size={20} /> Question Bank Browser ({filteredQuestions.length})
+          <BookOpen size={20} /> Question Bank Browser ({total})
         </h2>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -542,7 +578,7 @@ export default function QuestionBankBrowser({
       )}
 
       {/* Questions Table */}
-      <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+      <div style={{ overflowX: 'auto', marginBottom: '1.5rem', opacity: loadingRows ? 0.6 : 1, transition: 'opacity 0.15s ease' }}>
         <table style={{ fontSize: '0.85rem', width: '100%' }}>
           <thead>
             <tr>
@@ -550,10 +586,7 @@ export default function QuestionBankBrowser({
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
-                  checked={
-                    paginatedQuestions.length > 0 &&
-                    paginatedQuestions.every((q) => selectedQuestionIds.includes(q.id))
-                  }
+                  checked={rows.length > 0 && rows.every((q) => selectedQuestionIds.includes(q.id))}
                 />
               </th>
               <th>ID</th>
@@ -567,10 +600,14 @@ export default function QuestionBankBrowser({
             </tr>
           </thead>
           <tbody>
-            {paginatedQuestions.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No questions match your filter criteria.</td></tr>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                  {loadingRows ? 'Loading questions...' : 'No questions match your filter criteria.'}
+                </td>
+              </tr>
             ) : (
-              paginatedQuestions.map((q) => (
+              rows.map((q) => (
                 <tr key={q.id}>
                   <td>
                     <input
@@ -615,7 +652,7 @@ export default function QuestionBankBrowser({
                     <div style={{ display: 'inline-flex', gap: '6px' }}>
                       <button
                         className="btn btn-secondary"
-                        onClick={() => setEditingQuestion(q)}
+                        onClick={() => openEdit(q)}
                         style={{ padding: '4px 8px' }}
                         title="Edit Question"
                       >
@@ -646,7 +683,7 @@ export default function QuestionBankBrowser({
           </button>
           <button
             className="btn btn-secondary"
-            disabled={safePage === totalPages}
+            disabled={safePage >= totalPages}
             onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
             style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
           >
@@ -1135,7 +1172,14 @@ export default function QuestionBankBrowser({
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingQuestion(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1.5rem' }}>Save &amp; Update Question</button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loadingFullQuestion}
+                  style={{ padding: '0.5rem 1.5rem' }}
+                >
+                  {loadingFullQuestion ? 'Loading...' : 'Save & Update Question'}
+                </button>
               </div>
             </form>
           </div>
@@ -1176,7 +1220,7 @@ export default function QuestionBankBrowser({
                   {dbTopics
                     .filter((t) => {
                       if (selectedQuestionIds.length === 0) return true;
-                      const firstQ = questions.find((q) => sameId(q.id, selectedQuestionIds[0]));
+                      const firstQ = rows.find((q) => sameId(q.id, selectedQuestionIds[0]));
                       return firstQ ? sameId(t.subject_id, firstQ.subject_id) : true;
                     })
                     .map((t) => (
