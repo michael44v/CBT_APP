@@ -43,6 +43,7 @@ export default function QuestionWizard({
 
   // Step 1 to 7 for CSV upload workflow
   const [step, setStep] = useState<number>(1);
+  
 
   // Selections for CSV
   const [selectedExamType, setSelectedExamType] = useState<string>('JAMB');
@@ -101,6 +102,7 @@ export default function QuestionWizard({
 
   // Validation Results
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [uploadingImageRow, setUploadingImageRow] = useState<number | null>(null);
   const [acknowledgedWarnings, setAcknowledgedWarnings] = useState<boolean>(false);
 
   // Import State
@@ -409,6 +411,96 @@ export default function QuestionWizard({
   const validCount = parsedRows.filter(r => r.isValid).length;
   const errorCount = parsedRows.filter(r => !r.isValid).length;
   const warningCount = parsedRows.filter(r => r.warnings.length > 0).length;
+
+
+  // Upload image for a CSV question row
+const handleRowImageUpload = async (idx: number, file: File) => {
+  const validTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/svg+xml'
+  ];
+
+  if (!validTypes.includes(file.type)) {
+    showNotification(
+      'Unsupported file type. Please upload JPEG, PNG, WEBP, GIF, or SVG.',
+      'error'
+    );
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('Image size exceeds maximum limit of 5MB.', 'error');
+    return;
+  }
+
+  setUploadingImageRow(idx);
+
+  try {
+    // First try Cloudinary
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'futyApp');
+
+    let imageUrl = '';
+
+    try {
+      const cRes = await fetch(
+        'https://api.cloudinary.com/v1_1/dguvkirdr/image/upload',
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      const cData = await cRes.json();
+
+      if (cData.secure_url) {
+        imageUrl = cData.secure_url;
+      }
+    } catch (cErr) {
+      console.warn(
+        'Cloudinary upload failed, falling back to backend upload endpoint',
+        cErr
+      );
+    }
+
+    // Fallback to existing PHP upload action
+    if (!imageUrl) {
+      const backendFormData = new FormData();
+      backendFormData.append('action', 'upload_image');
+      backendFormData.append('image', file);
+
+      const bRes = await fetch(`${apiBase}/admin/questions.php`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
+        },
+        body: backendFormData
+      });
+
+      const bData = await bRes.json();
+
+      if (bData.success && bData.image_url) {
+        imageUrl = bData.image_url;
+      } else {
+        throw new Error(bData.message || 'Image upload failed');
+      }
+    }
+
+    // Save the uploaded image URL into this CSV row
+    handleRowFieldChange(idx, 'image_url', imageUrl);
+
+    showNotification('Image uploaded successfully!');
+  } catch (err: any) {
+    showNotification(err.message || 'Failed to upload image.', 'error');
+  } finally {
+    setUploadingImageRow(null);
+  }
+};
+
 
   const handleRowFieldChange = (idx: number, field: keyof ParsedRow, val: any) => {
     setParsedRows(prev => {
@@ -1030,23 +1122,76 @@ export default function QuestionWizard({
                               </div>
                             )}
                           </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              placeholder="Image Path/URL"
-                              style={{ width: '100%', minWidth: '120px', fontSize: '0.78rem' }}
-                              value={r.image_url || ''}
-                              onChange={(e) => handleRowFieldChange(idx, 'image_url', e.target.value)}
-                            />
-                            {r.image_url && (
-                              <img
-                                src={r.image_url.startsWith('http') ? r.image_url : `https://cbt.filloptech.com/${r.image_url}`}
-                                alt="Question Visual"
-                                style={{ maxHeight: '40px', maxWidth: '80px', marginTop: '4px', objectFit: 'contain', borderRadius: '4px' }}
-                              />
-                            )}
-                          </td>
+                         <td style={{ minWidth: '140px' }}>
+  {r.image_url ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+      <img
+        src={
+          r.image_url.startsWith('http')
+            ? r.image_url
+            : `https://cbt.filloptech.com/${r.image_url}`
+        }
+        alt="Question Visual"
+        style={{
+          maxHeight: '60px',
+          maxWidth: '100px',
+          objectFit: 'contain',
+          borderRadius: '4px'
+        }}
+      />
+
+      <button
+        type="button"
+        className="btn btn-danger"
+        style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+        onClick={() => handleRowFieldChange(idx, 'image_url', '')}
+      >
+        Remove Image
+      </button>
+    </div>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+        id={`csv_image_${idx}`}
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+
+          if (file) {
+            handleRowImageUpload(idx, file);
+          }
+
+          // Allow selecting the same file again
+          e.target.value = '';
+        }}
+      />
+
+      <label
+        htmlFor={`csv_image_${idx}`}
+        className="btn btn-secondary"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '5px',
+          cursor: 'pointer',
+          fontSize: '0.75rem',
+          padding: '5px 8px',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <Upload size={13} />
+        {uploadingImageRow === idx ? 'Uploading...' : 'Upload Image'}
+      </label>
+
+      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+        Max 5MB
+      </span>
+    </div>
+  )}
+</td>
                           <td>
                             <input
                               type="text"
