@@ -3680,7 +3680,7 @@ export default function App() {
                       userSelect: 'none'
                     }}
                   >
-                    <MathRenderer text={opt.text} inline={true} />
+                    <span className="answer-option-content"><MathRenderer text={opt.text} inline={true} /></span>
                   </span>
                 </div>
               );
@@ -3843,7 +3843,7 @@ export default function App() {
                 <div
                   key={opt.key}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0',
+                    display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '6px 0',
                     fontSize: '15px', lineHeight: 1.35, color: '#1a1a1a',
                     opacity: isLockedInStudy && !isSelected ? 0.6 : 1
                   }}
@@ -3860,15 +3860,15 @@ export default function App() {
                       width: '16px', height: '16px', borderRadius: '50%',
                       border: `2px solid ${isSelected ? '#1e4620' : '#4b5563'}`,
                       backgroundColor: isSelected ? '#1e4620' : 'transparent',
-                      display: 'inline-block', flexShrink: 0,
+                      display: 'inline-block', flexShrink: 0, marginTop: '2px',
                       cursor: isLockedInStudy ? 'not-allowed' : 'pointer'
                     }}
                   />
                   <span
                     onClick={handleOptionClick}
-                    style={{ cursor: isLockedInStudy ? 'not-allowed' : 'pointer' }}
+                    style={{ cursor: isLockedInStudy ? 'not-allowed' : 'pointer', minWidth: 0, flex: 1 }}
                   >
-                    <MathRenderer text={opt.text} inline={true} />
+                    <span className="answer-option-content"><MathRenderer text={opt.text} inline={true} /></span>
                   </span>
                 </div>
               );
@@ -4408,7 +4408,7 @@ export default function App() {
                                       fontWeight: (isRightChoice || isUserChoice) ? 700 : 400
                                     }}
                                   >
-                                    <strong>{opt.key}.</strong> <MathRenderer text={opt.text} inline={true} />
+                                    <strong>{opt.key}.</strong> <span className="answer-option-content"><MathRenderer text={opt.text} inline={true} /></span>
                                     {labelText && <span style={{ fontSize: '12px', marginLeft: '6px' }}>{labelText}</span>}
                                   </div>
                                 );
