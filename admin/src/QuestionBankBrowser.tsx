@@ -12,6 +12,7 @@ import {
 import { Question, Subject, Topic } from './types';
 import { FormulaEditor, MathRenderer } from './FormulaEditor';
 import { RichTextEditor } from './RichTextEditor';
+import OptionImageInput from './OptionImageInput';
 
 interface QuestionBankBrowserProps {
   apiBase: string;
@@ -25,6 +26,12 @@ interface QuestionBankBrowserProps {
 // ---- Helpers: API returns ids as strings, so always compare safely ----
 const norm = (v: unknown) => String(v ?? '').trim().toUpperCase();
 const sameId = (a: unknown, b: unknown) => String(a ?? '').trim() === String(b ?? '').trim();
+const optionFields = [
+  { key: 'A', field: 'option_a' },
+  { key: 'B', field: 'option_b' },
+  { key: 'C', field: 'option_c' },
+  { key: 'D', field: 'option_d' }
+] as const;
 
 export default function QuestionBankBrowser({
   apiBase,
@@ -47,6 +54,10 @@ export default function QuestionBankBrowser({
 
   // Image Upload State
   const [uploadingImage, setUploadingImage] = useState<boolean>(false);
+  const [pendingOptionUploads, setPendingOptionUploads] = useState(0);
+  const handleOptionUploadStateChange = (uploading: boolean) => {
+    setPendingOptionUploads((count) => Math.max(0, count + (uploading ? 1 : -1)));
+  };
 
   const handleImageUpload = async (file: File, callback: (imageUrl: string) => void) => {
     setUploadingImage(true);
@@ -216,6 +227,14 @@ export default function QuestionBankBrowser({
   // Quick Single Question Save
   const handleSaveQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (pendingOptionUploads > 0) {
+      showNotification('Please wait for option images to finish uploading.', 'error');
+      return;
+    }
+    if (optionFields.some(({ field }) => !quickForm[field]?.trim())) {
+      showNotification('Please fill in all answer options with text or an image.', 'error');
+      return;
+    }
     if (!quickForm.correct_answer || !['A', 'B', 'C', 'D'].includes(quickForm.correct_answer)) {
       showNotification('Please select the Correct Answer option (A, B, C, or D).', 'error');
       return;
@@ -246,6 +265,14 @@ export default function QuestionBankBrowser({
   const handleSaveInlineEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQuestion || loadingFullQuestion) return;
+    if (pendingOptionUploads > 0) {
+      showNotification('Please wait for option images to finish uploading.', 'error');
+      return;
+    }
+    if (optionFields.some(({ field }) => !editingQuestion[field]?.trim())) {
+      showNotification('Please fill in all answer options with text or an image.', 'error');
+      return;
+    }
 
     try {
       const res = await fetch(`${apiBase}/admin/questions.php`, {
@@ -696,7 +723,7 @@ export default function QuestionBankBrowser({
       {showQuickAddModal && (
         <div
           className="modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowQuickAddModal(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget && !pendingOptionUploads) setShowQuickAddModal(false); }}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
@@ -706,6 +733,7 @@ export default function QuestionBankBrowser({
           <div className="admin-card" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
             <button
               onClick={() => setShowQuickAddModal(false)}
+              disabled={pendingOptionUploads > 0}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
@@ -795,7 +823,7 @@ export default function QuestionBankBrowser({
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        handleImageUpload(file, (imgUrl) => setQuickForm({ ...quickForm, image_url: imgUrl }));
+                        handleImageUpload(file, (imgUrl) => setQuickForm((prev) => ({ ...prev, image_url: imgUrl })));
                       }
                     }}
                   />
@@ -824,10 +852,16 @@ export default function QuestionBankBrowser({
                 <input type="url" className="form-input" placeholder="https://..." value={quickForm.external_link} onChange={(e) => setQuickForm({ ...quickForm, external_link: e.target.value })} />
               </div>
 
-              <div className="form-group"><label className="form-label">Option A</label><input type="text" className="form-input" value={quickForm.option_a} onChange={(e) => setQuickForm({ ...quickForm, option_a: e.target.value })} required /></div>
-              <div className="form-group"><label className="form-label">Option B</label><input type="text" className="form-input" value={quickForm.option_b} onChange={(e) => setQuickForm({ ...quickForm, option_b: e.target.value })} required /></div>
-              <div className="form-group"><label className="form-label">Option C</label><input type="text" className="form-input" value={quickForm.option_c} onChange={(e) => setQuickForm({ ...quickForm, option_c: e.target.value })} required /></div>
-              <div className="form-group"><label className="form-label">Option D</label><input type="text" className="form-input" value={quickForm.option_d} onChange={(e) => setQuickForm({ ...quickForm, option_d: e.target.value })} required /></div>
+              {optionFields.map(({ key, field }) => (
+                <OptionImageInput
+                  key={key}
+                  label={`Option ${key}`}
+                  value={quickForm[field]}
+                  onChange={(value) => setQuickForm((prev) => ({ ...prev, [field]: value }))}
+                  showNotification={showNotification}
+                  onUploadStateChange={handleOptionUploadStateChange}
+                />
+              ))}
 
               <div className="form-group">
                 <label className="form-label">Correct Answer</label>
@@ -850,8 +884,8 @@ export default function QuestionBankBrowser({
               </div>
 
               <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowQuickAddModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Question</button>
+                <button type="button" className="btn btn-secondary" disabled={pendingOptionUploads > 0} onClick={() => setShowQuickAddModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={pendingOptionUploads > 0}>{pendingOptionUploads > 0 ? 'Uploading option images...' : 'Save Question'}</button>
               </div>
             </form>
           </div>
@@ -862,7 +896,7 @@ export default function QuestionBankBrowser({
       {editingQuestion && (
         <div
           className="modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditingQuestion(null); }}
+          onClick={(e) => { if (e.target === e.currentTarget && !pendingOptionUploads) setEditingQuestion(null); }}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 1000,
@@ -872,6 +906,7 @@ export default function QuestionBankBrowser({
           <div className="admin-card" style={{ maxWidth: '1150px', width: '95%', maxHeight: '92vh', overflowY: 'auto', padding: '1.75rem', position: 'relative' }}>
             <button
               onClick={() => setEditingQuestion(null)}
+              disabled={pendingOptionUploads > 0}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
               ✕
@@ -974,7 +1009,7 @@ export default function QuestionBankBrowser({
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            handleImageUpload(file, (imgUrl) => setEditingQuestion({ ...editingQuestion, image_url: imgUrl }));
+                            handleImageUpload(file, (imgUrl) => setEditingQuestion((prev) => prev && prev.id === editingQuestion.id ? { ...prev, image_url: imgUrl } : prev));
                           }
                         }}
                       />
@@ -1005,22 +1040,20 @@ export default function QuestionBankBrowser({
 
                   {/* Option Choices */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Option A {editingQuestion.correct_answer === 'A' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
-                      <input type="text" className="form-input" value={editingQuestion.option_a} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_a: e.target.value })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Option B {editingQuestion.correct_answer === 'B' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
-                      <input type="text" className="form-input" value={editingQuestion.option_b} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_b: e.target.value })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Option C {editingQuestion.correct_answer === 'C' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
-                      <input type="text" className="form-input" value={editingQuestion.option_c} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_c: e.target.value })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Option D {editingQuestion.correct_answer === 'D' && <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>}</label>
-                      <input type="text" className="form-input" value={editingQuestion.option_d} onChange={(e) => setEditingQuestion({ ...editingQuestion, option_d: e.target.value })} required />
-                    </div>
+                    {!loadingFullQuestion && optionFields.map(({ key, field }) => (
+                      <div key={key} className="form-group" style={{ margin: 0 }}>
+                        <OptionImageInput
+                          label={`Option ${key}`}
+                          value={editingQuestion[field] || ''}
+                          onChange={(value) => setEditingQuestion((prev) => prev ? { ...prev, [field]: value } : prev)}
+                          showNotification={showNotification}
+                          onUploadStateChange={handleOptionUploadStateChange}
+                        />
+                        {editingQuestion.correct_answer === key && (
+                          <span style={{ color: 'var(--success)', fontWeight: 800 }}>&bull; Correct Answer</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
                   {/* Explanations Section */}
@@ -1171,14 +1204,14 @@ export default function QuestionBankBrowser({
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingQuestion(null)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" disabled={pendingOptionUploads > 0} onClick={() => setEditingQuestion(null)}>Cancel</button>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={loadingFullQuestion}
+                  disabled={loadingFullQuestion || pendingOptionUploads > 0}
                   style={{ padding: '0.5rem 1.5rem' }}
                 >
-                  {loadingFullQuestion ? 'Loading...' : 'Save & Update Question'}
+                  {loadingFullQuestion ? 'Loading...' : pendingOptionUploads > 0 ? 'Uploading option images...' : 'Save & Update Question'}
                 </button>
               </div>
             </form>

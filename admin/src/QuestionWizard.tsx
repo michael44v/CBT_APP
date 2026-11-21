@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import {
@@ -22,6 +22,7 @@ import { parseFileToRawRows, parseCSVTextToRawRows, validateAndMapRows, isCellBl
 import { MathRenderer } from './FormulaEditor';
 import { RichTextEditor } from './RichTextEditor';
 import QuestionBuilder from './QuestionBuilder';
+import OptionImageInput from './OptionImageInput';
 
 interface QuestionWizardProps {
   apiBase: string;
@@ -103,7 +104,34 @@ export default function QuestionWizard({
   // Validation Results
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [uploadingImageRow, setUploadingImageRow] = useState<number | null>(null);
+  const pendingOptionUploads = useRef(new Set<string>());
+  const optionUploadVersion = useRef(0);
+  const [pendingOptionUploadCount, setPendingOptionUploadCount] = useState(0);
   const [acknowledgedWarnings, setAcknowledgedWarnings] = useState<boolean>(false);
+
+  const handleOptionUploadStateChange = (key: string, uploading: boolean) => {
+    if (uploading) {
+      pendingOptionUploads.current.add(key);
+      optionUploadVersion.current += 1;
+    } else pendingOptionUploads.current.delete(key);
+    setPendingOptionUploadCount(pendingOptionUploads.current.size);
+  };
+
+  const canDiscardRows = () => {
+    if (pendingOptionUploads.current.size === 0) return true;
+    showNotification('Please wait for option image uploads to finish or cancel them first.', 'error');
+    return false;
+  };
+
+  useEffect(() => {
+    if (!pendingOptionUploadCount) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [pendingOptionUploadCount]);
 
   // Import State
   const [importing, setImporting] = useState<boolean>(false);
@@ -299,12 +327,14 @@ export default function QuestionWizard({
 
   // Run Preview Validation
   const handleRunValidation = async () => {
+    if (!canDiscardRows()) return;
     if (!selectedSubject || !selectedTopic) {
       showNotification('Please select subject and topic first.', 'error');
       return;
     }
 
     // Fetch existing question texts to check for DB duplicates
+    const uploadVersion = optionUploadVersion.current;
     let existingTexts = new Set<string>();
     try {
       const res = await fetch(`${apiBase}/admin/questions.php?subject_id=${selectedSubject.id}&topic_id=${selectedTopic.id}`);
@@ -316,6 +346,12 @@ export default function QuestionWizard({
       console.error(e);
     }
 
+    // Do not overwrite uploads that started (even if they finished) during the fetch.
+    if (!canDiscardRows()) return;
+    if (uploadVersion !== optionUploadVersion.current) {
+      showNotification('Validation was cancelled because an option image upload started. Re-run validation when ready.', 'error');
+      return;
+    }
     const validated = validateAndMapRows(
       rawRows,
       columnMapping,
@@ -332,6 +368,7 @@ export default function QuestionWizard({
 
   // Selective Import of Valid Rows
   const handleExecuteImport = async (validOnly: boolean = false) => {
+    if (!canDiscardRows()) return;
     const rowsToImport = validOnly ? parsedRows.filter(r => r.isValid) : parsedRows;
     if (rowsToImport.length === 0) {
       showNotification('No valid rows available to import.', 'error');
@@ -547,7 +584,8 @@ const handleRowImageUpload = async (idx: number, file: File) => {
         <div style={{ display: 'inline-flex', background: 'var(--primary-light)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
           <button
             type="button"
-            onClick={() => setCreationMode('gui')}
+            disabled={pendingOptionUploadCount > 0}
+            onClick={() => { if (canDiscardRows()) setCreationMode('gui'); }}
             style={{
               border: 'none',
               padding: '8px 16px',
@@ -603,6 +641,16 @@ const handleRowImageUpload = async (idx: number, file: File) => {
       {/* RENDER LEGACY / BULK CSV WIZARD */}
       {creationMode === 'csv' && (
         <div className="admin-card" style={{ padding: '2rem' }}>
+          <style>{`
+            .csv-option-cell { min-width: 200px; vertical-align: top; }
+            .csv-option-cell .btn { padding: 4px 8px; font-size: 0.75rem; }
+            .csv-option-cell .form-input { font-size: 0.78rem; }
+          `}</style>
+          {pendingOptionUploadCount > 0 && (
+            <div role="status" style={{ marginBottom: '1rem', color: 'var(--warning)', fontWeight: 700 }}>
+              {pendingOptionUploadCount} option image upload{pendingOptionUploadCount === 1 ? '' : 's'} in progress. Wait for completion or cancel the uploads before navigating or importing.
+            </div>
+          )}
           {/* Wizard Progress Stepper Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
             <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1005,7 +1053,7 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                     ))}
                   </div>
                 </div>
-                <button className="btn btn-secondary" onClick={handleRunValidation} style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
+                <button className="btn btn-secondary" disabled={pendingOptionUploadCount > 0} onClick={handleRunValidation} style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
                   Re-run Validation with New Mapping
                 </button>
               </details>
@@ -1201,42 +1249,17 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                               onChange={(e) => handleRowFieldChange(idx, 'external_link', e.target.value)}
                             />
                           </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                              value={r.option_a || ''}
-                              onChange={(e) => handleRowFieldChange(idx, 'option_a', e.target.value)}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                              value={r.option_b || ''}
-                              onChange={(e) => handleRowFieldChange(idx, 'option_b', e.target.value)}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                              value={r.option_c || ''}
-                              onChange={(e) => handleRowFieldChange(idx, 'option_c', e.target.value)}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ width: '100%', minWidth: '110px', fontSize: '0.78rem' }}
-                              value={r.option_d || ''}
-                              onChange={(e) => handleRowFieldChange(idx, 'option_d', e.target.value)}
-                            />
-                          </td>
+                          {(['option_a', 'option_b', 'option_c', 'option_d'] as const).map(field => (
+                            <td key={field} className="csv-option-cell">
+                              <OptionImageInput
+                                label={`Row ${r.row_number} Option ${field.slice(-1).toUpperCase()}`}
+                                value={r[field] || ''}
+                                onChange={value => handleRowFieldChange(idx, field, value)}
+                                showNotification={showNotification}
+                                onUploadStateChange={uploading => handleOptionUploadStateChange(`${idx}:${field}`, uploading)}
+                              />
+                            </td>
+                          ))}
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <select
                               className="form-input"
@@ -1294,7 +1317,7 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                 borderTop: '1px solid var(--border-color)', zIndex: 10, display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap'
               }}>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button className="btn btn-secondary" onClick={() => setStep(4)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <button className="btn btn-secondary" disabled={pendingOptionUploadCount > 0} onClick={() => { if (canDiscardRows()) setStep(4); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <ArrowLeft size={16} /> Back
                   </button>
                   {errorCount > 0 && (
@@ -1306,8 +1329,8 @@ const handleRowImageUpload = async (idx: number, file: File) => {
 
                 <button
                   className="btn btn-primary"
-                  disabled={(warningCount > 0 && !acknowledgedWarnings) || validCount === 0}
-                  onClick={() => setStep(6)}
+                  disabled={pendingOptionUploadCount > 0 || (warningCount > 0 && !acknowledgedWarnings) || validCount === 0}
+                  onClick={() => { if (canDiscardRows()) setStep(6); }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 >
                   Next: Confirm &amp; Import ({validCount} valid rows) <ArrowRight size={18} />
@@ -1352,7 +1375,7 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                 </button>
                 <button
                   className="btn btn-success"
-                  disabled={importing}
+                  disabled={importing || pendingOptionUploadCount > 0}
                   onClick={() => handleExecuteImport(true)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 >
@@ -1380,7 +1403,9 @@ const handleRowImageUpload = async (idx: number, file: File) => {
               <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
                 <button
                   className="btn btn-primary"
+                  disabled={pendingOptionUploadCount > 0}
                   onClick={() => {
+                    if (!canDiscardRows()) return;
                     setStep(4);
                     setUploadedFile(null);
                     setRawRows([]);

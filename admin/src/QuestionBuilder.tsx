@@ -22,6 +22,7 @@ import {
 import { Subject, Topic, BuilderQuestionCard, BuilderFieldErrorMap } from './types';
 import FormulaEditor, { MathRenderer, renderLatexToString } from './FormulaEditor';
 import RichTextEditor from './RichTextEditor';
+import OptionImageInput from './OptionImageInput';
 
 interface QuestionBuilderProps {
   apiBase: string;
@@ -66,6 +67,10 @@ export default function QuestionBuilder({
 
   const [cards, setCards] = useState<BuilderQuestionCard[]>(() => [createNewCard()]);
   const [savingBatch, setSavingBatch] = useState<boolean>(false);
+  const [pendingOptionUploads, setPendingOptionUploads] = useState(0);
+  const handleOptionUploadStateChange = (uploading: boolean) => {
+    setPendingOptionUploads(count => Math.max(0, count + (uploading ? 1 : -1)));
+  };
 
   // Student CBT Preview Modal
   const [previewCard, setPreviewCard] = useState<BuilderQuestionCard | null>(null);
@@ -277,6 +282,10 @@ export default function QuestionBuilder({
   };
 
   const handleResetCard = (id: string) => {
+    if (pendingOptionUploads > 0) {
+      showNotification('Please wait for option images to finish uploading before resetting.', 'error');
+      return;
+    }
     const card = cards.find(c => c.id === id);
     if (!card) return;
     updateCard(id, {
@@ -419,6 +428,10 @@ export default function QuestionBuilder({
 
   // Save All Questions Batch Submission
   const handleSaveAllQuestions = async () => {
+    if (pendingOptionUploads > 0) {
+      showNotification('Please wait for option images to finish uploading.', 'error');
+      return;
+    }
     // Validate all cards first
     let hasValidationErrors = false;
     const validatedCards = cards.map(c => {
@@ -888,26 +901,24 @@ export default function QuestionBuilder({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                     {(['a', 'b', 'c', 'd'] as const).map(optKey => {
                       const keyUpper = optKey.toUpperCase();
-                      const val = card[`option_${optKey}` as keyof BuilderQuestionCard] as string;
+                      const field = `option_${optKey}` as const;
+                      const val = card[field];
                       const hasFormula = val.includes('\\') || val.includes('$') || val.includes('^');
                       return (
-                        <div key={optKey} className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontWeight: 700 }}>Option {keyUpper} <span style={{ color: 'var(--danger)' }}>*</span></label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder={`Enter Option ${keyUpper} value (LaTeX supported)...`}
+                        <div key={optKey}>
+                          <OptionImageInput
+                            label={`Option ${keyUpper}`}
                             value={val}
-                            onChange={(e) => updateCard(card.id, { [`option_${optKey}`]: e.target.value })}
+                            onChange={(value) => updateCard(card.id, { [field]: value })}
+                            showNotification={showNotification}
+                            onUploadStateChange={handleOptionUploadStateChange}
+                            error={errors[field]}
                           />
                           {hasFormula && (
                             <div style={{ marginTop: '4px', padding: '6px 10px', backgroundColor: 'var(--primary-light)', borderRadius: '6px', fontSize: '0.85rem' }}>
                               <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', display: 'block', marginBottom: '2px' }}>Preview:</span>
                               <MathRenderer text={val} inline={true} />
                             </div>
-                          )}
-                          {errors[`option_${optKey}` as keyof BuilderFieldErrorMap] && (
-                            <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '2px' }}>{errors[`option_${optKey}` as keyof BuilderFieldErrorMap]}</span>
                           )}
                         </div>
                       );
@@ -1126,7 +1137,7 @@ export default function QuestionBuilder({
           <button
             type="button"
             className="btn btn-primary"
-            disabled={savingBatch}
+            disabled={savingBatch || pendingOptionUploads > 0}
             onClick={handleSaveAllQuestions}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1.5rem', fontWeight: 800 }}
           >
