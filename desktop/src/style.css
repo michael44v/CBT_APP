@@ -733,6 +733,15 @@ input:checked + .toggle-slider:before {
   font-weight: 500;
 }
 
+/* Keep images below their answer text instead of aligning text to the image baseline. */
+.answer-option-content img {
+  display: block;
+  max-width: min(100%, 320px) !important;
+  height: auto;
+  object-fit: contain;
+  margin: 8px 0 0;
+}
+
 .navigation-row {
   display: flex;
   justify-content: space-between;
