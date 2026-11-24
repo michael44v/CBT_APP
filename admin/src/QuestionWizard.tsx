@@ -47,7 +47,7 @@ export default function QuestionWizard({
   
 
   // Selections for CSV
-  const [selectedExamType, setSelectedExamType] = useState<string>('JAMB');
+  const [selectedExamType, setSelectedExamType] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
 
@@ -59,16 +59,6 @@ export default function QuestionWizard({
   // Topic Inline Modal
   const [showAddTopicModal, setShowAddTopicModal] = useState<boolean>(false);
   const [modalSubjectId, setModalSubjectId] = useState<number | ''>('');
-
-  useEffect(() => {
-    if (showAddTopicModal) {
-      if (selectedSubject) {
-        setModalSubjectId(selectedSubject.id);
-      } else if (distinctSubjects.length > 0) {
-        setModalSubjectId(distinctSubjects[0].id);
-      }
-    }
-  }, [showAddTopicModal, selectedSubject]);
 
   const [newTopicName, setNewTopicName] = useState<string>('');
   const [newTopicDescription, setNewTopicDescription] = useState<string>('');
@@ -148,30 +138,18 @@ export default function QuestionWizard({
   // Filtered topics for selected subject (using Number conversion for ID safety)
   const filteredTopics = dbTopics.filter(t => Number(t.subject_id) === Number(selectedSubject?.id || 0));
 
+  // Clear the selected subject if it no longer belongs to the chosen exam type (no auto-selection)
   useEffect(() => {
-    if (filteredSubjects.length > 0) {
-      const match = filteredSubjects.find(s => Number(s.id) === Number(selectedSubject?.id));
-      if (!match) {
-        setSelectedSubject(filteredSubjects[0]);
-      }
-    } else {
+    if (selectedSubject && !filteredSubjects.some(s => Number(s.id) === Number(selectedSubject.id))) {
       setSelectedSubject(null);
+      setSelectedTopic(null);
     }
   }, [selectedExamType, dbSubjects]);
-
-  useEffect(() => {
-    if (filteredTopics.length > 0) {
-      const match = filteredTopics.find(t => Number(t.id) === Number(selectedTopic?.id));
-      if (!match && !selectedTopic) {
-        setSelectedTopic(filteredTopics[0]);
-      }
-    }
-  }, [selectedSubject, dbTopics]);
 
   // Handle inline Topic creation
   const handleAddTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    const targetSub = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId)) || selectedSubject;
+    const targetSub = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId));
     if (!targetSub || !newTopicName.trim()) return;
 
     setAddingTopic(true);
@@ -553,6 +531,9 @@ const handleRowImageUpload = async (idx: number, file: File) => {
       if (!['A', 'B', 'C', 'D'].includes(String(item.correct_answer || '').toUpperCase().trim())) {
         errors.push('Correct answer must be A, B, C, or D');
       }
+      if (!['easy', 'medium', 'hard'].includes(String(item.difficulty || '').toLowerCase().trim())) {
+        errors.push('Difficulty is required');
+      }
 
       item.errors = errors;
       item.isValid = errors.length === 0;
@@ -690,8 +671,8 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                     key={etype}
                     onClick={() => {
                       setSelectedExamType(etype);
-                      const firstSub = dbSubjects.find(s => s.exam_type === etype);
-                      setSelectedSubject(firstSub || null);
+                      setSelectedSubject(null);
+                      setSelectedTopic(null);
                     }}
                     style={{
                       padding: '1.5rem',
@@ -710,7 +691,12 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                   </div>
                 ))}
               </div>
-              <button className="btn btn-primary" onClick={() => setStep(2)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                className="btn btn-primary"
+                disabled={!selectedExamType}
+                onClick={() => setStep(2)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              >
                 Next: Select Subject <ArrowRight size={18} />
               </button>
             </div>
@@ -726,15 +712,18 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                 Choose an existing subject under category <strong>{selectedExamType}</strong>. Subject names are read-only.
               </p>
               <div className="form-group" style={{ maxWidth: '400px', marginBottom: '2rem' }}>
-                <label className="form-label">Subject</label>
+                <label className="form-label">Subject <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <select
                   className="form-input"
+                  required
                   value={selectedSubject?.id || ''}
                   onChange={(e) => {
                     const sub = dbSubjects.find(s => Number(s.id) === Number(e.target.value));
                     setSelectedSubject(sub || null);
+                    setSelectedTopic(null);
                   }}
                 >
+                  <option value="">-- Select Subject --</option>
                   {filteredSubjects.map(sub => (
                     <option key={sub.id} value={sub.id}>
                       {sub.name} (ID: {sub.id})
@@ -748,12 +737,11 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                 </button>
                 <button
                   className="btn btn-primary"
-                  disabled={filteredSubjects.length > 0 && !selectedSubject}
+                  disabled={!selectedSubject}
                   onClick={() => {
-                    let activeSub = selectedSubject;
-                    if (!activeSub && filteredSubjects.length > 0) {
-                      activeSub = filteredSubjects[0];
-                      setSelectedSubject(filteredSubjects[0]);
+                    if (!selectedSubject) {
+                      showNotification('Please select a subject first.', 'error');
+                      return;
                     }
                     setStep(3);
                   }}
@@ -777,15 +765,17 @@ const handleRowImageUpload = async (idx: number, file: File) => {
 
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', maxWidth: '500px', marginBottom: '2rem' }}>
                 <div className="form-group" style={{ flex: 1, margin: 0 }}>
-                  <label className="form-label">Topic</label>
+                  <label className="form-label">Topic <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <select
                     className="form-input"
+                    required
                     value={selectedTopic?.id || ''}
                     onChange={(e) => {
                       const top = dbTopics.find(t => Number(t.id) === Number(e.target.value));
                       setSelectedTopic(top || null);
                     }}
                   >
+                    <option value="">-- Select Topic --</option>
                     {!filteredTopics.some(t => Number(t.id) === Number(selectedTopic?.id)) && selectedTopic && (
                       <option key={selectedTopic.id} value={selectedTopic.id}>{selectedTopic.name}</option>
                     )}
@@ -798,7 +788,10 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowAddTopicModal(true)}
+                  onClick={() => {
+                    setModalSubjectId('');
+                    setShowAddTopicModal(true);
+                  }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '42px', whiteSpace: 'nowrap' }}
                 >
                   <Plus size={16} /> Add Topic
@@ -834,7 +827,7 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                           <select
                             className="form-input"
                             value={modalSubjectId}
-                            onChange={(e) => setModalSubjectId(Number(e.target.value))}
+                            onChange={(e) => setModalSubjectId(Number(e.target.value) || '')}
                             required
                           >
                             <option value="">-- Select Subject --</option>
@@ -898,14 +891,9 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                 </button>
                 <button
                   className="btn btn-primary"
-                  disabled={!selectedTopic && filteredTopics.length === 0}
+                  disabled={!selectedTopic}
                   onClick={() => {
-                    let activeTop = selectedTopic;
-                    if (!activeTop && filteredTopics.length > 0) {
-                      activeTop = filteredTopics[0];
-                      setSelectedTopic(filteredTopics[0]);
-                    }
-                    if (activeTop) {
+                    if (selectedTopic) {
                       setStep(4);
                     } else {
                       showNotification('Please select or add a topic first.', 'error');
@@ -1139,10 +1127,12 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <select
                               className="form-input"
+                              required
                               style={{ padding: '2px 4px', fontSize: '0.78rem' }}
-                              value={r.difficulty || 'medium'}
+                              value={r.difficulty || ''}
                               onChange={(e) => handleRowFieldChange(idx, 'difficulty', e.target.value)}
                             >
+                              <option value="">-- Select --</option>
                               <option value="easy">easy</option>
                               <option value="medium">medium</option>
                               <option value="hard">hard</option>
@@ -1263,10 +1253,12 @@ const handleRowImageUpload = async (idx: number, file: File) => {
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <select
                               className="form-input"
-                              style={{ width: '60px', padding: '2px 4px', fontSize: '0.78rem', fontWeight: 800 }}
-                              value={r.correct_answer || 'A'}
+                              required
+                              style={{ width: '80px', padding: '2px 4px', fontSize: '0.78rem', fontWeight: 800 }}
+                              value={r.correct_answer || ''}
                               onChange={(e) => handleRowFieldChange(idx, 'correct_answer', e.target.value.toUpperCase())}
                             >
+                              <option value="">-- Select --</option>
                               <option value="A">A</option>
                               <option value="B">B</option>
                               <option value="C">C</option>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -42,11 +42,11 @@ export default function QuestionBuilder({
   // Generate a unique ID for cards
   const createNewCard = (overrides?: Partial<BuilderQuestionCard>): BuilderQuestionCard => ({
     id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-    exam_type: 'JAMB',
-    subject_id: dbSubjects.length > 0 ? dbSubjects[0].id : '',
+    exam_type: '',
+    subject_id: '',
     topic_id: '',
     year: new Date().getFullYear(),
-    difficulty: 'medium',
+    difficulty: '',
     question_text: '',
     formula: '',
     external_link: '',
@@ -79,8 +79,9 @@ export default function QuestionBuilder({
   const [showAddSubjectModal, setShowAddSubjectModal] = useState<boolean>(false);
   const [targetCardForSubject, setTargetCardForSubject] = useState<string | null>(null);
   const [newSubjectName, setNewSubjectName] = useState<string>('');
-  const [newSubjectExamType, setNewSubjectExamType] = useState<string>('JAMB');
+  
   const [addingSubject, setAddingSubject] = useState<boolean>(false);
+  const [newSubjectExamType, setNewSubjectExamType] = useState<string>('');
 
   // Distinct subjects list (1 per subject name for selection dropdowns)
   const distinctSubjects = Array.from(new Set(dbSubjects.map(s => s.name.trim()))).map(name => {
@@ -96,16 +97,6 @@ export default function QuestionBuilder({
   const [newTopicDescription, setNewTopicDescription] = useState<string>('');
   const [newTopicContent, setNewTopicContent] = useState<string>('');
   const [addingTopic, setAddingTopic] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (showAddTopicModal) {
-      if (targetSubjectForTopic) {
-        setModalSubjectId(targetSubjectForTopic.id);
-      } else if (distinctSubjects.length > 0) {
-        setModalSubjectId(distinctSubjects[0].id);
-      }
-    }
-  }, [showAddTopicModal, targetSubjectForTopic]);
 
   // Accordion Section Toggle State per Card
   const [expandedAccordions, setExpandedAccordions] = useState<Record<string, { media?: boolean }>>({});
@@ -123,18 +114,7 @@ export default function QuestionBuilder({
   // Image Uploading per Card State
   const [uploadingImageCardId, setUploadingImageCardId] = useState<string | null>(null);
 
-  // Sync default subjects & topics when dbSubjects/dbTopics load
-  useEffect(() => {
-    setCards(prev =>
-      prev.map(c => {
-        if (!c.subject_id && dbSubjects.length > 0) {
-          const matched = dbSubjects.find(s => s.exam_type === c.exam_type) || dbSubjects[0];
-          return { ...c, subject_id: matched ? matched.id : '' };
-        }
-        return c;
-      })
-    );
-  }, [dbSubjects]);
+ 
 
   // Available Exam Types
   const availableExamTypes = Array.from(new Set(dbSubjects.map(s => s.exam_type))).filter(Boolean);
@@ -168,6 +148,7 @@ export default function QuestionBuilder({
 
         if (targetCardForSubject) {
           updateCard(targetCardForSubject, {
+            exam_type: newSubjectExamType,
             subject_id: newSubId,
             topic_id: ''
           });
@@ -185,7 +166,7 @@ export default function QuestionBuilder({
   // Inline Topic Creation Handler
   const handleAddTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    const chosenSubject = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId)) || targetSubjectForTopic;
+    const chosenSubject = dbSubjects.find(s => Number(s.id) === Number(modalSubjectId));
     if (!chosenSubject || !newTopicName.trim()) return;
 
     setAddingTopic(true);
@@ -250,15 +231,7 @@ export default function QuestionBuilder({
 
   // Card Management Functions
   const handleAddQuestion = () => {
-    const lastCard = cards[cards.length - 1];
-    const newCard = createNewCard({
-      exam_type: lastCard ? lastCard.exam_type : 'JAMB',
-      subject_id: lastCard ? lastCard.subject_id : (dbSubjects[0]?.id || ''),
-      topic_id: lastCard ? lastCard.topic_id : '',
-      year: lastCard ? lastCard.year : new Date().getFullYear(),
-      difficulty: lastCard ? lastCard.difficulty : 'medium'
-    });
-    setCards(prev => [...prev, newCard]);
+    setCards(prev => [...prev, createNewCard()]);
   };
 
   const handleDuplicateCard = (card: BuilderQuestionCard) => {
@@ -755,16 +728,14 @@ export default function QuestionBuilder({
                       <select
                         className="form-input"
                         value={card.exam_type}
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          const firstMatchingSub = dbSubjects.find(s => s.exam_type === newType);
-                          updateCard(card.id, {
-                            exam_type: newType,
-                            subject_id: firstMatchingSub ? firstMatchingSub.id : '',
-                            topic_id: ''
-                          });
-                        }}
+                        onChange={(e) => updateCard(card.id, {
+                          exam_type: e.target.value,
+                          subject_id: '',
+                          topic_id: ''
+                        })}
+                        
                       >
+                         <option value="">-- Select Exam Type --</option>
                         {availableExamTypes.map(type => (
                           <option key={type} value={type}>{type}</option>
                         ))}
@@ -781,7 +752,7 @@ export default function QuestionBuilder({
                           style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}
                           onClick={() => {
                             setTargetCardForSubject(card.id);
-                            setNewSubjectExamType(card.exam_type);
+                            setNewSubjectExamType('')
                             setShowAddSubjectModal(true);
                           }}
                         >
@@ -791,6 +762,7 @@ export default function QuestionBuilder({
                       <select
                         className="form-input"
                         value={card.subject_id}
+                        disabled={!card.exam_type}
                         onChange={(e) => {
                           const subId = Number(e.target.value) || '';
                           updateCard(card.id, {
@@ -820,6 +792,7 @@ export default function QuestionBuilder({
                               showNotification('Please select a subject first.', 'error');
                               return;
                             }
+                            setModalSubjectId('');
                             setTargetCardForTopic(card.id);
                             setTargetSubjectForTopic(currentSubject);
                             setShowAddTopicModal(true);
@@ -867,6 +840,7 @@ export default function QuestionBuilder({
                         value={card.difficulty}
                         onChange={(e) => updateCard(card.id, { difficulty: e.target.value as any })}
                       >
+                         <option value="">-- Select Difficulty --</option>
                         <option value="easy">Easy</option>
                         <option value="medium">Medium</option>
                         <option value="hard">Hard</option>
@@ -1288,8 +1262,10 @@ export default function QuestionBuilder({
                 <select
                   className="form-input"
                   value={newSubjectExamType}
+                  required
                   onChange={(e) => setNewSubjectExamType(e.target.value)}
                 >
+                  <option value="">-- Select Exam Type --</option>
                   {availableExamTypes.map(t => (
                     <option key={t} value={t}>{t}</option>
                   ))}
@@ -1350,7 +1326,7 @@ export default function QuestionBuilder({
                   <select
                     className="form-input"
                     value={modalSubjectId}
-                    onChange={(e) => setModalSubjectId(Number(e.target.value))}
+                    onChange={(e) => setModalSubjectId(Number(e.target.value) || '')}
                     required
                   >
                     <option value="">-- Select Subject --</option>
