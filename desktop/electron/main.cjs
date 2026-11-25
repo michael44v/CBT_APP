@@ -638,7 +638,7 @@ ipcMain.handle("db:get-subjects", async (event, examType) => {
       if (!actRow) {
         // Free version: Only Mathematics and English are accessible
         const sNameLower = s.name.toLowerCase();
-        if (sNameLower !== 'mathematics' && sNameLower !== 'english language') {
+        if (sNameLower !== 'mathematics' && sNameLower !== 'lit. in english') {
           is_locked = true;
         }
       } else {
